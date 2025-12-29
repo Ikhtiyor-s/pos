@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: oshxona-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: oshxona
+      POSTGRES_PASSWORD: oshxona_secret_2024
+      POSTGRES_DB: oshxona_pos
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - oshxona-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U oshxona -d oshxona_pos']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: oshxona-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - oshxona-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Adminer - Database management
+  adminer:
+    image: adminer:latest
+    container_name: oshxona-adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    networks:
+      - oshxona-network
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+
+networks:
+  oshxona-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

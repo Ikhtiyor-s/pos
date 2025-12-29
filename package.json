@@ -1,0 +1,33 @@
+{
+  "name": "oshxona-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "To'liq avtomatlashtirilgan Oshxona POS Tizimi",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "turbo run clean && rimraf node_modules",
+    "db:generate": "turbo run db:generate --filter=@oshxona/database",
+    "db:push": "turbo run db:push --filter=@oshxona/database",
+    "db:migrate": "turbo run db:migrate --filter=@oshxona/database",
+    "db:seed": "turbo run db:seed --filter=@oshxona/database",
+    "db:studio": "turbo run db:studio --filter=@oshxona/database"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "prettier": "^3.1.0",
+    "rimraf": "^5.0.5",
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.2.0"
+}

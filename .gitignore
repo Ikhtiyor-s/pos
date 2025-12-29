@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Cache
+.turbo
+.cache/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Uploads
+uploads/
+!uploads/.gitkeep
+
+# Database
+*.db
+*.sqlite
+
+# Prisma
+packages/database/prisma/migrations/*
+!packages/database/prisma/migrations/.gitkeep
+
+# Mobile
+apps/mobile/.expo/
+apps/mobile/ios/
+apps/mobile/android/
+
+# Misc
+*.pem
+.vercel

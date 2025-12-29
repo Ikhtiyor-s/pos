@@ -1,0 +1,446 @@
+import { PrismaClient, Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🌱 Seeding database...');
+
+  // 1. Tizim sozlamalarini yaratish
+  await prisma.settings.upsert({
+    where: { id: 'main' },
+    update: {},
+    create: {
+      id: 'main',
+      name: 'Milliy Taomlar',
+      nameRu: 'Национальные Блюда',
+      nameEn: 'National Cuisine',
+      address: 'Toshkent shahar, Amir Temur ko\'chasi, 100-uy',
+      phone: '+998 71 123 45 67',
+      email: 'info@milliytaomlar.uz',
+      taxRate: 12,
+      currency: 'UZS',
+      timezone: 'Asia/Tashkent',
+      orderPrefix: 'ORD',
+      bonusPercent: 5,
+    },
+  });
+  console.log('✅ Settings created');
+
+  // 2. Admin foydalanuvchi yaratish
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@oshxona.uz' },
+    update: {},
+    create: {
+      email: 'admin@oshxona.uz',
+      phone: '+998901234567',
+      password: hashedPassword,
+      firstName: 'Admin',
+      lastName: 'Superuser',
+      role: Role.SUPER_ADMIN,
+      isActive: true,
+    },
+  });
+  console.log('✅ Admin user created:', admin.email);
+
+  // 3. Test foydalanuvchilar
+  const cashier = await prisma.user.upsert({
+    where: { email: 'kassir@oshxona.uz' },
+    update: {},
+    create: {
+      email: 'kassir@oshxona.uz',
+      phone: '+998901234568',
+      password: await bcrypt.hash('kassir123', 10),
+      firstName: 'Kassir',
+      lastName: 'Xodim',
+      role: Role.CASHIER,
+      isActive: true,
+    },
+  });
+  console.log('✅ Cashier created:', cashier.email);
+
+  const chef = await prisma.user.upsert({
+    where: { email: 'oshpaz@oshxona.uz' },
+    update: {},
+    create: {
+      email: 'oshpaz@oshxona.uz',
+      phone: '+998901234569',
+      password: await bcrypt.hash('oshpaz123', 10),
+      firstName: 'Oshpaz',
+      lastName: 'Bosh',
+      role: Role.CHEF,
+      isActive: true,
+    },
+  });
+  console.log('✅ Chef created:', chef.email);
+
+  // 4. Kategoriyalar yaratish
+  const categories = await Promise.all([
+    prisma.category.upsert({
+      where: { slug: 'osh-taomlar' },
+      update: {},
+      create: {
+        name: 'Osh va taomlar',
+        nameRu: 'Плов и блюда',
+        nameEn: 'Pilaf and dishes',
+        slug: 'osh-taomlar',
+        sortOrder: 1,
+        isActive: true,
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: 'salatlar' },
+      update: {},
+      create: {
+        name: 'Salatlar',
+        nameRu: 'Салаты',
+        nameEn: 'Salads',
+        slug: 'salatlar',
+        sortOrder: 2,
+        isActive: true,
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: 'suyuq-taomlar' },
+      update: {},
+      create: {
+        name: 'Suyuq taomlar',
+        nameRu: 'Первые блюда',
+        nameEn: 'Soups',
+        slug: 'suyuq-taomlar',
+        sortOrder: 3,
+        isActive: true,
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: 'ichimliklar' },
+      update: {},
+      create: {
+        name: 'Ichimliklar',
+        nameRu: 'Напитки',
+        nameEn: 'Beverages',
+        slug: 'ichimliklar',
+        sortOrder: 4,
+        isActive: true,
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: 'desertlar' },
+      update: {},
+      create: {
+        name: 'Desertlar',
+        nameRu: 'Десерты',
+        nameEn: 'Desserts',
+        slug: 'desertlar',
+        sortOrder: 5,
+        isActive: true,
+      },
+    }),
+    prisma.category.upsert({
+      where: { slug: 'non-va-tandir' },
+      update: {},
+      create: {
+        name: 'Non va tandir',
+        nameRu: 'Хлеб и тандыр',
+        nameEn: 'Bread and tandoor',
+        slug: 'non-va-tandir',
+        sortOrder: 6,
+        isActive: true,
+      },
+    }),
+  ]);
+  console.log('✅ Categories created:', categories.length);
+
+  // 5. Mahsulotlar (taomlar) yaratish
+  const [oshCategory, salatCategory, suyuqCategory, ichimlikCategory] = categories;
+
+  const products = await Promise.all([
+    // Osh va taomlar
+    prisma.product.create({
+      data: {
+        name: "O'zbek oshi",
+        nameRu: 'Узбекский плов',
+        nameEn: 'Uzbek pilaf',
+        description: "An'anaviy o'zbek oshi, mol go'shti bilan",
+        price: 45000,
+        costPrice: 25000,
+        categoryId: oshCategory.id,
+        cookingTime: 30,
+        calories: 650,
+        sortOrder: 1,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Samarqand oshi',
+        nameRu: 'Самаркандский плов',
+        nameEn: 'Samarkand pilaf',
+        description: "Samarqand uslubidagi osh, qo'y go'shti bilan",
+        price: 50000,
+        costPrice: 28000,
+        categoryId: oshCategory.id,
+        cookingTime: 40,
+        calories: 700,
+        sortOrder: 2,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Manti',
+        nameRu: 'Манты',
+        nameEn: 'Manti dumplings',
+        description: "Go'shtli manti, qaymoq bilan",
+        price: 35000,
+        costPrice: 18000,
+        categoryId: oshCategory.id,
+        cookingTime: 25,
+        calories: 450,
+        sortOrder: 3,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Shashlik (1 shish)',
+        nameRu: 'Шашлык (1 шампур)',
+        nameEn: 'Shashlik (1 skewer)',
+        description: "Mol go'shti shashlik",
+        price: 25000,
+        costPrice: 15000,
+        categoryId: oshCategory.id,
+        cookingTime: 20,
+        calories: 350,
+        sortOrder: 4,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Lag\'mon',
+        nameRu: 'Лагман',
+        nameEn: 'Lagman',
+        description: "Qo'lda tayyorlangan lag'mon",
+        price: 38000,
+        costPrice: 20000,
+        categoryId: oshCategory.id,
+        cookingTime: 20,
+        calories: 500,
+        sortOrder: 5,
+      },
+    }),
+
+    // Salatlar
+    prisma.product.create({
+      data: {
+        name: 'Achichuk',
+        nameRu: 'Ачичук',
+        nameEn: 'Achichuk salad',
+        description: 'Pomidor, piyoz, ko\'k qalampirli salat',
+        price: 15000,
+        costPrice: 5000,
+        categoryId: salatCategory.id,
+        cookingTime: 5,
+        calories: 80,
+        sortOrder: 1,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Shakarob',
+        nameRu: 'Шакароб',
+        nameEn: 'Shakarob',
+        description: 'Pomidor salatasi qatiq bilan',
+        price: 18000,
+        costPrice: 6000,
+        categoryId: salatCategory.id,
+        cookingTime: 5,
+        calories: 120,
+        sortOrder: 2,
+      },
+    }),
+
+    // Suyuq taomlar
+    prisma.product.create({
+      data: {
+        name: 'Sho\'rva',
+        nameRu: 'Шурпа',
+        nameEn: 'Shurpa soup',
+        description: "Go'shtli sho'rva",
+        price: 30000,
+        costPrice: 15000,
+        categoryId: suyuqCategory.id,
+        cookingTime: 15,
+        calories: 350,
+        sortOrder: 1,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Mastava',
+        nameRu: 'Мастава',
+        nameEn: 'Mastava soup',
+        description: 'Guruchli sho\'rva',
+        price: 28000,
+        costPrice: 14000,
+        categoryId: suyuqCategory.id,
+        cookingTime: 15,
+        calories: 320,
+        sortOrder: 2,
+      },
+    }),
+
+    // Ichimliklar
+    prisma.product.create({
+      data: {
+        name: 'Ko\'k choy (choynak)',
+        nameRu: 'Зеленый чай (чайник)',
+        nameEn: 'Green tea (pot)',
+        description: "O'zbek ko'k choyi",
+        price: 8000,
+        costPrice: 2000,
+        categoryId: ichimlikCategory.id,
+        cookingTime: 5,
+        calories: 0,
+        sortOrder: 1,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Qora choy (choynak)',
+        nameRu: 'Черный чай (чайник)',
+        nameEn: 'Black tea (pot)',
+        description: 'Qora choy',
+        price: 8000,
+        costPrice: 2000,
+        categoryId: ichimlikCategory.id,
+        cookingTime: 5,
+        calories: 0,
+        sortOrder: 2,
+      },
+    }),
+    prisma.product.create({
+      data: {
+        name: 'Kompot',
+        nameRu: 'Компот',
+        nameEn: 'Kompot',
+        description: 'Mevali kompot (1 stakan)',
+        price: 6000,
+        costPrice: 1500,
+        categoryId: ichimlikCategory.id,
+        cookingTime: 1,
+        calories: 50,
+        sortOrder: 3,
+      },
+    }),
+  ]);
+  console.log('✅ Products created:', products.length);
+
+  // 6. Stollar yaratish
+  const tables = await Promise.all(
+    Array.from({ length: 10 }, (_, i) =>
+      prisma.table.create({
+        data: {
+          number: i + 1,
+          name: `Stol ${i + 1}`,
+          capacity: i < 4 ? 2 : i < 7 ? 4 : 6,
+          qrCode: `TABLE-${String(i + 1).padStart(3, '0')}-${Date.now()}`,
+          positionX: (i % 5) * 150,
+          positionY: Math.floor(i / 5) * 150,
+          isActive: true,
+        },
+      })
+    )
+  );
+  console.log('✅ Tables created:', tables.length);
+
+  // 7. Ombor mahsulotlari
+  const inventoryItems = await Promise.all([
+    prisma.inventoryItem.create({
+      data: {
+        name: "Guruch",
+        nameRu: 'Рис',
+        nameEn: 'Rice',
+        sku: 'INV-001',
+        unit: 'kg',
+        quantity: 50,
+        minQuantity: 10,
+        costPrice: 12000,
+      },
+    }),
+    prisma.inventoryItem.create({
+      data: {
+        name: "Mol go'shti",
+        nameRu: 'Говядина',
+        nameEn: 'Beef',
+        sku: 'INV-002',
+        unit: 'kg',
+        quantity: 30,
+        minQuantity: 5,
+        costPrice: 85000,
+      },
+    }),
+    prisma.inventoryItem.create({
+      data: {
+        name: 'Sabzi',
+        nameRu: 'Морковь',
+        nameEn: 'Carrot',
+        sku: 'INV-003',
+        unit: 'kg',
+        quantity: 20,
+        minQuantity: 5,
+        costPrice: 5000,
+      },
+    }),
+    prisma.inventoryItem.create({
+      data: {
+        name: 'Piyoz',
+        nameRu: 'Лук',
+        nameEn: 'Onion',
+        sku: 'INV-004',
+        unit: 'kg',
+        quantity: 25,
+        minQuantity: 5,
+        costPrice: 4000,
+      },
+    }),
+    prisma.inventoryItem.create({
+      data: {
+        name: "O'simlik yog'i",
+        nameRu: 'Растительное масло',
+        nameEn: 'Vegetable oil',
+        sku: 'INV-005',
+        unit: 'litr',
+        quantity: 15,
+        minQuantity: 3,
+        costPrice: 22000,
+      },
+    }),
+  ]);
+  console.log('✅ Inventory items created:', inventoryItems.length);
+
+  // 8. Test mijoz yaratish
+  const customer = await prisma.customer.create({
+    data: {
+      phone: '+998901112233',
+      firstName: 'Test',
+      lastName: 'Mijoz',
+      bonusPoints: 5000,
+    },
+  });
+  console.log('✅ Test customer created:', customer.phone);
+
+  console.log('\n🎉 Database seeding completed!');
+  console.log('\n📋 Login credentials:');
+  console.log('   Admin: admin@oshxona.uz / admin123');
+  console.log('   Kassir: kassir@oshxona.uz / kassir123');
+  console.log('   Oshpaz: oshpaz@oshxona.uz / oshpaz123');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Error seeding database:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
