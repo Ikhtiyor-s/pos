@@ -4,6 +4,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": ".",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "paths": {
       "@/*": ["src/*"]
     }

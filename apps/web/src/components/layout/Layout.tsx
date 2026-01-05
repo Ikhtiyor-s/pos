@@ -21,7 +21,7 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-[#f8f9fa]">
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -30,7 +30,7 @@ export function Layout() {
       <main
         className={cn(
           'min-h-screen p-6 transition-all duration-300',
-          sidebarCollapsed ? 'ml-20' : 'ml-72'
+          sidebarCollapsed ? 'ml-[70px]' : 'ml-[260px]'
         )}
       >
         <Outlet />

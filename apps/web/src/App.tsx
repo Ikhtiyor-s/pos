@@ -6,6 +6,10 @@ import { DashboardPage } from '@/pages/Dashboard';
 import { ProductsPage } from '@/pages/Products';
 import { CategoriesPage } from '@/pages/Categories';
 import { OrdersPage } from '@/pages/Orders';
+import { TablesPage } from '@/pages/Tables';
+import { InventoryPage } from '@/pages/Inventory';
+import { ReportsPage } from '@/pages/Reports';
+import { SettingsPage } from '@/pages/Settings';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -16,42 +20,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
-}
-
-function TablesPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold">Stollar</h1>
-      <p className="text-muted-foreground">Bu sahifa ishlab chiqilmoqda...</p>
-    </div>
-  );
-}
-
-function InventoryPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold">Ombor</h1>
-      <p className="text-muted-foreground">Bu sahifa ishlab chiqilmoqda...</p>
-    </div>
-  );
-}
-
-function ReportsPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold">Hisobotlar</h1>
-      <p className="text-muted-foreground">Bu sahifa ishlab chiqilmoqda...</p>
-    </div>
-  );
-}
-
-function SettingsPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold">Sozlamalar</h1>
-      <p className="text-muted-foreground">Bu sahifa ishlab chiqilmoqda...</p>
-    </div>
-  );
 }
 
 export default function App() {

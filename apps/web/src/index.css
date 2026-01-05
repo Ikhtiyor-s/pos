@@ -1,30 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Dark theme by default - matching slate-950 */
-    --background: 222 47% 4%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 24 95% 53%;
+    /* DreamsPOS Light Theme */
+    --background: 0 0% 98%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 14 100% 57%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 20%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 24 95% 53%;
-    --radius: 0.75rem;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 46%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 224 71% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 14 100% 57%;
+    --radius: 0.5rem;
+
+    /* DreamsPOS Custom Colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --purple: 262 83% 58%;
+    --purple-foreground: 0 0% 100%;
+    --pink: 330 81% 60%;
+    --pink-foreground: 0 0% 100%;
+    --cyan: 186 94% 41%;
+    --cyan-foreground: 0 0% 100%;
+
+    /* Sidebar */
+    --sidebar-bg: 224 71% 4%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-muted: 220 9% 46%;
+    --sidebar-border: 220 13% 20%;
   }
 }
 
@@ -33,27 +55,189 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
   background: hsl(var(--muted));
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* DreamsPOS Gradient Backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, #FF5722 0%, #E91E63 100%);
+}
+
+.gradient-success {
+  background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+}
+
+.gradient-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #eab308 100%);
+}
+
+.gradient-info {
+  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+}
+
+.gradient-pink {
+  background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+}
+
+/* Card hover effects */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar styling */
+.sidebar-gradient {
+  background: linear-gradient(180deg, #1a1d21 0%, #0f1014 100%);
+}
+
+/* Stats card icon backgrounds */
+.stat-icon-primary {
+  background: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(233, 30, 99, 0.15) 100%);
+}
+
+.stat-icon-success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+}
+
+.stat-icon-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(234, 179, 8, 0.15) 100%);
+}
+
+.stat-icon-info {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+}
+
+.stat-icon-purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+}
+
+/* Badge styles */
+.badge-primary {
+  background: rgba(255, 87, 34, 0.1);
+  color: #FF5722;
+}
+
+.badge-success {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Table styles */
+.table-row-hover:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+/* Button gradient */
+.btn-gradient {
+  background: linear-gradient(135deg, #FF5722 0%, #E91E63 100%);
+  transition: all 0.3s ease;
+  border: none;
+  color: white;
+}
+
+.btn-gradient:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(255, 87, 34, 0.4);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+}
+
+.pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+/* Status badges */
+.status-new {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-preparing {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-ready {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-completed {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.status-cancelled {
+  background: #ffebee;
+  color: #c62828;
 }

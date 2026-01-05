@@ -232,8 +232,8 @@ export function CategoriesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Kategoriyalar</h1>
-          <p className="text-slate-400">
+          <h1 className="text-2xl font-bold text-gray-800">Kategoriyalar</h1>
+          <p className="text-sm text-gray-500">
             Mahsulot kategoriyalarini boshqaring va tartibga soling
           </p>
         </div>
@@ -242,7 +242,7 @@ export function CategoriesPage() {
           {/* Tartiblash */}
           <Button
             variant="outline"
-            className="border-slate-700 text-slate-400 hover:text-white"
+            className="border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50"
           >
             <ArrowUpDown size={18} className="mr-2" />
             Tartiblash
@@ -251,7 +251,7 @@ export function CategoriesPage() {
           {/* Yangi kategoriya */}
           <Button
             onClick={handleAddCategory}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:brightness-110 text-white"
           >
             <Plus size={18} className="mr-2" />
             Yangi kategoriya
@@ -275,14 +275,14 @@ export function CategoriesPage() {
         <div className="flex items-center justify-between">
           {selectedIds.length > 0 ? (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-gray-500">
                 {selectedIds.length} ta tanlandi
               </span>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => handleBulkToggleStatus('active')}
-                className="border-slate-700 text-green-400 hover:text-green-300"
+                className="border-gray-200 text-green-600 hover:text-green-700 hover:bg-green-50"
               >
                 <ToggleRight size={16} className="mr-1" />
                 Faollashtirish
@@ -291,7 +291,7 @@ export function CategoriesPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => handleBulkToggleStatus('inactive')}
-                className="border-slate-700 text-slate-400 hover:text-slate-300"
+                className="border-gray-200 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
               >
                 <ToggleLeft size={16} className="mr-1" />
                 Nofaollashtirish
@@ -300,7 +300,7 @@ export function CategoriesPage() {
                 size="sm"
                 variant="outline"
                 onClick={handleBulkDelete}
-                className="border-slate-700 text-red-400 hover:text-red-300"
+                className="border-gray-200 text-red-500 hover:text-red-600 hover:bg-red-50"
               >
                 <Trash2 size={16} className="mr-1" />
                 O'chirish
@@ -309,26 +309,26 @@ export function CategoriesPage() {
                 size="sm"
                 variant="ghost"
                 onClick={() => setSelectedIds([])}
-                className="text-slate-400 hover:text-white"
+                className="text-gray-500 hover:text-gray-700"
               >
                 Bekor qilish
               </Button>
             </div>
           ) : (
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-gray-500">
               Jami: {filteredCategories.length} ta kategoriya
             </div>
           )}
 
           {/* Ko'rinish tugmalari */}
-          <div className="flex rounded-lg border border-slate-700 bg-slate-800 p-1">
+          <div className="flex rounded-lg border border-gray-200 bg-white p-1">
             <button
               onClick={() => setViewMode('grid')}
               className={cn(
                 'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                 viewMode === 'grid'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-gray-100 text-gray-800'
+                  : 'text-gray-500 hover:text-gray-700'
               )}
             >
               <Grid3X3 size={16} />
@@ -339,8 +339,8 @@ export function CategoriesPage() {
               className={cn(
                 'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                 viewMode === 'list'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-gray-100 text-gray-800'
+                  : 'text-gray-500 hover:text-gray-700'
               )}
             >
               <List size={16} />

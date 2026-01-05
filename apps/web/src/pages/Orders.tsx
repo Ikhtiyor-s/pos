@@ -202,13 +202,13 @@ export function OrdersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 p-6">
+    <div className="space-y-6">
       <div className="mx-auto max-w-[1800px] space-y-6">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Buyurtmalar</h1>
-            <p className="text-slate-400">
+            <h1 className="text-2xl font-bold text-gray-800">Buyurtmalar</h1>
+            <p className="text-sm text-gray-500">
               Faol buyurtmalar: {(statusCounts.new || 0) + (statusCounts.preparing || 0) + (statusCounts.ready || 0) + (statusCounts.delivering || 0)}
             </p>
           </div>
@@ -220,8 +220,8 @@ export function OrdersPage() {
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors',
                 soundEnabled
-                  ? 'border-orange-500/30 bg-orange-500/10 text-orange-400'
-                  : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-white'
+                  ? 'border-[#FF5722]/30 bg-[#FF5722]/10 text-[#FF5722]'
+                  : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600'
               )}
               title={soundEnabled ? 'Ovozni o\'chirish' : 'Ovozni yoqish'}
             >
@@ -234,7 +234,7 @@ export function OrdersPage() {
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="border-slate-700 text-slate-400 hover:text-white text-xs px-2"
+              className="border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50 text-xs px-2"
             >
               <RefreshCw
                 size={14}
@@ -249,10 +249,10 @@ export function OrdersPage() {
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
-                'border-slate-700 text-xs px-2',
+                'border-gray-200 text-xs px-2',
                 showFilters
-                  ? 'bg-orange-500/10 text-orange-400 border-orange-500/30'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/30'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               )}
             >
               <Filter size={14} className="mr-1" />
@@ -260,14 +260,14 @@ export function OrdersPage() {
             </Button>
 
             {/* Ko'rinish */}
-            <div className="flex rounded-lg border border-slate-700 bg-slate-800 p-0.5">
+            <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
               <button
                 onClick={() => setViewMode('kanban')}
                 className={cn(
                   'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
                   viewMode === 'kanban'
-                    ? 'bg-orange-500 text-white'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    : 'text-gray-500 hover:text-gray-700'
                 )}
               >
                 <LayoutDashboard size={14} />
@@ -278,8 +278,8 @@ export function OrdersPage() {
                 className={cn(
                   'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
                   viewMode === 'list'
-                    ? 'bg-orange-500 text-white'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    : 'text-gray-500 hover:text-gray-700'
                 )}
               >
                 <List size={14} />
@@ -291,7 +291,7 @@ export function OrdersPage() {
             <Button
               size="sm"
               onClick={() => setIsNewOrderModalOpen(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white text-xs px-2"
+              className="bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:brightness-110 text-white text-xs px-2"
             >
               <Plus size={14} className="mr-1" />
               <span className="hidden sm:inline">Yangi</span>
@@ -315,7 +315,7 @@ export function OrdersPage() {
             filters={filters}
             onFiltersChange={setFilters}
             onReset={handleResetFilters}
-            className="rounded-xl border border-slate-700 bg-slate-800/50 p-4"
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
           />
         )}
 
@@ -328,11 +328,11 @@ export function OrdersPage() {
               return (
                 <div
                   key={column.status}
-                  className="rounded-xl border border-slate-700 bg-slate-800/30"
+                  className="rounded-xl border border-gray-200 bg-white shadow-sm"
                 >
                   {/* Ustun sarlavhasi */}
                   <div
-                    className="flex items-center justify-between border-b border-slate-700 px-3 py-2"
+                    className="flex items-center justify-between border-b border-gray-100 px-3 py-2"
                     style={{ borderTopColor: statusInfo.color }}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -340,7 +340,7 @@ export function OrdersPage() {
                         className="h-2.5 w-2.5 rounded-full flex-shrink-0"
                         style={{ backgroundColor: statusInfo.color }}
                       />
-                      <span className="text-sm font-semibold text-white truncate">
+                      <span className="text-sm font-semibold text-gray-800 truncate">
                         {statusInfo.label}
                       </span>
                     </div>
@@ -369,7 +369,7 @@ export function OrdersPage() {
                         />
                       ))
                     ) : (
-                      <div className="py-8 text-center text-slate-500">
+                      <div className="py-8 text-center text-gray-400">
                         <p className="text-sm">Buyurtmalar yo'q</p>
                       </div>
                     )}
@@ -392,12 +392,12 @@ export function OrdersPage() {
                 />
               ))
             ) : (
-              <div className="rounded-xl border border-slate-700 bg-slate-800/50 py-16 text-center">
-                <p className="text-slate-400">Buyurtmalar topilmadi</p>
+              <div className="rounded-xl border border-gray-200 bg-white py-16 text-center shadow-sm">
+                <p className="text-gray-500">Buyurtmalar topilmadi</p>
                 <Button
                   variant="outline"
                   onClick={handleResetFilters}
-                  className="mt-4 border-slate-700 text-slate-400 hover:text-white"
+                  className="mt-4 border-gray-200 text-gray-600 hover:text-gray-800"
                 >
                   Filtrlarni tozalash
                 </Button>
@@ -409,7 +409,7 @@ export function OrdersPage() {
         {/* Yakunlangan va bekor qilingan buyurtmalar */}
         {viewMode === 'kanban' && (
           <div className="mt-8">
-            <h2 className="mb-4 text-lg font-semibold text-slate-400">
+            <h2 className="mb-4 text-lg font-semibold text-gray-600">
               Yakunlangan buyurtmalar (bugun)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UtensilsCrossed, Loader2 } from 'lucide-react';
+import { UtensilsCrossed, Loader2, Mail, Lock, Users, Award, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth';
 
@@ -48,57 +47,91 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-            <UtensilsCrossed className="h-8 w-8 text-primary-foreground" />
+    <div className="flex min-h-screen">
+      {/* Left Side - Login Form */}
+      <div className="flex w-full flex-col justify-center px-8 lg:w-1/2 lg:px-16 xl:px-24">
+        <div className="mx-auto w-full max-w-md">
+          {/* Logo */}
+          <div className="mb-8 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-[#FF5722] to-[#E91E63]">
+              <UtensilsCrossed className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">DreamsPOS</h1>
+              <p className="text-sm text-gray-500">Restaurant POS System</p>
+            </div>
           </div>
-          <CardTitle className="text-2xl">Oshxona POS</CardTitle>
-          <CardDescription>Tizimga kirish uchun ma'lumotlaringizni kiriting</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+          {/* Welcome Text */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">Xush kelibsiz!</h2>
+            <p className="mt-2 text-gray-600">Tizimga kirish uchun ma'lumotlaringizni kiriting</p>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-600">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label htmlFor="email" className="text-sm font-medium text-gray-700">
                 Email
               </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@oshxona.uz"
-                {...register('email')}
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="admin@oshxona.uz"
+                  className="h-12 pl-10 border-gray-300 focus:border-[#FF5722] focus:ring-[#FF5722]"
+                  {...register('email')}
+                />
+              </div>
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-red-500">{errors.email.message}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Parol
               </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="h-12 pl-10 border-gray-300 focus:border-[#FF5722] focus:ring-[#FF5722]"
+                  {...register('password')}
+                />
+              </div>
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-red-500">{errors.password.message}</p>
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-[#FF5722] focus:ring-[#FF5722]" />
+                Eslab qolish
+              </label>
+              <a href="#" className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
+                Parolni unutdingizmi?
+              </a>
+            </div>
+
+            <Button
+              type="submit"
+              className="h-12 w-full bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:from-[#F4511E] hover:to-[#D81B60] text-white font-medium text-base"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Yuklanmoqda...
                 </>
               ) : (
@@ -107,13 +140,72 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 rounded-lg bg-muted p-4">
-            <p className="text-sm font-medium text-muted-foreground">Demo kirish:</p>
-            <p className="text-sm">Email: admin@oshxona.uz</p>
-            <p className="text-sm">Parol: admin123</p>
+          {/* Demo Credentials */}
+          <div className="mt-6 rounded-xl bg-gray-50 border border-gray-200 p-4">
+            <p className="text-sm font-semibold text-gray-700 mb-2">Demo kirish:</p>
+            <div className="space-y-1 text-sm text-gray-600">
+              <p><span className="font-medium">Email:</span> admin@oshxona.uz</p>
+              <p><span className="font-medium">Parol:</span> admin123</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Right Side - Illustration */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#FF5722] to-[#E91E63] relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute top-20 right-20 h-64 w-64 rounded-full bg-white/10"></div>
+        <div className="absolute bottom-20 left-20 h-48 w-48 rounded-full bg-white/10"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-white/5"></div>
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center justify-center w-full px-12 text-white">
+          {/* Main Illustration */}
+          <div className="mb-8">
+            <div className="relative">
+              <div className="h-48 w-48 rounded-full bg-white/20 flex items-center justify-center">
+                <UtensilsCrossed className="h-24 w-24 text-white" />
+              </div>
+              <div className="absolute -top-4 -right-4 h-16 w-16 rounded-full bg-white/30 flex items-center justify-center">
+                <span className="text-2xl">🍽️</span>
+              </div>
+              <div className="absolute -bottom-4 -left-4 h-12 w-12 rounded-full bg-white/30 flex items-center justify-center">
+                <span className="text-xl">☕</span>
+              </div>
+            </div>
+          </div>
+
+          <h2 className="text-3xl font-bold mb-4 text-center">Restoran boshqaruvi osonlashdi</h2>
+          <p className="text-white/80 text-center mb-12 max-w-md">
+            Zamonaviy POS tizimi bilan buyurtmalarni boshqaring, hisobotlarni ko'ring va biznesingizni rivojlantiring
+          </p>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center mb-3">
+                <Users className="h-7 w-7" />
+              </div>
+              <span className="text-2xl font-bold">500+</span>
+              <span className="text-sm text-white/80">Mijozlar</span>
+            </div>
+            <div className="flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center mb-3">
+                <Award className="h-7 w-7" />
+              </div>
+              <span className="text-2xl font-bold">99%</span>
+              <span className="text-sm text-white/80">Mamnuniyat</span>
+            </div>
+            <div className="flex flex-col items-center text-center">
+              <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center mb-3">
+                <Headphones className="h-7 w-7" />
+              </div>
+              <span className="text-2xl font-bold">24/7</span>
+              <span className="text-sm text-white/80">Yordam</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

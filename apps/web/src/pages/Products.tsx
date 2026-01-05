@@ -223,19 +223,19 @@ export function ProductsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Mahsulotlar</h1>
-          <p className="text-slate-400">
+          <h1 className="text-2xl font-bold text-gray-800">Mahsulotlar</h1>
+          <p className="text-sm text-gray-500">
             Barcha mahsulotlarni boshqaring va nazorat qiling
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
           {/* Import/Export */}
-          <Button variant="outline" className="border-slate-700 text-slate-400 hover:text-white">
+          <Button variant="outline" className="border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50">
             <Download size={18} className="mr-2" />
             Eksport
           </Button>
-          <Button variant="outline" className="border-slate-700 text-slate-400 hover:text-white">
+          <Button variant="outline" className="border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50">
             <Upload size={18} className="mr-2" />
             Import
           </Button>
@@ -243,7 +243,7 @@ export function ProductsPage() {
           {/* Yangi mahsulot */}
           <Button
             onClick={handleAddProduct}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:brightness-110 text-white"
           >
             <Plus size={18} className="mr-2" />
             Yangi mahsulot
@@ -274,14 +274,14 @@ export function ProductsPage() {
           {/* Tanlangan elementlar uchun harakatlar */}
           {selectedIds.length > 0 ? (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-gray-500">
                 {selectedIds.length} ta tanlandi
               </span>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => handleBulkToggleStatus('active')}
-                className="border-slate-700 text-green-400 hover:text-green-300"
+                className="border-gray-200 text-green-600 hover:text-green-700 hover:bg-green-50"
               >
                 <ToggleRight size={16} className="mr-1" />
                 Faollashtirish
@@ -290,7 +290,7 @@ export function ProductsPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => handleBulkToggleStatus('inactive')}
-                className="border-slate-700 text-slate-400 hover:text-slate-300"
+                className="border-gray-200 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
               >
                 <ToggleLeft size={16} className="mr-1" />
                 Nofaollashtirish
@@ -299,7 +299,7 @@ export function ProductsPage() {
                 size="sm"
                 variant="outline"
                 onClick={handleBulkDelete}
-                className="border-slate-700 text-red-400 hover:text-red-300"
+                className="border-gray-200 text-red-500 hover:text-red-600 hover:bg-red-50"
               >
                 <Trash2 size={16} className="mr-1" />
                 O'chirish
@@ -308,26 +308,26 @@ export function ProductsPage() {
                 size="sm"
                 variant="ghost"
                 onClick={() => setSelectedIds([])}
-                className="text-slate-400 hover:text-white"
+                className="text-gray-500 hover:text-gray-700"
               >
                 Bekor qilish
               </Button>
             </div>
           ) : (
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-gray-500">
               Jami: {filteredProducts.length} ta mahsulot
             </div>
           )}
 
           {/* Ko'rinish tugmalari */}
-          <div className="flex rounded-lg border border-slate-700 bg-slate-800 p-1">
+          <div className="flex rounded-lg border border-gray-200 bg-white p-1">
             <button
               onClick={() => setViewMode('table')}
               className={cn(
                 'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                 viewMode === 'table'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-gray-100 text-gray-800'
+                  : 'text-gray-500 hover:text-gray-700'
               )}
             >
               <List size={16} />
@@ -338,8 +338,8 @@ export function ProductsPage() {
               className={cn(
                 'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
                 viewMode === 'grid'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-gray-100 text-gray-800'
+                  : 'text-gray-500 hover:text-gray-700'
               )}
             >
               <Grid3X3 size={16} />
