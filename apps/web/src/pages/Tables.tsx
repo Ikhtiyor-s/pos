@@ -13,6 +13,10 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  X,
+  Phone,
+  Calendar,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +40,20 @@ interface Table {
     time: string;
     phone: string;
   };
+}
+
+interface TableFormData {
+  number: number;
+  name: string;
+  capacity: number;
+}
+
+interface ReservationFormData {
+  name: string;
+  phone: string;
+  time: string;
+  date: string;
+  guests: number;
 }
 
 // Mock data
@@ -68,6 +86,20 @@ export function TablesPage() {
   const [statusFilter, setStatusFilter] = useState<TableStatus | 'ALL'>('ALL');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  // Modal states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+
+  // Form states
+  const [formData, setFormData] = useState<TableFormData>({ number: 0, name: '', capacity: 4 });
+  const [reservationData, setReservationData] = useState<ReservationFormData>({
+    name: '', phone: '', time: '', date: '', guests: 2
+  });
+
   // Filtrlangan stollar
   const filteredTables = tables.filter((table) => {
     const matchesSearch =
@@ -88,8 +120,109 @@ export function TablesPage() {
 
   const handleStatusChange = (tableId: string, newStatus: TableStatus) => {
     setTables((prev) =>
-      prev.map((t) => (t.id === tableId ? { ...t, status: newStatus } : t))
+      prev.map((t) => {
+        if (t.id === tableId) {
+          const updated = { ...t, status: newStatus };
+          if (newStatus === 'FREE') {
+            delete updated.currentOrder;
+            delete updated.reservedFor;
+          }
+          return updated;
+        }
+        return t;
+      })
     );
+    setActiveDropdown(null);
+  };
+
+  // Add new table
+  const handleAddTable = () => {
+    const maxNumber = Math.max(...tables.map(t => t.number), 0);
+    setFormData({ number: maxNumber + 1, name: '', capacity: 4 });
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveNewTable = () => {
+    const newTable: Table = {
+      id: String(Date.now()),
+      number: formData.number,
+      name: formData.name || `Stol ${formData.number}`,
+      capacity: formData.capacity,
+      status: 'FREE',
+    };
+    setTables((prev) => [...prev, newTable]);
+    setIsAddModalOpen(false);
+    setFormData({ number: 0, name: '', capacity: 4 });
+  };
+
+  // Edit table
+  const handleEditTable = (table: Table) => {
+    setSelectedTable(table);
+    setFormData({ number: table.number, name: table.name, capacity: table.capacity });
+    setIsEditModalOpen(true);
+    setActiveDropdown(null);
+  };
+
+  const handleSaveEditTable = () => {
+    if (!selectedTable) return;
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === selectedTable.id
+          ? { ...t, number: formData.number, name: formData.name, capacity: formData.capacity }
+          : t
+      )
+    );
+    setIsEditModalOpen(false);
+    setSelectedTable(null);
+  };
+
+  // Delete table
+  const handleDeleteTable = (table: Table) => {
+    setSelectedTable(table);
+    setIsDeleteModalOpen(true);
+    setActiveDropdown(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!selectedTable) return;
+    setTables((prev) => prev.filter((t) => t.id !== selectedTable.id));
+    setIsDeleteModalOpen(false);
+    setSelectedTable(null);
+  };
+
+  // Reserve table
+  const handleReserveTable = (table: Table) => {
+    setSelectedTable(table);
+    setReservationData({ name: '', phone: '', time: '', date: '', guests: 2 });
+    setIsReserveModalOpen(true);
+    setActiveDropdown(null);
+  };
+
+  const handleConfirmReservation = () => {
+    if (!selectedTable) return;
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === selectedTable.id
+          ? {
+              ...t,
+              status: 'RESERVED' as TableStatus,
+              reservedFor: {
+                name: reservationData.name,
+                phone: reservationData.phone,
+                time: reservationData.time,
+              },
+            }
+          : t
+      )
+    );
+    setIsReserveModalOpen(false);
+    setSelectedTable(null);
+  };
+
+  // QR Code
+  const handleShowQR = (table: Table) => {
+    setSelectedTable(table);
+    setIsQRModalOpen(true);
     setActiveDropdown(null);
   };
 
@@ -101,7 +234,10 @@ export function TablesPage() {
           <h1 className="text-2xl font-bold text-gray-800">Stollar</h1>
           <p className="text-sm text-gray-500">Restoran stollarini boshqarish</p>
         </div>
-        <button className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110">
+        <button
+          onClick={handleAddTable}
+          className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
+        >
           <Plus size={18} />
           <span>Yangi stol</span>
         </button>
@@ -276,15 +412,30 @@ export function TablesPage() {
                     </button>
 
                     {activeDropdown === table.id && (
-                      <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg bg-white py-1 shadow-lg border border-gray-100">
-                        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-lg bg-white py-1 shadow-lg border border-gray-100">
+                        <button
+                          onClick={() => handleEditTable(table)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
                           <Edit size={14} />
                           Tahrirlash
                         </button>
-                        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <button
+                          onClick={() => handleShowQR(table)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
                           <QrCode size={14} />
                           QR kod
                         </button>
+                        {table.status === 'FREE' && (
+                          <button
+                            onClick={() => handleReserveTable(table)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                          >
+                            <Clock size={14} />
+                            Bron qilish
+                          </button>
+                        )}
                         <hr className="my-1" />
                         {table.status !== 'FREE' && (
                           <button
@@ -293,6 +444,15 @@ export function TablesPage() {
                           >
                             <CheckCircle size={14} />
                             Bo'shatish
+                          </button>
+                        )}
+                        {table.status === 'FREE' && (
+                          <button
+                            onClick={() => handleStatusChange(table.id, 'OCCUPIED')}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50"
+                          >
+                            <Users size={14} />
+                            Band qilish
                           </button>
                         )}
                         {table.status !== 'CLEANING' && (
@@ -305,7 +465,10 @@ export function TablesPage() {
                           </button>
                         )}
                         <hr className="my-1" />
-                        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                        <button
+                          onClick={() => handleDeleteTable(table)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
                           <Trash2 size={14} />
                           O'chirish
                         </button>
@@ -418,13 +581,34 @@ export function TablesPage() {
                     </td>
                     <td className="px-4 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                        <button
+                          onClick={() => handleEditTable(table)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          title="Tahrirlash"
+                        >
                           <Edit size={16} />
                         </button>
-                        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                        <button
+                          onClick={() => handleShowQR(table)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          title="QR kod"
+                        >
                           <QrCode size={16} />
                         </button>
-                        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500">
+                        {table.status === 'FREE' && (
+                          <button
+                            onClick={() => handleReserveTable(table)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+                            title="Bron qilish"
+                          >
+                            <Clock size={16} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteTable(table)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
+                          title="O'chirish"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -454,6 +638,287 @@ export function TablesPage() {
           className="fixed inset-0 z-0"
           onClick={() => setActiveDropdown(null)}
         />
+      )}
+
+      {/* Add Table Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Yangi stol qo'shish</h2>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stol raqami</label>
+                <input
+                  type="number"
+                  value={formData.number}
+                  onChange={(e) => setFormData({ ...formData, number: parseInt(e.target.value) || 0 })}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stol nomi</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Masalan: VIP xona, Balkon..."
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sig'imi (kishi)</label>
+                <input
+                  type="number"
+                  value={formData.capacity}
+                  onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
+                  min="1"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleSaveNewTable}
+                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110"
+              >
+                Saqlash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Table Modal */}
+      {isEditModalOpen && selectedTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Stolni tahrirlash</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stol raqami</label>
+                <input
+                  type="number"
+                  value={formData.number}
+                  onChange={(e) => setFormData({ ...formData, number: parseInt(e.target.value) || 0 })}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stol nomi</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sig'imi (kishi)</label>
+                <input
+                  type="number"
+                  value={formData.capacity}
+                  onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
+                  min="1"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleSaveEditTable}
+                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110"
+              >
+                Saqlash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && selectedTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 mb-4">
+                <Trash2 className="h-7 w-7 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Stolni o'chirish</h2>
+              <p className="text-gray-500 mb-6">
+                <span className="font-semibold">Stol {selectedTable.number}</span> ni o'chirishni tasdiqlaysizmi?
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-white hover:bg-red-600"
+              >
+                O'chirish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reservation Modal */}
+      {isReserveModalOpen && selectedTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Stol {selectedTable.number} ni bron qilish</h2>
+              <button onClick={() => setIsReserveModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mijoz ismi</label>
+                <input
+                  type="text"
+                  value={reservationData.name}
+                  onChange={(e) => setReservationData({ ...reservationData, name: e.target.value })}
+                  placeholder="Ism familiya"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefon raqami</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={reservationData.phone}
+                    onChange={(e) => setReservationData({ ...reservationData, phone: e.target.value })}
+                    placeholder="+998 90 123 45 67"
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="date"
+                      value={reservationData.date}
+                      onChange={(e) => setReservationData({ ...reservationData, date: e.target.value })}
+                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vaqti</label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="time"
+                      value={reservationData.time}
+                      onChange={(e) => setReservationData({ ...reservationData, time: e.target.value })}
+                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mehmonlar soni</label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="number"
+                    value={reservationData.guests}
+                    onChange={(e) => setReservationData({ ...reservationData, guests: parseInt(e.target.value) || 1 })}
+                    min="1"
+                    max={selectedTable.capacity}
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Maksimal: {selectedTable.capacity} kishi</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsReserveModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleConfirmReservation}
+                disabled={!reservationData.name || !reservationData.phone || !reservationData.time}
+                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Bron qilish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {isQRModalOpen && selectedTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">QR kod - Stol {selectedTable.number}</h2>
+              <button onClick={() => setIsQRModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="text-center">
+              {/* QR Code Placeholder */}
+              <div className="mx-auto w-48 h-48 bg-gray-100 rounded-xl flex items-center justify-center mb-4 border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">QR kod</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mb-4">
+                Mijozlar bu QR kodni skanlab menyu va buyurtmaga kirishi mumkin
+              </p>
+              <button className="flex items-center justify-center gap-2 w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50">
+                <Download size={18} />
+                QR kodni yuklab olish
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
