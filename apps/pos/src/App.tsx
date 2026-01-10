@@ -33,24 +33,24 @@ const categories = [
 
 // Demo mahsulotlar
 const products = [
-  { id: '1', name: "O'zbek oshi", price: 45000, categoryId: '1', cookTime: 25 },
-  { id: '2', name: 'Samarqand oshi', price: 50000, categoryId: '1', cookTime: 30 },
-  { id: '3', name: 'Manti', price: 35000, categoryId: '1', cookTime: 20 },
-  { id: '4', name: 'Shashlik (1 shish)', price: 25000, categoryId: '1', cookTime: 15 },
-  { id: '5', name: "Lag'mon", price: 38000, categoryId: '1', cookTime: 20 },
-  { id: '6', name: 'Chuchvara', price: 32000, categoryId: '1', cookTime: 18 },
-  { id: '7', name: 'Achichuk', price: 15000, categoryId: '2', cookTime: 5 },
-  { id: '8', name: 'Shakarob', price: 18000, categoryId: '2', cookTime: 5 },
-  { id: '9', name: "Ovqat salati", price: 22000, categoryId: '2', cookTime: 10 },
-  { id: '10', name: "Sho'rva", price: 30000, categoryId: '3', cookTime: 15 },
-  { id: '11', name: 'Mastava', price: 28000, categoryId: '3', cookTime: 15 },
-  { id: '12', name: 'Norin', price: 35000, categoryId: '3', cookTime: 12 },
-  { id: '13', name: "Ko'k choy", price: 8000, categoryId: '4', cookTime: 3 },
-  { id: '14', name: 'Qora choy', price: 8000, categoryId: '4', cookTime: 3 },
-  { id: '15', name: 'Kompot', price: 6000, categoryId: '4', cookTime: 1 },
-  { id: '16', name: 'Limonad', price: 12000, categoryId: '4', cookTime: 1 },
-  { id: '17', name: 'Chak-chak', price: 15000, categoryId: '5', cookTime: 0 },
-  { id: '18', name: 'Halvo', price: 12000, categoryId: '5', cookTime: 0 },
+  { id: '1', name: "O'zbek oshi", price: 45000, categoryId: '1', cookTime: 25, image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=400' },
+  { id: '2', name: 'Samarqand oshi', price: 50000, categoryId: '1', cookTime: 30, image: 'https://images.unsplash.com/photo-1645177628172-a94c30a5d4f8?w=400' },
+  { id: '3', name: 'Manti', price: 35000, categoryId: '1', cookTime: 20, image: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400' },
+  { id: '4', name: 'Shashlik (1 shish)', price: 25000, categoryId: '1', cookTime: 15, image: 'https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=400' },
+  { id: '5', name: "Lag'mon", price: 38000, categoryId: '1', cookTime: 20, image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400' },
+  { id: '6', name: 'Chuchvara', price: 32000, categoryId: '1', cookTime: 18, image: 'https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=400' },
+  { id: '7', name: 'Achichuk', price: 15000, categoryId: '2', cookTime: 5, image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400' },
+  { id: '8', name: 'Shakarob', price: 18000, categoryId: '2', cookTime: 5, image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400' },
+  { id: '9', name: "Ovqat salati", price: 22000, categoryId: '2', cookTime: 10, image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400' },
+  { id: '10', name: "Sho'rva", price: 30000, categoryId: '3', cookTime: 15, image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400' },
+  { id: '11', name: 'Mastava', price: 28000, categoryId: '3', cookTime: 15, image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=400' },
+  { id: '12', name: 'Norin', price: 35000, categoryId: '3', cookTime: 12, image: 'https://images.unsplash.com/photo-1623341214825-9f4f963727da?w=400' },
+  { id: '13', name: "Ko'k choy", price: 8000, categoryId: '4', cookTime: 3, image: 'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400' },
+  { id: '14', name: 'Qora choy', price: 8000, categoryId: '4', cookTime: 3, image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=400' },
+  { id: '15', name: 'Kompot', price: 6000, categoryId: '4', cookTime: 1, image: 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=400' },
+  { id: '16', name: 'Limonad', price: 12000, categoryId: '4', cookTime: 1, image: 'https://images.unsplash.com/photo-1523677011781-c91d1bbe2f9d?w=400' },
+  { id: '17', name: 'Chak-chak', price: 15000, categoryId: '5', cookTime: 0, image: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?w=400' },
+  { id: '18', name: 'Halvo', price: 12000, categoryId: '5', cookTime: 0, image: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=400' },
 ];
 
 // Mock stollar
@@ -730,10 +730,14 @@ export default function App() {
               <button
                 key={product.id}
                 onClick={() => handleAddProduct(product)}
-                className="flex flex-col items-center rounded-xl border border-slate-700 bg-slate-800/50 p-4 text-center transition-all hover:border-orange-500 hover:bg-slate-800"
+                className="flex flex-col items-center rounded-xl border border-slate-700 bg-slate-800/50 p-3 text-center transition-all hover:border-orange-500 hover:bg-slate-800"
               >
-                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/20">
-                  <UtensilsCrossed className="h-7 w-7 text-orange-400" />
+                <div className="mb-3 w-full aspect-square overflow-hidden rounded-lg bg-slate-700/50">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <span className="mb-1 font-medium text-sm">{product.name}</span>
                 <span className="text-sm text-orange-400 font-semibold">{formatPrice(product.price)}</span>

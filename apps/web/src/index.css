@@ -6,47 +6,47 @@
 
 @layer base {
   :root {
-    /* DreamsPOS Light Theme */
-    --background: 0 0% 98%;
-    --foreground: 224 71% 4%;
+    /* Soft Light Theme - Easy on Eyes */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 27%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card-foreground: 215 25% 27%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
-    --primary: 14 100% 57%;
+    --popover-foreground: 215 25% 27%;
+    --primary: 14 86% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 46%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 224 71% 4%;
-    --destructive: 0 84% 60%;
+    --secondary: 210 16% 93%;
+    --secondary-foreground: 215 20% 35%;
+    --muted: 210 16% 96%;
+    --muted-foreground: 215 15% 50%;
+    --accent: 210 16% 93%;
+    --accent-foreground: 215 25% 27%;
+    --destructive: 0 72% 58%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 14 100% 57%;
-    --radius: 0.5rem;
+    --border: 214 15% 91%;
+    --input: 214 15% 93%;
+    --ring: 14 86% 55%;
+    --radius: 0.75rem;
 
-    /* DreamsPOS Custom Colors */
-    --success: 142 76% 36%;
+    /* Softer Custom Colors */
+    --success: 142 69% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 86% 54%;
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --info: 199 82% 52%;
     --info-foreground: 0 0% 100%;
-    --purple: 262 83% 58%;
+    --purple: 262 75% 62%;
     --purple-foreground: 0 0% 100%;
-    --pink: 330 81% 60%;
+    --pink: 330 73% 64%;
     --pink-foreground: 0 0% 100%;
-    --cyan: 186 94% 41%;
+    --cyan: 186 88% 45%;
     --cyan-foreground: 0 0% 100%;
 
-    /* Sidebar */
-    --sidebar-bg: 224 71% 4%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-muted: 220 9% 46%;
-    --sidebar-border: 220 13% 20%;
+    /* Softer Sidebar */
+    --sidebar-bg: 215 28% 17%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-muted: 215 15% 60%;
+    --sidebar-border: 215 20% 25%;
   }
 }
 
@@ -80,105 +80,111 @@
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* DreamsPOS Gradient Backgrounds */
+/* Softer Gradient Backgrounds */
 .gradient-primary {
-  background: linear-gradient(135deg, #FF5722 0%, #E91E63 100%);
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
 }
 
 .gradient-success {
-  background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+  background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
 }
 
 .gradient-warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #eab308 100%);
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
 }
 
 .gradient-info {
-  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
 }
 
 .gradient-purple {
-  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+  background: linear-gradient(135deg, #a78bfa 0%, #c084fc 100%);
 }
 
 .gradient-pink {
-  background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+  background: linear-gradient(135deg, #f472b6 0%, #fb7185 100%);
 }
 
 /* Card hover effects */
 .card-hover {
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* Sidebar styling */
+/* Softer Sidebar styling */
 .sidebar-gradient {
-  background: linear-gradient(180deg, #1a1d21 0%, #0f1014 100%);
+  background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
 }
 
-/* Stats card icon backgrounds */
+/* Softer Stats card icon backgrounds */
 .stat-icon-primary {
-  background: linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(233, 30, 99, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(236, 72, 153, 0.12) 100%);
 }
 
 .stat-icon-success {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(20, 184, 166, 0.12) 100%);
 }
 
 .stat-icon-warning {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(234, 179, 8, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(251, 191, 36, 0.12) 100%);
 }
 
 .stat-icon-info {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
 }
 
 .stat-icon-purple {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.12) 0%, rgba(192, 132, 252, 0.12) 100%);
 }
 
-/* Badge styles */
+/* Softer Badge styles */
 .badge-primary {
-  background: rgba(255, 87, 34, 0.1);
-  color: #FF5722;
+  background: rgba(249, 115, 22, 0.1);
+  color: #ea580c;
+  font-weight: 500;
 }
 
 .badge-success {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  font-weight: 500;
 }
 
 .badge-warning {
   background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  color: #d97706;
+  font-weight: 500;
 }
 
 .badge-danger {
   background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  color: #dc2626;
+  font-weight: 500;
 }
 
-/* Table styles */
+/* Softer Table styles */
 .table-row-hover:hover {
-  background: hsl(var(--muted) / 0.5);
+  background: hsl(var(--muted) / 0.4);
+  transition: background 0.2s ease;
 }
 
-/* Button gradient */
+/* Softer Button gradient */
 .btn-gradient {
-  background: linear-gradient(135deg, #FF5722 0%, #E91E63 100%);
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   color: white;
+  font-weight: 500;
 }
 
 .btn-gradient:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(255, 87, 34, 0.4);
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.3);
 }
 
 /* Animations */
@@ -216,28 +222,33 @@
   animation: pulse-ring 2s ease-in-out infinite;
 }
 
-/* Status badges */
+/* Softer Status badges */
 .status-new {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 500;
 }
 
 .status-preparing {
-  background: #fff3e0;
-  color: #e65100;
+  background: #fef3c7;
+  color: #d97706;
+  font-weight: 500;
 }
 
 .status-ready {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #d1fae5;
+  color: #047857;
+  font-weight: 500;
 }
 
 .status-completed {
-  background: #f3e5f5;
-  color: #7b1fa2;
+  background: #e9d5ff;
+  color: #7c3aed;
+  font-weight: 500;
 }
 
 .status-cancelled {
-  background: #ffebee;
-  color: #c62828;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 500;
 }
