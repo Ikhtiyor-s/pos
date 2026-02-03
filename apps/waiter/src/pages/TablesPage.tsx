@@ -1,139 +1,230 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Clock, Check } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Users, Loader2, RefreshCw, ClipboardList, Sun, Moon, Monitor, User } from 'lucide-react';
+import { tableService, socketService } from '../services';
+import { useThemeStore } from '../store/theme';
+import { useTranslation } from '../store/language';
+import type { Language } from '../utils/translations';
+import type { Table } from '../services/table.service';
 
-// Mock data - keyinchalik API'dan olinadi
-const tables = [
-  { id: '1', number: 1, capacity: 2, status: 'free', guestCount: 0 },
-  { id: '2', number: 2, capacity: 4, status: 'occupied', guestCount: 3, orderTime: '15 min' },
-  { id: '3', number: 3, capacity: 4, status: 'free', guestCount: 0 },
-  { id: '4', number: 4, capacity: 6, status: 'reserved', guestCount: 5 },
-  { id: '5', number: 5, capacity: 2, status: 'free', guestCount: 0 },
-  { id: '6', number: 6, capacity: 4, status: 'occupied', guestCount: 2, orderTime: '8 min' },
-  { id: '7', number: 7, capacity: 8, status: 'free', guestCount: 0 },
-  { id: '8', number: 8, capacity: 4, status: 'free', guestCount: 0 },
-  { id: '9', number: 9, capacity: 2, status: 'occupied', guestCount: 2, orderTime: '22 min' },
-  { id: '10', number: 10, capacity: 6, status: 'free', guestCount: 0 },
-];
+const languageFlags: Record<Language, string> = {
+  uz: '🇺🇿',
+  ru: '🇷🇺',
+  en: '🇬🇧',
+};
 
 export default function TablesPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { theme, setTheme } = useThemeStore();
+  const { t, language, setLanguage } = useTranslation();
+
+  const cycleTheme = () => {
+    if (theme === 'light') setTheme('dark');
+    else if (theme === 'dark') setTheme('system');
+    else setTheme('light');
+  };
+
+  const cycleLanguage = () => {
+    const langs: Language[] = ['uz', 'ru', 'en'];
+    const currentIndex = langs.indexOf(language);
+    const nextIndex = (currentIndex + 1) % langs.length;
+    setLanguage(langs[nextIndex]);
+  };
+
+  const getThemeIcon = () => {
+    if (theme === 'system') return <Monitor className="h-5 w-5" />;
+    if (theme === 'dark') return <Moon className="h-5 w-5" />;
+    return <Sun className="h-5 w-5" />;
+  };
+
+  // Fetch tables from API
+  const { data: tablesData, isLoading, error, refetch } = useQuery({
+    queryKey: ['tables'],
+    queryFn: () => tableService.getAll(),
+  });
+
+  // Connect to Socket.IO for real-time updates
+  useEffect(() => {
+    socketService.connect();
+
+    const unsubscribe = socketService.onTableStatusUpdate(() => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient]);
+
+  const tables = tablesData?.data || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'free':
-        return 'bg-green-500';
-      case 'occupied':
-        return 'bg-orange-500';
-      case 'reserved':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-400';
+      case 'FREE': return 'bg-green-500';
+      case 'OCCUPIED': return 'bg-orange-500';
+      case 'RESERVED': return 'bg-blue-500';
+      case 'CLEANING': return 'bg-yellow-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getStatusBg = (status: string) => {
+    switch (status) {
+      case 'FREE': return 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
+      case 'OCCUPIED': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
+      case 'RESERVED': return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800';
+      case 'CLEANING': return 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800';
+      default: return 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'free':
-        return 'Bo\'sh';
-      case 'occupied':
-        return 'Band';
-      case 'reserved':
-        return 'Bron';
-      default:
-        return '';
+      case 'FREE': return t('tables.free');
+      case 'OCCUPIED': return t('tables.occupied');
+      case 'RESERVED': return t('tables.reserved');
+      case 'CLEANING': return t('tables.cleaning');
+      default: return '';
     }
   };
 
-  return (
-    <div className="flex h-full flex-col bg-white">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-pink-500 px-6 py-4 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Stollar</h1>
-            <p className="text-sm opacity-90">Stolni tanlang</p>
-          </div>
+  const freeCount = tables.filter((t: Table) => t.status === 'FREE').length;
+  const occupiedCount = tables.filter((t: Table) => t.status === 'OCCUPIED').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-sm text-muted-foreground">{t('loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="mb-4 text-red-500 text-sm">{t('error')}</p>
           <button
-            onClick={() => navigate('/orders')}
-            className="rounded-full bg-white/20 px-4 py-2 text-sm font-medium backdrop-blur-sm"
+            onClick={() => refetch()}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground text-sm"
           >
-            Buyurtmalar
+            <RefreshCw className="h-4 w-4" />
+            {t('retry')}
           </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 px-6 py-4">
-        <div className="rounded-xl bg-green-50 p-3 text-center">
-          <div className="text-2xl font-bold text-green-600">
-            {tables.filter((t) => t.status === 'free').length}
+  return (
+    <div className="flex h-full flex-col bg-background">
+      {/* Compact Header */}
+      <div className="bg-primary px-4 py-3 text-primary-foreground safe-area-top">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold">{t('tables.title')}</h1>
+            <p className="text-xs opacity-90">{t('tables.summary', { free: freeCount, occupied: occupiedCount })}</p>
           </div>
-          <div className="text-xs text-green-700">Bo'sh</div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={cycleLanguage}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 active:bg-white/30 text-lg"
+            >
+              {languageFlags[language]}
+            </button>
+            <button
+              onClick={cycleTheme}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+            >
+              {getThemeIcon()}
+            </button>
+            <button
+              onClick={() => navigate('/orders')}
+              className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-medium active:bg-white/30"
+            >
+              <ClipboardList className="h-4 w-4" />
+              {t('tables.orders')}
+            </button>
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 active:bg-white/30"
+            >
+              <User className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <div className="rounded-xl bg-orange-50 p-3 text-center">
-          <div className="text-2xl font-bold text-orange-600">
-            {tables.filter((t) => t.status === 'occupied').length}
-          </div>
-          <div className="text-xs text-orange-700">Band</div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="flex gap-2 px-3 py-2 bg-card border-b border-border overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="text-xs font-medium whitespace-nowrap">{freeCount} {t('tables.free')}</span>
         </div>
-        <div className="rounded-xl bg-blue-50 p-3 text-center">
-          <div className="text-2xl font-bold text-blue-600">
-            {tables.filter((t) => t.status === 'reserved').length}
-          </div>
-          <div className="text-xs text-blue-700">Bron</div>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <span className="text-xs font-medium whitespace-nowrap">{occupiedCount} {t('tables.occupied')}</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+          <div className="w-2 h-2 rounded-full bg-yellow-500" />
+          <span className="text-xs font-medium whitespace-nowrap">{tables.filter((tbl: Table) => tbl.status === 'RESERVED').length} {t('tables.reserved')}</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+          <div className="w-2 h-2 rounded-full bg-gray-500" />
+          <span className="text-xs font-medium whitespace-nowrap">{tables.filter((tbl: Table) => tbl.status === 'CLEANING').length} {t('tables.cleaning')}</span>
         </div>
       </div>
 
       {/* Tables Grid */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {tables.map((table) => (
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="grid grid-cols-3 gap-2">
+          {tables.map((table: Table) => (
             <button
               key={table.id}
               onClick={() => navigate(`/menu/${table.id}`)}
-              className="btn-touch relative overflow-hidden rounded-2xl bg-white p-6 shadow-md transition-all active:scale-95"
+              className={`relative rounded-xl p-3 border transition-transform active:scale-95 ${getStatusBg(table.status)}`}
             >
-              {/* Status indicator */}
-              <div className={`absolute right-0 top-0 h-3 w-3 rounded-bl-lg ${getStatusColor(table.status)}`} />
-
               {/* Table number */}
-              <div className="mb-3 text-3xl font-bold text-gray-800">
+              <div className="text-2xl font-bold text-foreground mb-1">
                 {table.number}
               </div>
 
-              {/* Table info */}
-              <div className="space-y-2 text-left">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Users className="h-4 w-4" />
-                  <span>{table.capacity} o'rin</span>
-                </div>
-
-                {table.status === 'occupied' && table.guestCount > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span>{table.guestCount} kishi</span>
-                  </div>
-                )}
-
-                {table.status === 'occupied' && table.orderTime && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Clock className="h-4 w-4 text-orange-600" />
-                    <span>{table.orderTime}</span>
-                  </div>
-                )}
+              {/* Capacity */}
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                <Users className="h-3 w-3" />
+                <span>{table.capacity}</span>
               </div>
 
               {/* Status badge */}
-              <div className="mt-3">
-                <span
-                  className={`inline-block rounded-full px-3 py-1 text-xs font-medium text-white ${getStatusColor(table.status)}`}
-                >
-                  {getStatusText(table.status)}
-                </span>
-              </div>
+              <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium text-white ${getStatusColor(table.status)}`}>
+                {getStatusText(table.status)}
+              </span>
+
+              {/* Active order indicator */}
+              {table.activeOrders && table.activeOrders.length > 0 && (
+                <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {table.activeOrders.length}
+                </div>
+              )}
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Pull to refresh hint */}
+      <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none">
+        <button
+          onClick={() => refetch()}
+          className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-card shadow-lg px-4 py-2 text-sm text-muted-foreground border border-border"
+        >
+          <RefreshCw className="h-4 w-4" />
+          {t('refresh')}
+        </button>
       </div>
     </div>
   );
