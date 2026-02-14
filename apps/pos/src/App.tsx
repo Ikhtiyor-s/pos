@@ -20,6 +20,8 @@ import {
   Clock,
   CheckCircle,
   ArrowLeft,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 
 // Demo kategoriyalar
@@ -67,7 +69,7 @@ const tables = [
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
-type Step = 'order-type' | 'products' | 'payment' | 'receipt';
+type Step = 'order-type' | 'order-detail' | 'products' | 'payment' | 'receipt';
 
 interface TableData {
   id: string;
@@ -76,9 +78,47 @@ interface TableData {
   status: 'free' | 'occupied' | 'reserved';
 }
 
+interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat('uz-UZ').format(price) + " so'm";
 }
+
+// Mock faol buyurtmalar (haqiqiy loyihada backend dan olinadi)
+const activeOrders = [
+  {
+    tableId: '2',
+    tableNumber: 2,
+    items: 3,
+    total: 145000,
+    time: '12:30',
+    status: 'active',
+    orderItems: [
+      { productId: '1', name: "O'zbek oshi", price: 45000, quantity: 2 },
+      { productId: '7', name: 'Achichuk', price: 15000, quantity: 1 },
+      { productId: '13', name: "Ko'k choy", price: 8000, quantity: 5 },
+    ]
+  },
+  {
+    tableId: '6',
+    tableNumber: 6,
+    items: 5,
+    total: 275000,
+    time: '13:15',
+    status: 'active',
+    orderItems: [
+      { productId: '2', name: 'Samarqand oshi', price: 50000, quantity: 3 },
+      { productId: '4', name: 'Shashlik (1 shish)', price: 25000, quantity: 4 },
+      { productId: '8', name: 'Shakarob', price: 18000, quantity: 2 },
+      { productId: '14', name: 'Qora choy', price: 8000, quantity: 3 },
+    ]
+  },
+];
 
 export default function App() {
   const [currentStep, setCurrentStep] = useState<Step>('order-type');
@@ -89,6 +129,9 @@ export default function App() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [qrConfirmed, setQrConfirmed] = useState(false);
+  const [showOrderTypeModal, setShowOrderTypeModal] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState<typeof activeOrders[0] | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
 
   const {
     items,
@@ -124,6 +167,22 @@ export default function App() {
     setCurrentStep('payment');
   };
 
+  const handlePlaceOrder = () => {
+    // Buyurtmani to'lovsiz tasdiqlab, oshxonaga yuborish
+    console.log('📝 Buyurtma qo\'shildi:', {
+      orderType,
+      table: selectedTable,
+      items,
+      total: getTotal(),
+    });
+    // Bu yerda backend ga POST so'rov yuboriladi (yangi buyurtma qo'shish)
+    alert('✅ Buyurtma oshxonaga yuborildi!');
+
+    // Savat tozalanMAYDI - eski buyurtmalar saqlanadi
+    // Faqat products sahifasiga qaytadi (yangi mahsulot qo'shish uchun)
+    // clearCart() - ISHLATILMAYDI
+  };
+
   const handlePaymentSelect = (method: PaymentMethod) => {
     setPaymentMethod(method);
     if (['payme', 'click', 'uzum'].includes(method)) {
@@ -155,10 +214,22 @@ export default function App() {
   };
 
   const handleBack = () => {
-    if (currentStep === 'products') {
+    if (currentStep === 'order-detail') {
       setCurrentStep('order-type');
       setOrderType(null);
       setSelectedTable(null);
+      setCurrentOrder(null);
+      clearCart();
+    } else if (currentStep === 'products') {
+      if (currentOrder) {
+        // Agar faol buyurtma bo'lsa, order-detail ga qaytish
+        setCurrentStep('order-detail');
+      } else {
+        // Aks holda bosh sahifaga
+        setCurrentStep('order-type');
+        setOrderType(null);
+        setSelectedTable(null);
+      }
     } else if (currentStep === 'payment') {
       setCurrentStep('products');
     } else if (currentStep === 'receipt') {
@@ -169,91 +240,298 @@ export default function App() {
 
   const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
 
-  // Order Type Step
-  if (currentStep === 'order-type') {
+  // Lock tugmasi va overlay (barcha ekranlarda ko'rinadi)
+  const lockElements = (
+    <>
+      {/* Lock tugmasi - ekran tepasida o'rtada */}
+      {!isLocked && (
+        <button
+          onClick={() => setIsLocked(true)}
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/80 border border-slate-600/50 text-slate-400 hover:text-white hover:bg-slate-700 backdrop-blur-sm transition-all shadow-lg"
+        >
+          <Lock size={18} />
+        </button>
+      )}
+
+      {/* Lock overlay - to'liq ekran */}
+      {isLocked && (
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center cursor-pointer select-none"
+          onClick={() => setIsLocked(false)}
+        >
+          <div className="flex flex-col items-center gap-6 animate-pulse">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-800 border-2 border-slate-600">
+              <Lock size={40} className="text-slate-400" />
+            </div>
+            <p className="text-slate-500 text-lg font-medium">Ekran bloklangan</p>
+            <p className="text-slate-600 text-sm">Ochish uchun bosing</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // Order Detail Step - Faol stol buyurtmalarini ko'rsatish
+  if (currentStep === 'order-detail' && currentOrder && selectedTable) {
     return (
       <div className="min-h-screen bg-slate-950 text-white">
+        {lockElements}
         {/* Header */}
         <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleBack}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <ArrowLeft size={18} />
+            </button>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold">Oshxona POS</span>
+            <div>
+              <span className="text-xl font-bold">Stol #{selectedTable.number}</span>
+              <p className="text-xs text-slate-400">{currentOrder.time} dan</p>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-slate-400">
             <Clock size={16} />
             <span className="text-sm">
-              {new Date().toLocaleDateString('uz-UZ', {
-                weekday: 'short',
-                day: 'numeric',
-                month: 'short',
-              })} • {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+              {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         </header>
 
         <div className="p-8">
-          <div className="mx-auto max-w-4xl space-y-8">
-            {/* Order Type Selection */}
-            <div>
-              <h2 className="text-2xl font-bold mb-6">Buyurtma turini tanlang</h2>
-              <div className="grid grid-cols-2 gap-6">
-                <button
-                  onClick={() => setOrderType('dine-in')}
-                  className={cn(
-                    'relative flex flex-col items-center gap-4 rounded-2xl border-2 p-8 transition-all',
-                    orderType === 'dine-in'
-                      ? 'border-orange-500 bg-orange-500/10'
-                      : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                  )}
-                >
-                  <div className={cn(
-                    'flex h-20 w-20 items-center justify-center rounded-full',
-                    orderType === 'dine-in' ? 'bg-orange-500/20' : 'bg-slate-700'
-                  )}>
-                    <Utensils size={40} className={orderType === 'dine-in' ? 'text-orange-400' : 'text-slate-400'} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold">Shu yerda</p>
-                    <p className="text-sm text-slate-500">Stolda ovqatlanish</p>
-                  </div>
-                  {orderType === 'dine-in' && (
-                    <div className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500">
-                      <Check size={16} className="text-white" />
-                    </div>
-                  )}
-                </button>
+          <div className="mx-auto max-w-4xl space-y-6">
+            {/* Buyurtma ma'lumotlari */}
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Buyurtma tafsilotlari</h2>
+                <div className="flex items-center gap-2 rounded-full bg-green-500/20 px-3 py-1">
+                  <CheckCircle size={16} className="text-green-400" />
+                  <span className="text-sm font-medium text-green-400">Faol</span>
+                </div>
+              </div>
 
-                <button
-                  onClick={() => handleSelectOrderType('takeaway')}
-                  className={cn(
-                    'relative flex flex-col items-center gap-4 rounded-2xl border-2 p-8 transition-all',
-                    orderType === 'takeaway'
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                  )}
-                >
-                  <div className={cn(
-                    'flex h-20 w-20 items-center justify-center rounded-full',
-                    orderType === 'takeaway' ? 'bg-blue-500/20' : 'bg-slate-700'
-                  )}>
-                    <Package size={40} className={orderType === 'takeaway' ? 'text-blue-400' : 'text-slate-400'} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold">Olib ketish</p>
-                    <p className="text-sm text-slate-500">O'zi olib ketadi</p>
-                  </div>
-                  {orderType === 'takeaway' && (
-                    <div className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-blue-500">
-                      <Check size={16} className="text-white" />
+              {/* Mahsulotlar ro'yxati */}
+              <div className="space-y-3 mb-6">
+                {items.map((item) => (
+                  <div
+                    key={item.product.id}
+                    className="flex items-center justify-between rounded-lg bg-slate-900/50 p-4"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500/10">
+                        <Utensils className="h-6 w-6 text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">{item.product.name}</p>
+                        <p className="text-sm text-slate-400">{formatPrice(item.product.price)} × {item.quantity}</p>
+                      </div>
                     </div>
-                  )}
-                </button>
+                    <p className="text-lg font-bold text-orange-400">
+                      {formatPrice(item.product.price * item.quantity)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Umumiy hisob */}
+              <div className="border-t border-slate-700 pt-4 space-y-2">
+                <div className="flex justify-between text-slate-400">
+                  <span>Mahsulotlar soni:</span>
+                  <span className="font-medium">{getItemCount()} ta</span>
+                </div>
+                <div className="flex justify-between text-2xl font-bold">
+                  <span>Jami summa:</span>
+                  <span className="text-orange-400">{formatPrice(getTotal())}</span>
+                </div>
               </div>
             </div>
 
-            {/* Table Selection */}
+            {/* Tugmalar */}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setCurrentStep('products')}
+                className="flex items-center justify-center gap-2 rounded-xl bg-blue-500 py-4 font-semibold text-white hover:bg-blue-600 transition-colors"
+              >
+                <Plus size={18} />
+                Qo'shish
+              </button>
+              <button
+                onClick={handleGoToPayment}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-4 font-semibold text-white hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+              >
+                <Check size={18} />
+                Stolni yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Order Type Step
+  if (currentStep === 'order-type') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        {lockElements}
+        {/* Header */}
+        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+          <div className="flex items-center gap-3">
+            {currentStep !== 'order-type' && (
+              <button
+                onClick={handleBack}
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+              <UtensilsCrossed className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold">Oshxona POS</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-slate-400">
+              <Clock size={16} />
+              <span className="text-sm">
+                {new Date().toLocaleDateString('uz-UZ', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                })} • {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+            {currentStep === 'order-type' && (
+              <button
+                onClick={() => setShowOrderTypeModal(true)}
+                className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+              >
+                <Plus size={16} />
+                Buyurtma berish
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Order Type Modal */}
+        {showOrderTypeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+              <h3 className="mb-6 text-2xl font-bold text-white">Buyurtma turini tanlang</h3>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowOrderTypeModal(false);
+                    handleSelectOrderType('takeaway');
+                  }}
+                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-blue-500/30 bg-blue-500/10 p-4 transition-all hover:border-blue-500 hover:bg-blue-500/20"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/20">
+                    <Package className="h-6 w-6 text-blue-400" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-lg font-bold text-white">Olib ketish</p>
+                    <p className="text-sm text-slate-400">O'zi olib ketadi</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowOrderTypeModal(false);
+                    setOrderType('dine-in');
+                  }}
+                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-orange-500/30 bg-orange-500/10 p-4 transition-all hover:border-orange-500 hover:bg-orange-500/20"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/20">
+                    <Utensils className="h-6 w-6 text-orange-400" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-lg font-bold text-white">Shu yerda</p>
+                    <p className="text-sm text-slate-400">Stolda ovqatlanish</p>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowOrderTypeModal(false)}
+                className="mt-6 w-full rounded-xl border border-slate-700 py-3 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                Bekor qilish
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="p-8">
+          <div className="mx-auto max-w-6xl space-y-8">
+            {/* Faol buyurtmalar */}
+            {activeOrders.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold">Faol buyurtmalar</h2>
+                  <span className="text-sm text-slate-400">
+                    {activeOrders.length} ta stol band
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activeOrders.map((order) => (
+                    <button
+                      key={order.tableId}
+                      onClick={() => {
+                        const table = tables.find((t) => t.id === order.tableId);
+                        if (table) {
+                          setOrderType('dine-in');
+                          setSelectedTable(table);
+                          setCurrentOrder(order);
+                          // Eski buyurtma mahsulotlarini savatga yuklash
+                          clearCart();
+                          order.orderItems.forEach(item => {
+                            const product = products.find(p => p.id === item.productId);
+                            if (product) {
+                              for (let i = 0; i < item.quantity; i++) {
+                                addItem(product as any);
+                              }
+                            }
+                          });
+                          setCurrentStep('order-detail');
+                        }
+                      }}
+                      className="group relative flex flex-col rounded-xl border-2 border-orange-500/30 bg-orange-500/5 p-4 transition-all hover:border-orange-500 hover:bg-orange-500/10"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/20">
+                            <Utensils className="h-5 w-5 text-orange-400" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-lg font-bold text-white">Stol #{order.tableNumber}</p>
+                            <p className="text-xs text-slate-400">{order.time}</p>
+                          </div>
+                        </div>
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 animate-pulse">
+                          <Clock size={14} className="text-white" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-400">{order.items} ta mahsulot</span>
+                        <span className="text-lg font-bold text-orange-400">
+                          {formatPrice(order.total)}
+                        </span>
+                      </div>
+                      <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-green-500 px-2 text-xs font-medium text-white">
+                        <CheckCircle size={12} />
+                        Faol
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Table Selection - faqat dine-in turi tanlanganda */}
             {orderType === 'dine-in' && (
               <div className="animate-in fade-in-0 slide-in-from-top-4 duration-300">
                 <div className="flex items-center justify-between mb-4">
@@ -339,6 +617,7 @@ export default function App() {
     if (showQR && paymentMethod && ['payme', 'click', 'uzum'].includes(paymentMethod)) {
       return (
         <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+          {lockElements}
           <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
@@ -417,6 +696,7 @@ export default function App() {
 
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        {lockElements}
         <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
@@ -493,28 +773,40 @@ export default function App() {
               })}
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 space-y-3">
+              {/* Orqaga tugmasi */}
               <button
                 onClick={handleBack}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-700 py-4 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-700 py-4 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               >
                 <ArrowLeft size={16} />
                 Orqaga
               </button>
+
+              {/* Buyurtma berish (to'lovsiz) */}
+              <button
+                onClick={handlePlaceOrder}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-500 py-4 font-semibold text-white hover:bg-blue-600 transition-colors"
+              >
+                <Check size={18} />
+                Buyurtma berish
+              </button>
+
+              {/* Stol yopish (to'lov bilan) */}
               <button
                 onClick={() => paymentMethod && handlePaymentSelect(paymentMethod)}
                 disabled={!paymentMethod}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-green-500 py-4 font-semibold text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-500 py-4 font-semibold text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {paymentMethod && ['payme', 'click', 'uzum'].includes(paymentMethod) ? (
                   <>
                     <QrCode size={18} />
-                    QR kod ko'rsatish
+                    Stol yopish (QR to'lov)
                   </>
                 ) : (
                   <>
                     <Check size={18} />
-                    To'lovni tasdiqlash
+                    Stol yopish
                   </>
                 )}
               </button>
@@ -529,6 +821,7 @@ export default function App() {
   if (currentStep === 'receipt') {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        {lockElements}
         <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
@@ -655,6 +948,7 @@ export default function App() {
   // Products Step
   return (
     <div className="flex h-screen bg-slate-950 text-white">
+      {lockElements}
       {/* Left side - Products */}
       <div className="flex flex-1 flex-col">
         {/* Header */}
@@ -821,20 +1115,30 @@ export default function App() {
           <div className="border-t border-slate-800 p-4">
             <div className="mb-4 space-y-2">
               <div className="flex justify-between text-sm text-slate-400">
-                <span>Jami</span>
-                <span>{formatPrice(getSubtotal())}</span>
+                <span>Mahsulotlar</span>
+                <span>{getItemCount()} ta</span>
               </div>
               <div className="flex justify-between text-lg font-bold">
-                <span>To'lov</span>
+                <span>Jami</span>
                 <span className="text-orange-400">{formatPrice(getTotal())}</span>
               </div>
             </div>
-            <button
-              onClick={handleGoToPayment}
-              className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-4 font-semibold text-white transition-all hover:shadow-lg hover:shadow-orange-500/20"
-            >
-              To'lovga o'tish
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handlePlaceOrder}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-500 py-3 font-semibold text-white hover:bg-blue-600 transition-colors"
+              >
+                <Plus size={18} />
+                Buyurtma qo'shish
+              </button>
+              <button
+                onClick={handleGoToPayment}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3 font-semibold text-white transition-all hover:shadow-lg hover:shadow-orange-500/20"
+              >
+                <Check size={18} />
+                Stolni yopish
+              </button>
+            </div>
           </div>
         )}
       </div>
