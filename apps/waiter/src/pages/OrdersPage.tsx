@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Check, X } from 'lucide-react';
+import { ArrowLeft, Clock, Check } from 'lucide-react';
 
 // Mock orders
 const orders = [
