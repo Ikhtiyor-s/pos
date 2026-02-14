@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useCartStore } from './store/cart';
+import { useAuthStore } from './store/auth';
 import { cn } from './lib/utils';
+import { Login } from './components/Login';
+import { Reports } from './components/Reports';
 import {
   UtensilsCrossed,
   ShoppingCart,
@@ -21,7 +24,12 @@ import {
   CheckCircle,
   ArrowLeft,
   Lock,
-  Unlock,
+  DollarSign,
+  Percent,
+  X,
+  BarChart3,
+  AlertCircle,
+  Calculator,
 } from 'lucide-react';
 
 // Demo kategoriyalar
@@ -69,7 +77,7 @@ const tables = [
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
-type Step = 'order-type' | 'order-detail' | 'products' | 'payment' | 'receipt';
+type Step = 'order-type' | 'order-detail' | 'products' | 'payment' | 'receipt' | 'reports';
 
 interface TableData {
   id: string;
@@ -78,12 +86,6 @@ interface TableData {
   status: 'free' | 'occupied' | 'reserved';
 }
 
-interface OrderItem {
-  productId: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('uz-UZ').format(price) + " so'm";
@@ -98,6 +100,7 @@ const activeOrders = [
     total: 145000,
     time: '12:30',
     status: 'active',
+    awaitingPayment: false,
     orderItems: [
       { productId: '1', name: "O'zbek oshi", price: 45000, quantity: 2 },
       { productId: '7', name: 'Achichuk', price: 15000, quantity: 1 },
@@ -111,6 +114,7 @@ const activeOrders = [
     total: 275000,
     time: '13:15',
     status: 'active',
+    awaitingPayment: true,
     orderItems: [
       { productId: '2', name: 'Samarqand oshi', price: 50000, quantity: 3 },
       { productId: '4', name: 'Shashlik (1 shish)', price: 25000, quantity: 4 },
@@ -118,9 +122,24 @@ const activeOrders = [
       { productId: '14', name: 'Qora choy', price: 8000, quantity: 3 },
     ]
   },
+  {
+    tableId: '4',
+    tableNumber: 4,
+    items: 2,
+    total: 80000,
+    time: '14:00',
+    status: 'active',
+    awaitingPayment: true,
+    orderItems: [
+      { productId: '5', name: "Lag'mon", price: 38000, quantity: 1 },
+      { productId: '9', name: "Ovqat salati", price: 22000, quantity: 1 },
+      { productId: '13', name: "Ko'k choy", price: 8000, quantity: 2 },
+    ]
+  },
 ];
 
 export default function App() {
+  const { isAuthenticated, currentShift } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>('order-type');
   const [orderType, setOrderType] = useState<OrderType | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
@@ -133,16 +152,64 @@ export default function App() {
   const [currentOrder, setCurrentOrder] = useState<typeof activeOrders[0] | null>(null);
   const [isLocked, setIsLocked] = useState(false);
 
+  // Bill editing states
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
+  const [serviceCharge, setServiceCharge] = useState(0);
+  const [showBillEditor, setShowBillEditor] = useState(false);
+
+  // Change calculator states
+  const [cashReceived, setCashReceived] = useState('');
+  const [showChangeCalculator, setShowChangeCalculator] = useState(false);
+
   const {
     items,
     addItem,
     removeItem,
     updateQuantity,
     clearCart,
-    getSubtotal,
-    getTotal,
+    getTotal: getCartTotal,
     getItemCount,
   } = useCartStore();
+
+  // Enhanced getTotal with discount and service charge
+  const getTotal = () => {
+    const subtotal = getCartTotal();
+    let total = subtotal;
+
+    // Apply discount
+    if (discount > 0) {
+      if (discountType === 'percent') {
+        total -= (subtotal * discount) / 100;
+      } else {
+        total -= discount;
+      }
+    }
+
+    // Apply service charge
+    if (serviceCharge > 0) {
+      total += (total * serviceCharge) / 100;
+    }
+
+    return Math.max(0, total);
+  };
+
+  const getDiscountAmount = () => {
+    const subtotal = getCartTotal();
+    if (discount === 0) return 0;
+
+    if (discountType === 'percent') {
+      return (subtotal * discount) / 100;
+    }
+    return discount;
+  };
+
+  const getServiceChargeAmount = () => {
+    if (serviceCharge === 0) return 0;
+    const subtotal = getCartTotal();
+    const discountedTotal = subtotal - getDiscountAmount();
+    return (discountedTotal * serviceCharge) / 100;
+  };
 
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory ? p.categoryId === selectedCategory : true;
@@ -239,6 +306,16 @@ export default function App() {
   };
 
   const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+
+  // Login check
+  if (!isAuthenticated || !currentShift) {
+    return <Login onLoginSuccess={() => {}} />;
+  }
+
+  // Reports page
+  if (currentStep === 'reports') {
+    return <Reports onBack={() => setCurrentStep('order-type')} />;
+  }
 
   // Lock tugmasi va overlay (barcha ekranlarda ko'rinadi)
   const lockElements = (
@@ -405,13 +482,22 @@ export default function App() {
               </span>
             </div>
             {currentStep === 'order-type' && (
-              <button
-                onClick={() => setShowOrderTypeModal(true)}
-                className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
-              >
-                <Plus size={16} />
-                Buyurtma berish
-              </button>
+              <>
+                <button
+                  onClick={() => setCurrentStep('reports')}
+                  className="flex items-center gap-2 rounded-lg bg-purple-500 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600 transition-colors"
+                >
+                  <BarChart3 size={16} />
+                  Hisobotlar
+                </button>
+                <button
+                  onClick={() => setShowOrderTypeModal(true)}
+                  className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+                >
+                  <Plus size={16} />
+                  Buyurtma berish
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -469,65 +555,142 @@ export default function App() {
           <div className="mx-auto max-w-6xl space-y-8">
             {/* Faol buyurtmalar */}
             {activeOrders.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold">Faol buyurtmalar</h2>
-                  <span className="text-sm text-slate-400">
-                    {activeOrders.length} ta stol band
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activeOrders.map((order) => (
-                    <button
-                      key={order.tableId}
-                      onClick={() => {
-                        const table = tables.find((t) => t.id === order.tableId);
-                        if (table) {
-                          setOrderType('dine-in');
-                          setSelectedTable(table);
-                          setCurrentOrder(order);
-                          // Eski buyurtma mahsulotlarini savatga yuklash
-                          clearCart();
-                          order.orderItems.forEach(item => {
-                            const product = products.find(p => p.id === item.productId);
-                            if (product) {
-                              for (let i = 0; i < item.quantity; i++) {
-                                addItem(product as any);
-                              }
-                            }
-                          });
-                          setCurrentStep('order-detail');
-                        }
-                      }}
-                      className="group relative flex flex-col rounded-xl border-2 border-orange-500/30 bg-orange-500/5 p-4 transition-all hover:border-orange-500 hover:bg-orange-500/10"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/20">
-                            <Utensils className="h-5 w-5 text-orange-400" />
-                          </div>
-                          <div className="text-left">
-                            <p className="text-lg font-bold text-white">Stol #{order.tableNumber}</p>
-                            <p className="text-xs text-slate-400">{order.time}</p>
-                          </div>
-                        </div>
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 animate-pulse">
-                          <Clock size={14} className="text-white" />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">{order.items} ta mahsulot</span>
-                        <span className="text-lg font-bold text-orange-400">
-                          {formatPrice(order.total)}
+              <div className="space-y-6">
+                {/* To'lov kutayotgan stollar */}
+                {activeOrders.some((o) => o.awaitingPayment) && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold">To'lov kutayotgan stollar</h2>
+                        <span className="flex h-6 items-center gap-1 rounded-full bg-yellow-500/20 px-2 text-xs font-medium text-yellow-400 animate-pulse">
+                          <AlertCircle size={12} />
+                          {activeOrders.filter((o) => o.awaitingPayment).length}
                         </span>
                       </div>
-                      <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-green-500 px-2 text-xs font-medium text-white">
-                        <CheckCircle size={12} />
-                        Faol
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {activeOrders
+                        .filter((o) => o.awaitingPayment)
+                        .map((order) => (
+                          <button
+                            key={order.tableId}
+                            onClick={() => {
+                              const table = tables.find((t) => t.id === order.tableId);
+                              if (table) {
+                                setOrderType('dine-in');
+                                setSelectedTable(table);
+                                setCurrentOrder(order);
+                                clearCart();
+                                order.orderItems.forEach((item) => {
+                                  const product = products.find((p) => p.id === item.productId);
+                                  if (product) {
+                                    for (let i = 0; i < item.quantity; i++) {
+                                      addItem(product as any);
+                                    }
+                                  }
+                                });
+                                setCurrentStep('order-detail');
+                              }
+                            }}
+                            className="group relative flex flex-col rounded-xl border-2 border-yellow-500/30 bg-yellow-500/10 p-4 transition-all hover:border-yellow-500 hover:bg-yellow-500/20"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/20">
+                                  <DollarSign className="h-5 w-5 text-yellow-400" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-lg font-bold text-white">
+                                    Stol #{order.tableNumber}
+                                  </p>
+                                  <p className="text-xs text-slate-400">{order.time}</p>
+                                </div>
+                              </div>
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 animate-pulse">
+                                <AlertCircle size={14} className="text-white" />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">{order.items} ta mahsulot</span>
+                              <span className="text-lg font-bold text-yellow-400">
+                                {formatPrice(order.total)}
+                              </span>
+                            </div>
+                            <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-yellow-500 px-2 text-xs font-medium text-white animate-pulse">
+                              To'lov kutilmoqda
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Boshqa ochiq stollar */}
+                {activeOrders.some((o) => !o.awaitingPayment) && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-bold">Ochiq stollar</h2>
+                      <span className="text-sm text-slate-400">
+                        {activeOrders.filter((o) => !o.awaitingPayment).length} ta stol
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {activeOrders
+                        .filter((o) => !o.awaitingPayment)
+                        .map((order) => (
+                          <button
+                            key={order.tableId}
+                            onClick={() => {
+                              const table = tables.find((t) => t.id === order.tableId);
+                              if (table) {
+                                setOrderType('dine-in');
+                                setSelectedTable(table);
+                                setCurrentOrder(order);
+                                clearCart();
+                                order.orderItems.forEach((item) => {
+                                  const product = products.find((p) => p.id === item.productId);
+                                  if (product) {
+                                    for (let i = 0; i < item.quantity; i++) {
+                                      addItem(product as any);
+                                    }
+                                  }
+                                });
+                                setCurrentStep('order-detail');
+                              }
+                            }}
+                            className="group relative flex flex-col rounded-xl border-2 border-orange-500/30 bg-orange-500/5 p-4 transition-all hover:border-orange-500 hover:bg-orange-500/10"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/20">
+                                  <Utensils className="h-5 w-5 text-orange-400" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-lg font-bold text-white">
+                                    Stol #{order.tableNumber}
+                                  </p>
+                                  <p className="text-xs text-slate-400">{order.time}</p>
+                                </div>
+                              </div>
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 animate-pulse">
+                                <Clock size={14} className="text-white" />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-slate-400">{order.items} ta mahsulot</span>
+                              <span className="text-lg font-bold text-orange-400">
+                                {formatPrice(order.total)}
+                              </span>
+                            </div>
+                            <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-green-500 px-2 text-xs font-medium text-white">
+                              <CheckCircle size={12} />
+                              Faol
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -718,7 +881,106 @@ export default function App() {
           <div className="mx-auto max-w-3xl">
             {/* Order Summary */}
             <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6 mb-6">
-              <h3 className="text-lg font-bold mb-4">Buyurtma xulosasi</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">Buyurtma xulosasi</h3>
+                <button
+                  onClick={() => setShowBillEditor(!showBillEditor)}
+                  className="flex items-center gap-2 rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
+                >
+                  <DollarSign size={14} />
+                  {showBillEditor ? 'Berkitish' : 'Tahrirlash'}
+                </button>
+              </div>
+
+              {/* Bill Editor */}
+              {showBillEditor && (
+                <div className="mb-4 space-y-3 rounded-lg bg-slate-900/50 p-4 border border-slate-700">
+                  {/* Discount */}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-300">
+                      Chegirma
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={discount || ''}
+                        onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={() =>
+                          setDiscountType(discountType === 'percent' ? 'fixed' : 'percent')
+                        }
+                        className={`flex items-center gap-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                          discountType === 'percent'
+                            ? 'border-orange-500 bg-orange-500/10 text-orange-400'
+                            : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {discountType === 'percent' ? (
+                          <>
+                            <Percent size={14} />%
+                          </>
+                        ) : (
+                          <>
+                            <DollarSign size={14} />
+                            so'm
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Service Charge */}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-300">
+                      Servis haq (%)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={serviceCharge || ''}
+                        onChange={(e) => setServiceCharge(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        max="100"
+                        className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                      />
+                      <div className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-4 text-slate-400">
+                        %
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Remove Item */}
+                  {items.length > 0 && (
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-slate-300">
+                        Mahsulotni o'chirish
+                      </label>
+                      <div className="space-y-2">
+                        {items.map((item) => (
+                          <button
+                            key={item.product.id}
+                            onClick={() => removeItem(item.product.id)}
+                            className="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-2 text-sm hover:bg-red-500/10 hover:border-red-500/30 transition-colors group"
+                          >
+                            <span className="text-white">{item.product.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400">x{item.quantity}</span>
+                              <X
+                                size={14}
+                                className="text-slate-500 group-hover:text-red-400"
+                              />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex justify-between text-sm">
@@ -729,9 +991,34 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-700 flex justify-between">
-                <span className="text-xl font-bold">Jami:</span>
-                <span className="text-xl font-bold text-orange-400">{formatPrice(getTotal())}</span>
+
+              {/* Bill Summary */}
+              <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
+                <div className="flex justify-between text-sm text-slate-400">
+                  <span>Mahsulotlar:</span>
+                  <span>{formatPrice(getCartTotal())}</span>
+                </div>
+
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-400">
+                    <span>
+                      Chegirma ({discountType === 'percent' ? `${discount}%` : 'qat\'iy'}):
+                    </span>
+                    <span>-{formatPrice(getDiscountAmount())}</span>
+                  </div>
+                )}
+
+                {serviceCharge > 0 && (
+                  <div className="flex justify-between text-sm text-blue-400">
+                    <span>Servis haq ({serviceCharge}%):</span>
+                    <span>+{formatPrice(getServiceChargeAmount())}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-700">
+                  <span>Jami:</span>
+                  <span className="text-orange-400">{formatPrice(getTotal())}</span>
+                </div>
               </div>
             </div>
 
@@ -794,7 +1081,16 @@ export default function App() {
 
               {/* Stol yopish (to'lov bilan) */}
               <button
-                onClick={() => paymentMethod && handlePaymentSelect(paymentMethod)}
+                onClick={() => {
+                  if (!paymentMethod) return;
+
+                  // Naqd to'lov uchun qaytim kalkulyatorini ko'rsatish
+                  if (paymentMethod === 'cash') {
+                    setShowChangeCalculator(true);
+                  } else {
+                    handlePaymentSelect(paymentMethod);
+                  }
+                }}
                 disabled={!paymentMethod}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-500 py-4 font-semibold text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -811,6 +1107,91 @@ export default function App() {
                 )}
               </button>
             </div>
+
+            {/* Change Calculator Modal */}
+            {showChangeCalculator && paymentMethod === 'cash' && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+                  <div className="mb-6 text-center">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
+                      <Calculator className="h-8 w-8 text-green-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">Naqd to'lov</h2>
+                    <p className="mt-2 text-slate-400">Olingan summani kiriting</p>
+                  </div>
+
+                  <div className="mb-6 space-y-4">
+                    {/* Total Amount */}
+                    <div className="rounded-lg bg-slate-800/50 p-4">
+                      <p className="text-sm text-slate-400">To'lov summasi</p>
+                      <p className="text-3xl font-bold text-orange-400">{formatPrice(getTotal())}</p>
+                    </div>
+
+                    {/* Cash Received */}
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-slate-300">
+                        Olingan summa (so'm)
+                      </label>
+                      <input
+                        type="number"
+                        value={cashReceived}
+                        onChange={(e) => setCashReceived(e.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white text-lg placeholder:text-slate-500 focus:border-green-500 focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Change */}
+                    {cashReceived && parseFloat(cashReceived) >= getTotal() && (
+                      <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-4 animate-in fade-in-0">
+                        <p className="text-sm text-green-400">Qaytim</p>
+                        <p className="text-3xl font-bold text-green-400">
+                          {formatPrice(parseFloat(cashReceived) - getTotal())}
+                        </p>
+                      </div>
+                    )}
+
+                    {cashReceived && parseFloat(cashReceived) < getTotal() && (
+                      <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
+                        <p className="text-sm text-red-400">Yetarli emas</p>
+                        <p className="text-lg font-bold text-red-400">
+                          Yana {formatPrice(getTotal() - parseFloat(cashReceived))} kerak
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowChangeCalculator(false);
+                        setCashReceived('');
+                      }}
+                      className="flex-1 rounded-xl border border-slate-700 py-3 font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    >
+                      Bekor qilish
+                    </button>
+                    <button
+                      onClick={() => {
+                        const received = parseFloat(cashReceived);
+                        if (received >= getTotal()) {
+                          setShowChangeCalculator(false);
+                          handlePaymentSelect('cash');
+                          setCashReceived('');
+                        } else {
+                          alert('Yetarli summa kiritilmagan!');
+                        }
+                      }}
+                      disabled={!cashReceived || parseFloat(cashReceived) < getTotal()}
+                      className="flex-1 rounded-xl bg-green-500 py-3 font-semibold text-white transition-all hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Tasdiqlash
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ import {
   ArrowDownRight,
   MoreHorizontal,
 } from 'lucide-react';
+import { Select } from '@/components/ui/select';
 
 const stats = [
   {
@@ -68,22 +69,28 @@ const topProducts = [
 ];
 
 export function DashboardPage() {
+  const periodOptions = [
+    { value: 'today', label: 'Bugun' },
+    { value: 'week', label: 'Hafta' },
+    { value: 'month', label: 'Oy' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Dashboard</h1>
+          <p className="text-gray-500 dark:text-slate-400 text-sm">
             Bugungi statistika va umumiy ko'rsatkichlar
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <select className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 focus:border-[#FF5722] focus:outline-none">
-            <option>Bugun</option>
-            <option>Hafta</option>
-            <option>Oy</option>
-          </select>
+          <Select
+            options={periodOptions}
+            value="today"
+            className="w-32"
+          />
         </div>
       </div>
 
@@ -94,21 +101,21 @@ export function DashboardPage() {
           return (
             <div
               key={stat.title}
-              className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+              className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.lightBg}`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.lightBg} dark:bg-opacity-20`}>
                   <Icon className={`h-6 w-6 ${stat.bgColor.replace('bg-', 'text-')}`} />
                 </div>
-                <button className="text-gray-400 hover:text-gray-600">
+                <button className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
                   <MoreHorizontal size={20} />
                 </button>
               </div>
               <div className="mt-4">
-                <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-slate-400">{stat.title}</p>
                 <div className="mt-1 flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-gray-900">{stat.value}</span>
-                  {stat.unit && <span className="text-sm text-gray-500">{stat.unit}</span>}
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</span>
+                  {stat.unit && <span className="text-sm text-gray-500 dark:text-slate-400">{stat.unit}</span>}
                 </div>
                 <div className="mt-2 flex items-center gap-1 text-sm">
                   {stat.changeType === 'positive' ? (
@@ -123,7 +130,7 @@ export function DashboardPage() {
                   >
                     {stat.change}
                   </span>
-                  <span className="text-gray-400">kechagidan</span>
+                  <span className="text-gray-400 dark:text-slate-400">kechagidan</span>
                 </div>
               </div>
             </div>
@@ -134,11 +141,11 @@ export function DashboardPage() {
       {/* Recent Orders & Top Products */}
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Recent Orders */}
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div className="rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 px-5 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800">So'nggi buyurtmalar</h2>
-              <p className="text-sm text-gray-500">Oxirgi 5 ta buyurtma</p>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">So'nggi buyurtmalar</h2>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Oxirgi 5 ta buyurtma</p>
             </div>
             <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
               Barchasini ko'rish
@@ -149,22 +156,22 @@ export function DashboardPage() {
               {recentOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3 hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF5722]/10">
                       <ShoppingCart className="h-5 w-5 text-[#FF5722]" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-800">{order.id}</p>
-                      <p className="text-sm text-gray-500">{order.table}</p>
+                      <p className="font-medium text-gray-800 dark:text-white">{order.id}</p>
+                      <p className="text-sm text-gray-500 dark:text-slate-400">{order.table}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-800">
+                    <p className="font-semibold text-gray-800 dark:text-white">
                       {order.total.toLocaleString()} so'm
                     </p>
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${order.statusColor}`}>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${order.statusColor} dark:opacity-90`}>
                       {order.status}
                     </span>
                   </div>
@@ -175,11 +182,11 @@ export function DashboardPage() {
         </div>
 
         {/* Top Products */}
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div className="rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 px-5 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800">Top mahsulotlar</h2>
-              <p className="text-sm text-gray-500">Bugungi kun uchun</p>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Top mahsulotlar</h2>
+              <p className="text-sm text-gray-500 dark:text-slate-400">Bugungi kun uchun</p>
             </div>
             <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
               Barchasini ko'rish
@@ -190,26 +197,26 @@ export function DashboardPage() {
               {topProducts.map((product, index) => (
                 <div
                   key={product.name}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3 hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-[#FF5722]/10 to-[#E91E63]/10 text-xl">
                       {product.image}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-800">{product.name}</p>
-                      <p className="text-sm text-gray-500">{product.quantity} ta sotildi</p>
+                      <p className="font-medium text-gray-800 dark:text-white">{product.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-slate-400">{product.quantity} ta sotildi</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <p className="font-semibold text-gray-800">
+                    <p className="font-semibold text-gray-800 dark:text-white">
                       {product.revenue.toLocaleString()} so'm
                     </p>
                     <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                      index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                      index === 1 ? 'bg-gray-200 text-gray-700' :
-                      index === 2 ? 'bg-orange-100 text-orange-700' :
-                      'bg-gray-100 text-gray-500'
+                      index === 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      index === 1 ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
+                      index === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                      'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                     }`}>
                       {index + 1}
                     </div>

@@ -23,12 +23,19 @@ import { cn } from '@/lib/utils';
 // Stol holatlari
 type TableStatus = 'FREE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING';
 
+interface Hall {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface Table {
   id: string;
   number: number;
   name: string;
   capacity: number;
   status: TableStatus;
+  hallId: string;
   currentOrder?: {
     id: string;
     total: number;
@@ -46,7 +53,15 @@ interface TableFormData {
   number: number;
   name: string;
   capacity: number;
+  hallId: string;
 }
+
+// Mock halls
+const mockHalls: Hall[] = [
+  { id: 'h1', name: 'Ichki zal', description: 'Asosiy restoran zali' },
+  { id: 'h2', name: 'Yozgi zal', description: 'Tashqi ochiq joy' },
+  { id: 'h3', name: 'VIP xona', description: 'Maxsus VIP mehmonlar uchun' },
+];
 
 interface ReservationFormData {
   name: string;
@@ -58,18 +73,18 @@ interface ReservationFormData {
 
 // Mock data
 const mockTables: Table[] = [
-  { id: '1', number: 1, name: 'Oyna yonida', capacity: 4, status: 'OCCUPIED', currentOrder: { id: 'ORD-001', total: 285000, itemsCount: 5, startTime: '14:30' } },
-  { id: '2', number: 2, name: 'Tashqi joy', capacity: 6, status: 'FREE' },
-  { id: '3', number: 3, name: 'VIP 1', capacity: 8, status: 'RESERVED', reservedFor: { name: 'Alisher', time: '19:00', phone: '+998901234567' } },
-  { id: '4', number: 4, name: 'Markazda', capacity: 4, status: 'OCCUPIED', currentOrder: { id: 'ORD-002', total: 156000, itemsCount: 3, startTime: '15:15' } },
-  { id: '5', number: 5, name: 'Bog\'da', capacity: 4, status: 'CLEANING' },
-  { id: '6', number: 6, name: 'Burchak', capacity: 2, status: 'FREE' },
-  { id: '7', number: 7, name: 'VIP 2', capacity: 10, status: 'FREE' },
-  { id: '8', number: 8, name: 'Oshxona yonida', capacity: 4, status: 'OCCUPIED', currentOrder: { id: 'ORD-003', total: 420000, itemsCount: 8, startTime: '13:45' } },
-  { id: '9', number: 9, name: 'Kirish yonida', capacity: 4, status: 'FREE' },
-  { id: '10', number: 10, name: 'Orqa tomon', capacity: 6, status: 'RESERVED', reservedFor: { name: 'Bobur', time: '20:30', phone: '+998909876543' } },
-  { id: '11', number: 11, name: 'Balkon', capacity: 4, status: 'FREE' },
-  { id: '12', number: 12, name: 'Xususiy xona', capacity: 12, status: 'OCCUPIED', currentOrder: { id: 'ORD-004', total: 890000, itemsCount: 15, startTime: '12:00' } },
+  { id: '1', number: 1, name: 'Oyna yonida', capacity: 4, status: 'OCCUPIED', hallId: 'h1', currentOrder: { id: 'ORD-001', total: 285000, itemsCount: 5, startTime: '14:30' } },
+  { id: '2', number: 2, name: 'Tashqi joy', capacity: 6, status: 'FREE', hallId: 'h2' },
+  { id: '3', number: 3, name: 'VIP 1', capacity: 8, status: 'RESERVED', hallId: 'h3', reservedFor: { name: 'Alisher', time: '19:00', phone: '+998901234567' } },
+  { id: '4', number: 4, name: 'Markazda', capacity: 4, status: 'OCCUPIED', hallId: 'h1', currentOrder: { id: 'ORD-002', total: 156000, itemsCount: 3, startTime: '15:15' } },
+  { id: '5', number: 5, name: 'Bog\'da', capacity: 4, status: 'CLEANING', hallId: 'h2' },
+  { id: '6', number: 6, name: 'Burchak', capacity: 2, status: 'FREE', hallId: 'h1' },
+  { id: '7', number: 7, name: 'VIP 2', capacity: 10, status: 'FREE', hallId: 'h3' },
+  { id: '8', number: 8, name: 'Oshxona yonida', capacity: 4, status: 'OCCUPIED', hallId: 'h1', currentOrder: { id: 'ORD-003', total: 420000, itemsCount: 8, startTime: '13:45' } },
+  { id: '9', number: 9, name: 'Kirish yonida', capacity: 4, status: 'FREE', hallId: 'h1' },
+  { id: '10', number: 10, name: 'Orqa tomon', capacity: 6, status: 'RESERVED', hallId: 'h2', reservedFor: { name: 'Bobur', time: '20:30', phone: '+998909876543' } },
+  { id: '11', number: 11, name: 'Balkon', capacity: 4, status: 'FREE', hallId: 'h2' },
+  { id: '12', number: 12, name: 'Xususiy xona', capacity: 12, status: 'OCCUPIED', hallId: 'h3', currentOrder: { id: 'ORD-004', total: 890000, itemsCount: 15, startTime: '12:00' } },
 ];
 
 const statusConfig: Record<TableStatus, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
@@ -81,9 +96,11 @@ const statusConfig: Record<TableStatus, { label: string; color: string; bgColor:
 
 export function TablesPage() {
   const [tables, setTables] = useState<Table[]>(mockTables);
+  const [halls, setHalls] = useState<Hall[]>(mockHalls);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TableStatus | 'ALL'>('ALL');
+  const [hallFilter, setHallFilter] = useState<string>('ALL');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Modal states
@@ -92,10 +109,12 @@ export function TablesPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isHallModalOpen, setIsHallModalOpen] = useState(false);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [hallFormData, setHallFormData] = useState({ name: '', description: '' });
 
   // Form states
-  const [formData, setFormData] = useState<TableFormData>({ number: 0, name: '', capacity: 4 });
+  const [formData, setFormData] = useState<TableFormData>({ number: 0, name: '', capacity: 4, hallId: 'h1' });
   const [reservationData, setReservationData] = useState<ReservationFormData>({
     name: '', phone: '', time: '', date: '', guests: 2
   });
@@ -106,7 +125,8 @@ export function TablesPage() {
       table.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       table.number.toString().includes(searchQuery);
     const matchesStatus = statusFilter === 'ALL' || table.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesHall = hallFilter === 'ALL' || table.hallId === hallFilter;
+    return matchesSearch && matchesStatus && matchesHall;
   });
 
   // Statistika
@@ -135,10 +155,35 @@ export function TablesPage() {
     setActiveDropdown(null);
   };
 
+  // Hall management
+  const handleAddHall = () => {
+    setHallFormData({ name: '', description: '' });
+    setIsHallModalOpen(true);
+  };
+
+  const handleSaveHall = () => {
+    if (!hallFormData.name) return;
+    const newHall: Hall = {
+      id: `h${Date.now()}`,
+      name: hallFormData.name,
+      description: hallFormData.description || undefined,
+    };
+    setHalls((prev) => [...prev, newHall]);
+    setIsHallModalOpen(false);
+  };
+
+  const handleDeleteHall = (hallId: string) => {
+    if (tables.some((t) => t.hallId === hallId)) {
+      alert('Bu zalda stollar bor! Avval stollarni ko\'chiring.');
+      return;
+    }
+    setHalls((prev) => prev.filter((h) => h.id !== hallId));
+  };
+
   // Add new table
   const handleAddTable = () => {
     const maxNumber = Math.max(...tables.map(t => t.number), 0);
-    setFormData({ number: maxNumber + 1, name: '', capacity: 4 });
+    setFormData({ number: maxNumber + 1, name: '', capacity: 4, hallId: halls[0]?.id || 'h1' });
     setIsAddModalOpen(true);
   };
 
@@ -149,16 +194,17 @@ export function TablesPage() {
       name: formData.name || `Stol ${formData.number}`,
       capacity: formData.capacity,
       status: 'FREE',
+      hallId: formData.hallId,
     };
     setTables((prev) => [...prev, newTable]);
     setIsAddModalOpen(false);
-    setFormData({ number: 0, name: '', capacity: 4 });
+    setFormData({ number: 0, name: '', capacity: 4, hallId: halls[0]?.id || 'h1' });
   };
 
   // Edit table
   const handleEditTable = (table: Table) => {
     setSelectedTable(table);
-    setFormData({ number: table.number, name: table.name, capacity: table.capacity });
+    setFormData({ number: table.number, name: table.name, capacity: table.capacity, hallId: table.hallId });
     setIsEditModalOpen(true);
     setActiveDropdown(null);
   };
@@ -168,7 +214,7 @@ export function TablesPage() {
     setTables((prev) =>
       prev.map((t) =>
         t.id === selectedTable.id
-          ? { ...t, number: formData.number, name: formData.name, capacity: formData.capacity }
+          ? { ...t, number: formData.number, name: formData.name, capacity: formData.capacity, hallId: formData.hallId }
           : t
       )
     );
@@ -234,13 +280,22 @@ export function TablesPage() {
           <h1 className="text-2xl font-bold text-gray-800">Stollar</h1>
           <p className="text-sm text-gray-500">Restoran stollarini boshqarish</p>
         </div>
-        <button
-          onClick={handleAddTable}
-          className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
-        >
-          <Plus size={18} />
-          <span>Yangi stol</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleAddHall}
+            className="flex items-center justify-center gap-2 rounded-lg border border-[#FF5722] px-4 py-2.5 text-sm font-medium text-[#FF5722] hover:bg-orange-50 transition-colors"
+          >
+            <Plus size={18} />
+            <span>Yangi zal</span>
+          </button>
+          <button
+            onClick={handleAddTable}
+            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
+          >
+            <Plus size={18} />
+            <span>Yangi stol</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -304,6 +359,50 @@ export function TablesPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Hall Filter */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setHallFilter('ALL')}
+          className={cn(
+            'rounded-lg px-4 py-2 text-sm font-medium transition-colors border',
+            hallFilter === 'ALL'
+              ? 'bg-[#FF5722] text-white border-[#FF5722]'
+              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+          )}
+        >
+          Barcha zallar ({tables.length})
+        </button>
+        {halls.map((hall) => {
+          const count = tables.filter((t) => t.hallId === hall.id).length;
+          return (
+            <button
+              key={hall.id}
+              onClick={() => setHallFilter(hall.id)}
+              className={cn(
+                'rounded-lg px-4 py-2 text-sm font-medium transition-colors border group relative',
+                hallFilter === hall.id
+                  ? 'bg-[#FF5722] text-white border-[#FF5722]'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              )}
+            >
+              {hall.name} ({count})
+              {hallFilter === hall.id && count === 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteHall(hall.id);
+                    setHallFilter('ALL');
+                  }}
+                  className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/30 text-white hover:bg-white/50"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters & View Toggle */}
@@ -653,6 +752,18 @@ export function TablesPage() {
 
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zal</label>
+                <select
+                  value={formData.hallId}
+                  onChange={(e) => setFormData({ ...formData, hallId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                >
+                  {halls.map((hall) => (
+                    <option key={hall.id} value={hall.id}>{hall.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Stol raqami</label>
                 <input
                   type="number"
@@ -713,6 +824,18 @@ export function TablesPage() {
             </div>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zal</label>
+                <select
+                  value={formData.hallId}
+                  onChange={(e) => setFormData({ ...formData, hallId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                >
+                  {halls.map((hall) => (
+                    <option key={hall.id} value={hall.id}>{hall.name}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Stol raqami</label>
                 <input
@@ -884,6 +1007,87 @@ export function TablesPage() {
                 className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Bron qilish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hall Modal */}
+      {isHallModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Yangi zal qo'shish</h2>
+              <button onClick={() => setIsHallModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zal nomi *</label>
+                <input
+                  type="text"
+                  value={hallFormData.name}
+                  onChange={(e) => setHallFormData({ ...hallFormData, name: e.target.value })}
+                  placeholder="Masalan: Yozgi terassa"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tavsif</label>
+                <input
+                  type="text"
+                  value={hallFormData.description}
+                  onChange={(e) => setHallFormData({ ...hallFormData, description: e.target.value })}
+                  placeholder="Qisqacha tavsif"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Mavjud zallar */}
+            {halls.length > 0 && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Mavjud zallar</p>
+                <div className="space-y-2">
+                  {halls.map((hall) => {
+                    const count = tables.filter((t) => t.hallId === hall.id).length;
+                    return (
+                      <div key={hall.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{hall.name}</p>
+                          <p className="text-xs text-gray-500">{count} ta stol</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteHall(hall.id)}
+                          disabled={count > 0}
+                          className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={count > 0 ? 'Avval stollarni ko\'chiring' : 'O\'chirish'}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsHallModalOpen(false)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+              >
+                Yopish
+              </button>
+              <button
+                onClick={handleSaveHall}
+                disabled={!hallFormData.name}
+                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Qo'shish
               </button>
             </div>
           </div>

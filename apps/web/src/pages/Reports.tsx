@@ -13,6 +13,11 @@ import {
   PieChart,
   FileText,
   Printer,
+  Banknote,
+  CreditCard,
+  Smartphone,
+  QrCode,
+  Utensils,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +57,40 @@ const dailyRevenue = [
 ];
 
 const maxRevenue = Math.max(...dailyRevenue.map(d => d.amount));
+
+const paymentMethodStats = [
+  { name: 'Naqd pul', amount: 18500000, count: 520, icon: Banknote, color: 'text-green-600', bgColor: 'bg-green-100' },
+  { name: 'Karta', amount: 14200000, count: 380, icon: CreditCard, color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  { name: 'Payme', amount: 7800000, count: 210, icon: Smartphone, color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  { name: 'Click', amount: 3500000, count: 95, icon: Smartphone, color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  { name: 'QR kod', amount: 1280000, count: 43, icon: QrCode, color: 'text-orange-600', bgColor: 'bg-orange-100' },
+];
+
+const topWaiters = [
+  { name: 'Jasur O.', orders: 124, revenue: 12500000 },
+  { name: 'Nodira K.', orders: 98, revenue: 9800000 },
+  { name: 'Bobur M.', orders: 85, revenue: 8200000 },
+  { name: 'Aziza R.', orders: 72, revenue: 7100000 },
+];
+
+const hourlyFlow = [
+  { hour: '09', customers: 12 },
+  { hour: '10', customers: 18 },
+  { hour: '11', customers: 35 },
+  { hour: '12', customers: 65 },
+  { hour: '13', customers: 58 },
+  { hour: '14', customers: 42 },
+  { hour: '15', customers: 28 },
+  { hour: '16', customers: 22 },
+  { hour: '17', customers: 35 },
+  { hour: '18', customers: 55 },
+  { hour: '19', customers: 72 },
+  { hour: '20', customers: 68 },
+  { hour: '21', customers: 45 },
+  { hour: '22', customers: 20 },
+];
+
+const maxCustomers = Math.max(...hourlyFlow.map(h => h.customers));
 
 const reportTypes = [
   { id: 'sales', name: 'Sotuv hisoboti', icon: BarChart3, description: 'Kunlik, haftalik, oylik sotuvlar' },
@@ -211,6 +250,86 @@ export function ReportsPage() {
                     </span>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Methods & Waiters & Hourly Flow */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Payment Methods */}
+        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">To'lov usullari</h2>
+          <div className="space-y-3">
+            {paymentMethodStats.map((method) => {
+              const Icon = method.icon;
+              const total = paymentMethodStats.reduce((s, m) => s + m.amount, 0);
+              const pct = ((method.amount / total) * 100).toFixed(1);
+              return (
+                <div key={method.name} className="flex items-center gap-3">
+                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', method.bgColor)}>
+                    <Icon className={cn('h-5 w-5', method.color)} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-medium text-gray-800">{method.name}</p>
+                      <p className="text-sm font-bold text-gray-800">{(method.amount / 1000000).toFixed(1)}M</p>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-gray-100">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{method.count} ta • {pct}%</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Top Waiters */}
+        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">Eng faol ofitsiantlar</h2>
+            <Utensils size={18} className="text-gray-400" />
+          </div>
+          <div className="space-y-4">
+            {topWaiters.map((waiter, index) => (
+              <div key={waiter.name} className="flex items-center gap-3">
+                <div className={cn(
+                  'flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold',
+                  index === 0 ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white' :
+                  index === 1 ? 'bg-gray-200 text-gray-700' :
+                  'bg-gray-100 text-gray-500'
+                )}>
+                  {index + 1}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-800">{waiter.name}</p>
+                  <p className="text-xs text-gray-500">{waiter.orders} ta buyurtma</p>
+                </div>
+                <p className="font-bold text-gray-800">{(waiter.revenue / 1000000).toFixed(1)}M</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hourly Customer Flow */}
+        <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Soat bo'yicha mijoz oqimi</h2>
+          <p className="text-sm text-gray-500 mb-4">Bugungi kun</p>
+          <div className="flex items-end justify-between gap-1 h-40">
+            {hourlyFlow.map((h) => (
+              <div key={h.hour} className="flex flex-1 flex-col items-center gap-1">
+                <span className="text-[10px] font-medium text-gray-500">{h.customers}</span>
+                <div
+                  className="w-full rounded-t bg-gradient-to-t from-[#FF5722]/80 to-[#E91E63]/80 transition-all hover:from-[#FF5722] hover:to-[#E91E63]"
+                  style={{ height: `${(h.customers / maxCustomers) * 100}px` }}
+                />
+                <span className="text-[10px] text-gray-400">{h.hour}</span>
               </div>
             ))}
           </div>

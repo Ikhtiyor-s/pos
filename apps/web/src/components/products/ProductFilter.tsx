@@ -72,19 +72,19 @@ export function ProductFilter({
         <div className="relative flex-1">
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-400"
           />
           <Input
             type="text"
             placeholder="Mahsulot nomini qidiring..."
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+            className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder:text-slate-500"
           />
           {filters.search && (
             <button
               onClick={() => updateFilter('search', '')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:text-slate-400 dark:hover:text-white"
             >
               <X size={16} />
             </button>
@@ -128,8 +128,9 @@ export function ProductFilter({
               updateFilter('sortOrder', filters.sortOrder === 'asc' ? 'desc' : 'asc')
             }
             className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-400 transition-colors',
-              'hover:bg-slate-700 hover:text-white'
+              'flex h-10 w-10 items-center justify-center rounded-lg border transition-colors',
+              'border-gray-300 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+              'dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white'
             )}
             title={filters.sortOrder === 'asc' ? 'O\'sish tartibi' : 'Kamayish tartibi'}
           >

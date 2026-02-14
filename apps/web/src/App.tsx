@@ -10,6 +10,7 @@ import { TablesPage } from '@/pages/Tables';
 import { InventoryPage } from '@/pages/Inventory';
 import { ReportsPage } from '@/pages/Reports';
 import { SettingsPage } from '@/pages/Settings';
+import { EmployeesPage } from '@/pages/Employees';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="orders" element={<OrdersPage />} />
         <Route path="tables" element={<TablesPage />} />
+        <Route path="employees" element={<EmployeesPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />

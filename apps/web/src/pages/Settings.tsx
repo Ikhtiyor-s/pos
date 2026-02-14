@@ -5,7 +5,6 @@ import {
   Bell,
   Shield,
   Palette,
-  Globe,
   CreditCard,
   Printer,
   Wifi,
@@ -18,6 +17,7 @@ import {
   MapPin,
   Clock,
   CheckCircle,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -352,18 +352,177 @@ export function SettingsPage() {
             </div>
           )}
 
-          {(activeSection === 'payment' || activeSection === 'devices' || activeSection === 'integrations' || activeSection === 'backup') && (
-            <div className="rounded-xl bg-white p-12 shadow-sm border border-gray-100 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mx-auto mb-4">
-                {activeSection === 'payment' && <CreditCard className="h-8 w-8 text-gray-400" />}
-                {activeSection === 'devices' && <Printer className="h-8 w-8 text-gray-400" />}
-                {activeSection === 'integrations' && <Wifi className="h-8 w-8 text-gray-400" />}
-                {activeSection === 'backup' && <Database className="h-8 w-8 text-gray-400" />}
+          {activeSection === 'payment' && (
+            <div className="space-y-6">
+              <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">To'lov usullari</h3>
+                <div className="space-y-4">
+                  {[
+                    { label: 'Naqd pul', description: 'Naqd to\'lov qabul qilish' },
+                    { label: 'Bank kartasi', description: 'Visa, MasterCard, UzCard, Humo' },
+                    { label: 'Payme', description: 'Payme orqali QR to\'lov' },
+                    { label: 'Click', description: 'Click orqali to\'lov' },
+                    { label: 'Uzum', description: 'Uzum QR to\'lov' },
+                  ].map((method, index) => (
+                    <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                      <div>
+                        <p className="font-medium text-gray-800">{method.label}</p>
+                        <p className="text-sm text-gray-500">{method.description}</p>
+                      </div>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input type="checkbox" defaultChecked className="peer sr-only" />
+                        <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                {settingsSections.find(s => s.id === activeSection)?.name}
-              </h3>
-              <p className="text-gray-500">Bu bo'lim tez orada qo'shiladi</p>
+            </div>
+          )}
+
+          {activeSection === 'devices' && (
+            <div className="space-y-6">
+              <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Printerlar</h3>
+                <div className="space-y-3">
+                  {[
+                    { name: 'Kassa printer', type: 'Chek printeri', ip: '192.168.1.100', status: 'Ulangan' },
+                    { name: 'Oshxona printer', type: 'Buyurtma printeri', ip: '192.168.1.101', status: 'Ulangan' },
+                  ].map((printer, index) => (
+                    <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
+                          <Printer className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">{printer.name}</p>
+                          <p className="text-xs text-gray-500">{printer.type} • {printer.ip}</p>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                        {printer.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button className="mt-4 flex items-center gap-2 rounded-lg border border-[#FF5722] px-4 py-2 text-sm font-medium text-[#FF5722] hover:bg-orange-50">
+                  <Printer size={16} />
+                  Yangi printer qo'shish
+                </button>
+              </div>
+
+              <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Chek dizayni</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Chek kengligi</label>
+                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none">
+                      <option>80mm</option>
+                      <option>58mm</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Shrift o'lchami</label>
+                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none">
+                      <option>Kichik</option>
+                      <option>O'rta</option>
+                      <option>Katta</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {[
+                    { label: 'Logotipni chiqarish', desc: 'Chek tepasida restoran logotipi' },
+                    { label: 'QR kodni chiqarish', desc: 'Chek tagida fikr bildirish QR kodi' },
+                    { label: 'Rahmat xabari', desc: '"Xaridingiz uchun rahmat!" xabari' },
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{item.label}</p>
+                        <p className="text-xs text-gray-500">{item.desc}</p>
+                      </div>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input type="checkbox" defaultChecked className="peer sr-only" />
+                        <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'integrations' && (
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Tashqi integratsiyalar</h3>
+              <div className="space-y-3">
+                {[
+                  { name: 'Telegram Bot', description: 'Buyurtma bildirishnomalari', status: true },
+                  { name: 'SMS xabar', description: 'Eskertish va tasdiq SMS', status: false },
+                  { name: 'Yetkazib berish', description: 'Tashqi yetkazib berish xizmati', status: false },
+                  { name: 'Buxgalteriya', description: '1C yoki boshqa tizim bilan sinxronlash', status: false },
+                ].map((item, index) => (
+                  <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+                    <div>
+                      <p className="font-medium text-gray-800">{item.name}</p>
+                      <p className="text-xs text-gray-500">{item.description}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        item.status ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      )}>
+                        {item.status ? 'Faol' : 'O\'chirilgan'}
+                      </span>
+                      <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
+                        Sozlash
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'backup' && (
+            <div className="space-y-6">
+              <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Ma'lumotlar zaxirasi</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Tizim ma'lumotlarini zaxiralash va tiklash
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+                    <div>
+                      <p className="font-medium text-gray-800">So'nggi zaxira</p>
+                      <p className="text-sm text-gray-500">2026-02-14 08:00</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                      Muvaffaqiyatli
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+                    <div>
+                      <p className="font-medium text-gray-800">Avtomatik zaxira</p>
+                      <p className="text-sm text-gray-500">Har kuni soat 03:00 da</p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input type="checkbox" defaultChecked className="peer sr-only" />
+                      <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                    </label>
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2 text-sm font-medium text-white hover:brightness-110">
+                    <Database size={16} />
+                    Hozir zaxiralash
+                  </button>
+                  <button className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <Download size={16} />
+                    Yuklab olish
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

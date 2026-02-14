@@ -6,14 +6,11 @@ import {
   AlertTriangle,
   TrendingDown,
   TrendingUp,
-  MoreVertical,
   Edit,
   Trash2,
   History,
   Download,
   Upload,
-  Filter,
-  ArrowUpDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

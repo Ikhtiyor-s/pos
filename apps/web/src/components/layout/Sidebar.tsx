@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Plus,
   Bell,
+  Users,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 
@@ -51,6 +52,12 @@ const menuItems = [
     path: '/tables',
     label: 'Stollar',
     icon: Armchair,
+  },
+  {
+    id: 'employees',
+    path: '/employees',
+    label: 'Xodimlar',
+    icon: Users,
   },
   {
     id: 'inventory',

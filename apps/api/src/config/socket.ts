@@ -20,12 +20,19 @@ export function setupSocket(io: Server) {
       console.log(`👑 ${socket.id} joined admin room`);
     });
 
+    socket.on('join:waiter', () => {
+      socket.join('waiter');
+      console.log(`🍽️ ${socket.id} joined waiter room`);
+    });
+
     // Order events
     socket.on('order:new', (order) => {
       // Notify kitchen about new order
       io.to('kitchen').emit('order:new', order);
       // Notify admin
       io.to('admin').emit('order:new', order);
+      // Notify waiters
+      io.to('waiter').emit('order:new', order);
     });
 
     socket.on('order:status', (data) => {

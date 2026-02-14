@@ -82,11 +82,11 @@ export function CategoryStats({ stats, className }: CategoryStatsProps) {
                 <Icon size={20} className={stat.iconColor} />
               </div>
               <div>
-                <p className="text-sm text-slate-400">{stat.title}</p>
+                <p className="text-sm text-gray-600 dark:text-slate-400">{stat.title}</p>
                 <p className={cn('text-xl font-bold', stat.iconColor)}>
                   {stat.value.toLocaleString()}
                   {stat.suffix && (
-                    <span className="ml-1 text-sm font-normal text-slate-500">
+                    <span className="ml-1 text-sm font-normal text-gray-500 dark:text-slate-500">
                       {stat.suffix}
                     </span>
                   )}
