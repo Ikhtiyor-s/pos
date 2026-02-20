@@ -137,20 +137,20 @@ export function PaymentStep({
   return (
     <div className="space-y-4">
       {/* Buyurtma xulosasi */}
-      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 space-y-2">
-        <h3 className="font-medium text-white mb-3">Buyurtma xulosasi</h3>
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
+        <h3 className="font-medium text-gray-900 mb-3">Buyurtma xulosasi</h3>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">
+          <span className="text-gray-500">
             Mahsulotlar ({orderData.items.length} ta):
           </span>
-          <span className="text-white">{formatPrice(subtotal)} so'm</span>
+          <span className="text-gray-900">{formatPrice(subtotal)} so'm</span>
         </div>
 
         {deliveryFee > 0 && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-400">Yetkazish:</span>
-            <span className="text-white">{formatPrice(deliveryFee)} so'm</span>
+            <span className="text-gray-500">Yetkazish:</span>
+            <span className="text-gray-900">{formatPrice(deliveryFee)} so'm</span>
           </div>
         )}
 
@@ -161,8 +161,8 @@ export function PaymentStep({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-          <span className="font-medium text-white">To'lanishi kerak:</span>
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+          <span className="font-medium text-gray-900">To'lanishi kerak:</span>
           <span className="text-2xl font-bold text-orange-400">
             {formatPrice(total)} so'm
           </span>
@@ -170,16 +170,16 @@ export function PaymentStep({
       </div>
 
       {/* Split to'lov toggle */}
-      <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/50 p-3">
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-3">
         <div className="flex items-center gap-2">
-          <Split size={18} className="text-slate-400" />
-          <span className="text-sm text-white">Bo'lib to'lash</span>
+          <Split size={18} className="text-gray-500" />
+          <span className="text-sm text-gray-900">Bo'lib to'lash</span>
         </div>
         <button
           onClick={() => onSplitToggle(!isSplitPayment)}
           className={cn(
             'relative h-6 w-11 rounded-full transition-colors',
-            isSplitPayment ? 'bg-orange-500' : 'bg-slate-700'
+            isSplitPayment ? 'bg-orange-500' : 'bg-gray-200'
           )}
         >
           <span
@@ -194,7 +194,7 @@ export function PaymentStep({
       {/* To'lov usullari */}
       {!isSplitPayment ? (
         <div>
-          <h3 className="mb-3 text-sm font-medium text-slate-400">To'lov usuli</h3>
+          <h3 className="mb-3 text-sm font-medium text-gray-500">To'lov usuli</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {PAYMENT_METHODS.map((pm) => (
               <button
@@ -204,7 +204,7 @@ export function PaymentStep({
                   'flex flex-col items-center gap-2 rounded-xl border p-4 transition-all',
                   selectedMethod === pm.method
                     ? 'border-orange-500 bg-orange-500/10'
-                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                 )}
               >
                 <div
@@ -212,7 +212,7 @@ export function PaymentStep({
                     'flex h-12 w-12 items-center justify-center rounded-full',
                     selectedMethod === pm.method
                       ? 'bg-orange-500/20 text-orange-400'
-                      : 'bg-slate-700 text-slate-400'
+                      : 'bg-gray-200 text-gray-500'
                   )}
                 >
                   {pm.icon}
@@ -221,12 +221,12 @@ export function PaymentStep({
                   <p
                     className={cn(
                       'font-medium text-sm',
-                      selectedMethod === pm.method ? 'text-orange-400' : 'text-white'
+                      selectedMethod === pm.method ? 'text-orange-400' : 'text-gray-900'
                     )}
                   >
                     {pm.label}
                   </p>
-                  <p className="text-xs text-slate-500">{pm.description}</p>
+                  <p className="text-xs text-gray-400">{pm.description}</p>
                 </div>
               </button>
             ))}
@@ -234,9 +234,9 @@ export function PaymentStep({
 
           {/* Naqd pul uchun qaytim */}
           {selectedMethod === 'cash' && (
-            <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4 space-y-3">
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
               <div>
-                <label className="mb-1.5 block text-sm text-slate-400">
+                <label className="mb-1.5 block text-sm text-gray-500">
                   Qabul qilingan summa
                 </label>
                 <Input
@@ -244,7 +244,7 @@ export function PaymentStep({
                   placeholder="0"
                   value={cashReceived || ''}
                   onChange={(e) => setCashReceived(parseInt(e.target.value) || 0)}
-                  className="bg-slate-700 border-slate-600 text-white text-lg"
+                  className="bg-gray-200 border-gray-300 text-gray-900 text-lg"
                 />
               </div>
 
@@ -258,7 +258,7 @@ export function PaymentStep({
                       'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                       cashReceived === amount
                         ? 'bg-orange-500 text-white'
-                        : 'bg-slate-700 text-slate-400 hover:text-white'
+                        : 'bg-gray-200 text-gray-500 hover:text-gray-900'
                     )}
                   >
                     {formatPrice(amount)}
@@ -267,8 +267,8 @@ export function PaymentStep({
               </div>
 
               {change > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                  <span className="text-slate-400">Qaytim:</span>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <span className="text-gray-500">Qaytim:</span>
                   <span className="text-xl font-bold text-green-400">
                     {formatPrice(change)} so'm
                   </span>
@@ -280,7 +280,7 @@ export function PaymentStep({
       ) : (
         /* Split to'lov */
         <div>
-          <h3 className="mb-3 text-sm font-medium text-slate-400">
+          <h3 className="mb-3 text-sm font-medium text-gray-500">
             Bo'lib to'lash ({formatPrice(splitRemaining)} qoldi)
           </h3>
 
@@ -294,12 +294,12 @@ export function PaymentStep({
                 return (
                   <div
                     key={payment.method}
-                    className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/50 p-3"
+                    className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-slate-400">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-gray-500">
                       {methodInfo?.icon}
                     </div>
-                    <span className="text-sm text-white flex-1">
+                    <span className="text-sm text-gray-900 flex-1">
                       {methodInfo?.label}
                     </span>
                     <Input
@@ -311,7 +311,7 @@ export function PaymentStep({
                           parseInt(e.target.value) || 0
                         )
                       }
-                      className="w-32 h-8 bg-slate-700 border-slate-600 text-white text-sm text-right"
+                      className="w-32 h-8 bg-gray-200 border-gray-300 text-gray-900 text-sm text-right"
                     />
                   </div>
                 );
@@ -326,7 +326,7 @@ export function PaymentStep({
                 <button
                   key={pm.method}
                   onClick={() => addSplitPayment(pm.method)}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-800/30 p-2 text-slate-400 hover:border-orange-500/50 hover:text-orange-400"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-2 text-gray-500 hover:border-orange-500/50 hover:text-orange-400"
                 >
                   {pm.icon}
                   <span className="text-xs">{pm.label}</span>
@@ -338,10 +338,10 @@ export function PaymentStep({
           {/* Split progress */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-slate-400">To'langan:</span>
-              <span className="text-white">{formatPrice(splitTotal)} so'm</span>
+              <span className="text-gray-500">To'langan:</span>
+              <span className="text-gray-900">{formatPrice(splitTotal)} so'm</span>
             </div>
-            <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+            <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
               <div
                 className="h-full bg-orange-500 transition-all"
                 style={{ width: `${Math.min((splitTotal / total) * 100, 100)}%` }}
@@ -357,12 +357,12 @@ export function PaymentStep({
       )}
 
       {/* Harakatlar */}
-      <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <Button
           variant="outline"
           onClick={onBack}
           disabled={isSubmitting}
-          className="border-slate-600 text-slate-400"
+          className="border-gray-300 text-gray-500"
         >
           Orqaga
         </Button>
@@ -370,7 +370,7 @@ export function PaymentStep({
           <Button
             variant="outline"
             disabled={isSubmitting || !canSubmit()}
-            className="border-slate-600 text-slate-400"
+            className="border-gray-300 text-gray-500"
           >
             <Printer size={16} className="mr-2" />
             Chek

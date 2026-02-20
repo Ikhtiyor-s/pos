@@ -27,28 +27,28 @@ export function DeleteCategoryModal({
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
       <div className="text-center">
         {/* Ogohlantirish ikonkasi */}
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
-          <AlertTriangle size={32} className="text-red-400" />
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+          <AlertTriangle size={32} className="text-red-600" />
         </div>
 
         {/* Sarlavha */}
-        <h3 className="mb-2 text-xl font-semibold text-white">
+        <h3 className="mb-2 text-xl font-semibold text-gray-900">
           Kategoriyani o'chirish
         </h3>
 
         {/* Xabar */}
-        <p className="mb-4 text-slate-400">
-          <span className="font-medium text-white">"{category.name}"</span>{' '}
+        <p className="mb-4 text-gray-500">
+          <span className="font-medium text-gray-900">"{category.name}"</span>{' '}
           kategoriyasini o'chirishni xohlaysizmi?
         </p>
 
         {/* Ogohlantirish */}
         {(hasProducts || hasSubcategories) && (
-          <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left">
-            <p className="mb-2 text-sm font-medium text-amber-400">
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-left">
+            <p className="mb-2 text-sm font-medium text-amber-600">
               Diqqat! Bu kategoriyada:
             </p>
-            <ul className="space-y-1 text-sm text-amber-300">
+            <ul className="space-y-1 text-sm text-amber-700">
               {hasProducts && (
                 <li className="flex items-center gap-2">
                   <Package size={14} />
@@ -62,14 +62,14 @@ export function DeleteCategoryModal({
                 </li>
               )}
             </ul>
-            <p className="mt-2 text-xs text-amber-400/80">
+            <p className="mt-2 text-xs text-amber-600/80">
               O'chirilgandan so'ng, mahsulotlar "Kategoriyasiz" ga o'tkaziladi
             </p>
           </div>
         )}
 
         {!hasProducts && !hasSubcategories && (
-          <p className="mb-6 text-sm text-slate-500">
+          <p className="mb-6 text-sm text-gray-400">
             Bu amalni qaytarib bo'lmaydi.
           </p>
         )}
@@ -80,7 +80,7 @@ export function DeleteCategoryModal({
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
-            className="border-slate-700"
+            className="border-gray-200"
           >
             Bekor qilish
           </Button>

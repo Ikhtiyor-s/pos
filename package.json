@@ -13,7 +13,16 @@
     "db:push": "turbo run db:push --filter=@oshxona/database",
     "db:migrate": "turbo run db:migrate --filter=@oshxona/database",
     "db:seed": "turbo run db:seed --filter=@oshxona/database",
-    "db:studio": "turbo run db:studio --filter=@oshxona/database"
+    "db:studio": "turbo run db:studio --filter=@oshxona/database",
+    "build:exe:pos": "cd apps/pos && npm run electron:build",
+    "build:exe:kitchen": "cd apps/kitchen && npm run electron:build",
+    "build:exe:waiter": "cd apps/waiter && npm run electron:build",
+    "build:exe:web": "cd apps/web && npm run electron:build",
+    "build:exe:all": "npm run build:exe:pos && npm run build:exe:kitchen && npm run build:exe:waiter && npm run build:exe:web",
+    "build:apk:pos": "cd apps/pos && npm run cap:build",
+    "build:apk:kitchen": "cd apps/kitchen && npm run cap:build",
+    "build:apk:waiter": "cd apps/waiter && npm run cap:build",
+    "build:apk:web": "cd apps/web && npm run cap:build"
   },
   "workspaces": [
     "apps/*",

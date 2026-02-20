@@ -41,9 +41,9 @@ export function CategoryCard({
     <div
       className={cn(
         'group relative overflow-hidden rounded-xl border transition-all duration-200',
-        'border-gray-200 bg-white dark:border-slate-700 dark:bg-slate-800/50',
-        'hover:border-gray-300 hover:shadow-xl dark:hover:border-slate-600',
-        'hover:shadow-gray-200/50 dark:hover:shadow-black/20',
+        'border-gray-200 bg-white',
+        'hover:border-gray-300 hover:shadow-xl',
+        'hover:shadow-gray-200/50',
         isSelected && 'border-orange-500 ring-2 ring-orange-500/20'
       )}
     >
@@ -55,7 +55,7 @@ export function CategoryCard({
             type="checkbox"
             checked={isSelected}
             onChange={() => onSelect(category.id)}
-            className="h-4 w-4 rounded border-gray-300 bg-white text-orange-500 focus:ring-orange-500 dark:border-slate-600 dark:bg-slate-700"
+            className="h-4 w-4 rounded border-gray-300 bg-white text-orange-500 focus:ring-orange-500"
           />
 
           {/* Ikonka */}
@@ -73,7 +73,7 @@ export function CategoryCard({
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >
             <MoreHorizontal size={18} />
           </button>
@@ -84,13 +84,13 @@ export function CategoryCard({
                 className="fixed inset-0 z-10"
                 onClick={() => setShowMenu(false)}
               />
-              <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+              <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-xl">
                 <button
                   onClick={() => {
                     onView(category);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   <Eye size={16} />
                   Ko'rish
@@ -100,7 +100,7 @@ export function CategoryCard({
                     onEdit(category);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   <Edit size={16} />
                   Tahrirlash
@@ -110,7 +110,7 @@ export function CategoryCard({
                     onDuplicate(category);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   <Copy size={16} />
                   Nusxa olish
@@ -120,7 +120,7 @@ export function CategoryCard({
                     onToggleStatus(category);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   {category.status === 'active' ? (
                     <>
@@ -134,13 +134,13 @@ export function CategoryCard({
                     </>
                   )}
                 </button>
-                <div className="my-1 border-t border-gray-200 dark:border-slate-700" />
+                <div className="my-1 border-t border-gray-200" />
                 <button
                   onClick={() => {
                     onDelete(category);
                     setShowMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50"
                 >
                   <Trash2 size={16} />
                   O'chirish
@@ -154,24 +154,24 @@ export function CategoryCard({
       {/* Content */}
       <div className="px-4 pb-4">
         {/* Nom va tavsif */}
-        <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">{category.name}</h3>
+        <h3 className="mb-1 text-lg font-semibold text-gray-900">{category.name}</h3>
         {category.description && (
-          <p className="mb-3 text-sm text-gray-600 line-clamp-2 dark:text-slate-400">
+          <p className="mb-3 text-sm text-gray-500 line-clamp-2">
             {category.description}
           </p>
         )}
 
         {/* Statistika */}
         <div className="mb-3 flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 text-sm text-gray-500">
             <Package size={14} />
-            <span className="font-medium text-gray-900 dark:text-white">{category.productCount}</span>
+            <span className="font-medium text-gray-900">{category.productCount}</span>
             <span>mahsulot</span>
           </div>
           {category.subcategoryCount > 0 && (
-            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-slate-400">
+            <div className="flex items-center gap-1.5 text-sm text-gray-500">
               <FolderTree size={14} />
-              <span className="font-medium text-gray-900 dark:text-white">{category.subcategoryCount}</span>
+              <span className="font-medium text-gray-900">{category.subcategoryCount}</span>
               <span>ichki</span>
             </div>
           )}
@@ -188,7 +188,7 @@ export function CategoryCard({
               className="h-3 w-3 rounded-full"
               style={{ backgroundColor: category.color }}
             />
-            <span className="text-xs text-gray-500 dark:text-slate-500">
+            <span className="text-xs text-gray-400">
               #{category.displayOrder}
             </span>
           </div>
@@ -256,9 +256,9 @@ export function CategoryGrid({
   if (categories.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <FolderTree size={48} className="mb-4 text-gray-400 dark:text-slate-600" />
-        <p className="text-lg font-medium text-gray-700 dark:text-slate-400">Kategoriya topilmadi</p>
-        <p className="text-sm text-gray-500 dark:text-slate-500">
+        <FolderTree size={48} className="mb-4 text-gray-400" />
+        <p className="text-lg font-medium text-gray-700">Kategoriya topilmadi</p>
+        <p className="text-sm text-gray-400">
           Filtrlarni o'zgartiring yoki yangi kategoriya qo'shing
         </p>
       </div>

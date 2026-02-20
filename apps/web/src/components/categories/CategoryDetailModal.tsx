@@ -56,13 +56,13 @@ export function CategoryDetailModal({
               <Badge variant={category.status === 'active' ? 'success' : 'default'}>
                 {category.status === 'active' ? 'Faol' : 'Nofaol'}
               </Badge>
-              <span className="text-sm text-slate-500">#{category.displayOrder}</span>
+              <span className="text-sm text-gray-400">#{category.displayOrder}</span>
             </div>
 
-            <h2 className="mb-1 text-2xl font-bold text-white">{category.name}</h2>
+            <h2 className="mb-1 text-2xl font-bold text-gray-900">{category.name}</h2>
 
             {category.description && (
-              <p className="text-slate-400">{category.description}</p>
+              <p className="text-gray-500">{category.description}</p>
             )}
 
             {/* Tahrirlash tugmasi */}
@@ -81,33 +81,33 @@ export function CategoryDetailModal({
 
         {/* Statistika */}
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-                <Package size={20} className="text-blue-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+                <Package size={20} className="text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-slate-400">Mahsulotlar</p>
-                <p className="text-xl font-bold text-white">{category.productCount}</p>
+                <p className="text-sm text-gray-500">Mahsulotlar</p>
+                <p className="text-xl font-bold text-gray-900">{category.productCount}</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10">
-                <FolderTree size={20} className="text-purple-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
+                <FolderTree size={20} className="text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-slate-400">Ichki kategoriyalar</p>
-                <p className="text-xl font-bold text-white">
+                <p className="text-sm text-gray-500">Ichki kategoriyalar</p>
+                <p className="text-xl font-bold text-gray-900">
                   {category.subcategoryCount}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center gap-3">
               <div
                 className="flex h-10 w-10 items-center justify-center rounded-lg"
@@ -119,36 +119,36 @@ export function CategoryDetailModal({
                 />
               </div>
               <div>
-                <p className="text-sm text-slate-400">Rang</p>
-                <p className="text-sm font-medium text-white">{category.color}</p>
+                <p className="text-sm text-gray-500">Rang</p>
+                <p className="text-sm font-medium text-gray-900">{category.color}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Sozlamalar */}
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-400">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-500">
             <Printer size={16} />
             Chop etish sozlamalari
           </h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Chekda ko'rsatish</span>
+              <span className="text-gray-500">Chekda ko'rsatish</span>
               <Badge variant={category.showOnReceipt ? 'success' : 'default'}>
                 {category.showOnReceipt ? 'Ha' : 'Yo\'q'}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Alohida bo'lim sifatida</span>
+              <span className="text-gray-500">Alohida bo'lim sifatida</span>
               <Badge variant={category.showAsSection ? 'success' : 'default'}>
                 {category.showAsSection ? 'Ha' : 'Yo\'q'}
               </Badge>
             </div>
             {category.shortName && (
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Qisqartma nom</span>
-                <span className="font-medium text-white">{category.shortName}</span>
+                <span className="text-gray-500">Qisqartma nom</span>
+                <span className="font-medium text-gray-900">{category.shortName}</span>
               </div>
             )}
           </div>
@@ -156,8 +156,8 @@ export function CategoryDetailModal({
 
         {/* Kalit so'zlar */}
         {category.keywords && category.keywords.length > 0 && (
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
               <Tag size={16} />
               Kalit so'zlar
             </h3>
@@ -165,7 +165,7 @@ export function CategoryDetailModal({
               {category.keywords.map((keyword, index) => (
                 <span
                   key={index}
-                  className="rounded-full bg-slate-700 px-3 py-1 text-sm text-slate-300"
+                  className="rounded-full bg-gray-200 px-3 py-1 text-sm text-gray-700"
                 >
                   {keyword}
                 </span>
@@ -175,21 +175,21 @@ export function CategoryDetailModal({
         )}
 
         {/* Sanalar */}
-        <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
             <Calendar size={16} />
             Sanalar
           </h3>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Yaratilgan</span>
-              <span className="font-medium text-white">
+              <span className="text-gray-500">Yaratilgan</span>
+              <span className="font-medium text-gray-900">
                 {formatDate(category.createdAt)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Yangilangan</span>
-              <span className="font-medium text-white">
+              <span className="text-gray-500">Yangilangan</span>
+              <span className="font-medium text-gray-900">
                 {formatDate(category.updatedAt)}
               </span>
             </div>

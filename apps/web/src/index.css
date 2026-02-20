@@ -6,14 +6,14 @@
 
 @layer base {
   :root {
-    /* Soft Light Theme - Easy on Eyes */
+    /* Orange Theme */
     --background: 210 20% 98%;
     --foreground: 215 25% 27%;
     --card: 0 0% 100%;
     --card-foreground: 215 25% 27%;
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 27%;
-    --primary: 14 86% 55%;
+    --primary: 25 95% 53%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 16% 93%;
     --secondary-foreground: 215 20% 35%;
@@ -25,11 +25,11 @@
     --destructive-foreground: 0 0% 100%;
     --border: 214 15% 91%;
     --input: 214 15% 93%;
-    --ring: 14 86% 55%;
+    --ring: 25 95% 53%;
     --radius: 0.75rem;
 
-    /* Softer Custom Colors */
-    --success: 142 69% 42%;
+    /* Custom Colors */
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 86% 54%;
     --warning-foreground: 0 0% 100%;
@@ -42,11 +42,11 @@
     --cyan: 186 88% 45%;
     --cyan-foreground: 0 0% 100%;
 
-    /* Softer Sidebar */
-    --sidebar-bg: 215 28% 17%;
-    --sidebar-foreground: 210 20% 98%;
+    /* Sidebar */
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-foreground: 215 25% 27%;
     --sidebar-muted: 215 15% 60%;
-    --sidebar-border: 215 20% 25%;
+    --sidebar-border: 214 15% 91%;
   }
 }
 
@@ -80,13 +80,13 @@
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* Softer Gradient Backgrounds */
+/* Orange Gradient Backgrounds */
 .gradient-primary {
-  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
 }
 
 .gradient-success {
-  background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .gradient-warning {
@@ -115,18 +115,13 @@
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* Softer Sidebar styling */
-.sidebar-gradient {
-  background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
-}
-
-/* Softer Stats card icon backgrounds */
+/* Stats card icon backgrounds */
 .stat-icon-primary {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(236, 72, 153, 0.12) 100%);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(234, 88, 12, 0.12) 100%);
 }
 
 .stat-icon-success {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(20, 184, 166, 0.12) 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.12) 100%);
 }
 
 .stat-icon-warning {
@@ -141,7 +136,7 @@
   background: linear-gradient(135deg, rgba(167, 139, 250, 0.12) 0%, rgba(192, 132, 252, 0.12) 100%);
 }
 
-/* Softer Badge styles */
+/* Badge styles */
 .badge-primary {
   background: rgba(249, 115, 22, 0.1);
   color: #ea580c;
@@ -166,15 +161,15 @@
   font-weight: 500;
 }
 
-/* Softer Table styles */
+/* Table styles */
 .table-row-hover:hover {
   background: hsl(var(--muted) / 0.4);
   transition: background 0.2s ease;
 }
 
-/* Softer Button gradient */
+/* Button gradient */
 .btn-gradient {
-  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   color: white;
@@ -222,7 +217,7 @@
   animation: pulse-ring 2s ease-in-out infinite;
 }
 
-/* Softer Status badges */
+/* Status badges */
 .status-new {
   background: #dbeafe;
   color: #1e40af;

@@ -120,7 +120,7 @@ export function ReportsPage() {
                 className={cn(
                   'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                   dateRange === range
-                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 )}
               >
@@ -193,7 +193,7 @@ export function ReportsPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 text-sm text-gray-500">
-                <span className="h-3 w-3 rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63]"></span>
+                <span className="h-3 w-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600"></span>
                 Daromad
               </span>
             </div>
@@ -203,7 +203,7 @@ export function ReportsPage() {
               <div key={day.day} className="flex flex-1 flex-col items-center gap-2">
                 <div className="relative w-full flex justify-center">
                   <div
-                    className="w-10 rounded-t-lg bg-gradient-to-t from-[#FF5722] to-[#E91E63] transition-all hover:opacity-80"
+                    className="w-10 rounded-t-lg bg-gradient-to-t from-orange-500 to-orange-600 transition-all hover:opacity-80"
                     style={{ height: `${(day.amount / maxRevenue) * 160}px` }}
                   />
                 </div>
@@ -217,7 +217,7 @@ export function ReportsPage() {
         <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800">Top mahsulotlar</h2>
-            <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
+            <button className="text-sm font-medium text-orange-500 hover:text-orange-500">
               Barchasi
             </button>
           </div>
@@ -278,7 +278,7 @@ export function ReportsPage() {
                     </div>
                     <div className="h-2 w-full rounded-full bg-gray-100">
                       <div
-                        className="h-2 rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63]"
+                        className="h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -301,7 +301,7 @@ export function ReportsPage() {
               <div key={waiter.name} className="flex items-center gap-3">
                 <div className={cn(
                   'flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold',
-                  index === 0 ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white' :
+                  index === 0 ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white' :
                   index === 1 ? 'bg-gray-200 text-gray-700' :
                   'bg-gray-100 text-gray-500'
                 )}>
@@ -326,7 +326,7 @@ export function ReportsPage() {
               <div key={h.hour} className="flex flex-1 flex-col items-center gap-1">
                 <span className="text-[10px] font-medium text-gray-500">{h.customers}</span>
                 <div
-                  className="w-full rounded-t bg-gradient-to-t from-[#FF5722]/80 to-[#E91E63]/80 transition-all hover:from-[#FF5722] hover:to-[#E91E63]"
+                  className="w-full rounded-t bg-gradient-to-t from-orange-500/80 to-orange-500/80 transition-all hover:from-orange-500 hover:to-orange-500"
                   style={{ height: `${(h.customers / maxCustomers) * 100}px` }}
                 />
                 <span className="text-[10px] text-gray-400">{h.hour}</span>
@@ -349,13 +349,13 @@ export function ReportsPage() {
                 className={cn(
                   'flex items-center gap-4 rounded-xl p-4 text-left transition-all border-2',
                   selectedReport === report.id
-                    ? 'border-[#FF5722] bg-orange-50'
+                    ? 'border-orange-500 bg-orange-50'
                     : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                 )}
               >
                 <div className={cn(
                   'flex h-12 w-12 items-center justify-center rounded-lg',
-                  selectedReport === report.id ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63]' : 'bg-gray-100'
+                  selectedReport === report.id ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gray-100'
                 )}>
                   <Icon className={cn('h-6 w-6', selectedReport === report.id ? 'text-white' : 'text-gray-500')} />
                 </div>

@@ -11,8 +11,16 @@ import {
   History,
   Download,
   Upload,
+  ScanLine,
+  CheckCircle,
+  Loader2,
+  X,
+  Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { QRScannerModal } from '@/components/QRScannerModal';
+import { productApiService } from '@/services/product.service';
+import { inventoryApiService } from '@/services/inventory.service';
 
 type StockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
@@ -57,6 +65,100 @@ export function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('Barchasi');
   const [statusFilter, setStatusFilter] = useState<StockStatus | 'ALL'>('ALL');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannedProduct, setScannedProduct] = useState<{
+    id: string;
+    name: string;
+    barcode: string;
+    price: number;
+    costPrice: number;
+    category?: string;
+    description?: string;
+    image?: string;
+  } | null>(null);
+  const [addQuantity, setAddQuantity] = useState('');
+  const [addUnit, setAddUnit] = useState('dona');
+  const [addNotes, setAddNotes] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addSuccess, setAddSuccess] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const handleQRScan = async (barcode: string) => {
+    setScanError(null);
+    setAddSuccess(false);
+    try {
+      const product = await productApiService.getByBarcode(barcode);
+      setScannedProduct({
+        id: product.id,
+        name: product.name,
+        barcode: product.barcode || barcode,
+        price: Number(product.price),
+        costPrice: Number(product.costPrice || 0),
+        category: product.category?.name,
+        description: product.description || undefined,
+        image: product.image || undefined,
+      });
+      setAddQuantity('');
+      setAddUnit('dona');
+      setAddNotes('');
+    } catch {
+      setScanError('Mahsulot topilmadi. QR kodni tekshiring.');
+      setTimeout(() => setScanError(null), 3000);
+    }
+  };
+
+  const handleAddToInventory = async () => {
+    if (!scannedProduct || !addQuantity || Number(addQuantity) <= 0) return;
+
+    setIsAdding(true);
+    try {
+      // Avval ombor mahsuloti bor-yo'qligini tekshiramiz, yo'q bo'lsa yaratamiz
+      let inventoryItem;
+      try {
+        const response = await inventoryApiService.getAll({ search: scannedProduct.barcode });
+        const items = response.data || [];
+        inventoryItem = items.find((i: { sku: string }) => i.sku === scannedProduct.barcode);
+      } catch {
+        // Ignore - item not found
+      }
+
+      if (!inventoryItem) {
+        // Yangi ombor mahsuloti yaratish
+        inventoryItem = await inventoryApiService.create({
+          name: scannedProduct.name,
+          sku: scannedProduct.barcode,
+          unit: addUnit,
+          quantity: 0,
+          costPrice: scannedProduct.costPrice,
+        });
+      }
+
+      // Kirim tranzaksiyasi
+      await inventoryApiService.addTransaction(inventoryItem.id, {
+        type: 'IN',
+        quantity: Number(addQuantity),
+        notes: addNotes || `QR skanerlash orqali qo'shildi: ${scannedProduct.name}`,
+      });
+
+      setAddSuccess(true);
+      setTimeout(() => {
+        setScannedProduct(null);
+        setAddSuccess(false);
+      }, 2000);
+    } catch {
+      setScanError('Omborga qo\'shishda xatolik yuz berdi.');
+      setTimeout(() => setScanError(null), 3000);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const closeScannedModal = () => {
+    setScannedProduct(null);
+    setAddSuccess(false);
+    setAddQuantity('');
+    setAddNotes('');
+  };
 
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -83,6 +185,13 @@ export function InventoryPage() {
           <p className="text-sm text-gray-500">Xomashyolar va inventarizatsiya</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <ScanLine size={16} />
+            QR Skanerlash
+          </button>
           <button className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             <Download size={16} />
             Eksport
@@ -91,7 +200,7 @@ export function InventoryPage() {
             <Upload size={16} />
             Import
           </button>
-          <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:shadow-xl">
+          <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:shadow-xl">
             <Plus size={18} />
             Yangi mahsulot
           </button>
@@ -171,14 +280,14 @@ export function InventoryPage() {
               placeholder="Qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-[#FF5722] focus:outline-none"
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-orange-500 focus:outline-none"
             />
           </div>
 
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-[#FF5722] focus:outline-none"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-orange-500 focus:outline-none"
           >
             {categories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
@@ -193,7 +302,7 @@ export function InventoryPage() {
                 className={cn(
                   'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                   statusFilter === status
-                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 )}
               >
@@ -287,6 +396,179 @@ export function InventoryPage() {
       </div>
 
       {activeDropdown && <div className="fixed inset-0 z-0" onClick={() => setActiveDropdown(null)} />}
+
+      {/* QR Scanner Modal */}
+      <QRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleQRScan}
+        title="Mahsulot QR Skanerlash"
+      />
+
+      {/* Scanned Product - Add to Inventory Modal */}
+      {scannedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+              <h3 className="text-lg font-bold text-white">Omborga qo'shish</h3>
+              <button
+                onClick={closeScannedModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/20 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {addSuccess ? (
+              /* Success State */
+              <div className="flex flex-col items-center gap-4 p-8">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle className="h-8 w-8 text-green-500" />
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-gray-800">Muvaffaqiyatli!</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {scannedProduct.name} - {addQuantity} {addUnit} omborga qo'shildi
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Product Detail + Add Form */
+              <div className="p-6 space-y-5">
+                {/* Product Info */}
+                <div className="rounded-xl bg-gray-50 p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-orange-500/10 to-orange-500/10">
+                      <Package className="h-7 w-7 text-orange-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-800 text-lg">{scannedProduct.name}</h4>
+                      {scannedProduct.description && (
+                        <p className="mt-0.5 text-sm text-gray-500 truncate">{scannedProduct.description}</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {scannedProduct.category && (
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                            {scannedProduct.category}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-mono text-gray-600">
+                          {scannedProduct.barcode}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-white p-2.5 text-center">
+                      <p className="text-xs text-gray-500">Sotish narxi</p>
+                      <p className="font-bold text-gray-800">{scannedProduct.price.toLocaleString()} <span className="text-xs font-normal text-gray-500">so'm</span></p>
+                    </div>
+                    <div className="rounded-lg bg-white p-2.5 text-center">
+                      <p className="text-xs text-gray-500">Tan narxi</p>
+                      <p className="font-bold text-gray-800">{scannedProduct.costPrice.toLocaleString()} <span className="text-xs font-normal text-gray-500">so'm</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quantity Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Miqdor <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex flex-1 items-center rounded-xl border border-gray-200 overflow-hidden">
+                      <button
+                        onClick={() => setAddQuantity(String(Math.max(0, Number(addQuantity) - 1)))}
+                        className="flex h-11 w-11 items-center justify-center border-r border-gray-200 text-gray-500 hover:bg-gray-50"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <input
+                        type="number"
+                        value={addQuantity}
+                        onChange={(e) => setAddQuantity(e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        step="0.1"
+                        className="flex-1 h-11 text-center text-lg font-bold text-gray-800 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        onClick={() => setAddQuantity(String(Number(addQuantity || 0) + 1))}
+                        className="flex h-11 w-11 items-center justify-center border-l border-gray-200 text-gray-500 hover:bg-gray-50"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <select
+                      value={addUnit}
+                      onChange={(e) => setAddUnit(e.target.value)}
+                      className="rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none"
+                    >
+                      <option value="dona">dona</option>
+                      <option value="kg">kg</option>
+                      <option value="litr">litr</option>
+                      <option value="gramm">gramm</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Izoh (ixtiyoriy)
+                  </label>
+                  <input
+                    type="text"
+                    value={addNotes}
+                    onChange={(e) => setAddNotes(e.target.value)}
+                    placeholder="Masalan: Yangi partiya, yetkazib beruvchidan..."
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => {
+                      closeScannedModal();
+                      setIsScannerOpen(true);
+                    }}
+                    className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Yana skanerlash
+                  </button>
+                  <button
+                    onClick={handleAddToInventory}
+                    disabled={isAdding || !addQuantity || Number(addQuantity) <= 0}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 py-3 text-sm font-medium text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAdding ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Qo'shilmoqda...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Omborga qo'shish
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Scan Error Toast */}
+      {scanError && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-red-500 px-4 py-3 text-sm font-medium text-white shadow-lg">
+          {scanError}
+        </div>
+      )}
     </div>
   );
 }

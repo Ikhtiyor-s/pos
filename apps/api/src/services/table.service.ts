@@ -3,9 +3,9 @@ import QRCode from 'qrcode';
 import { AppError } from '../middleware/errorHandler.js';
 
 export class TableService {
-  static async getAll() {
+  static async getAll(tenantId: string) {
     const tables = await prisma.table.findMany({
-      where: { isActive: true },
+      where: { tenantId, isActive: true },
       include: {
         orders: {
           where: {
@@ -28,9 +28,9 @@ export class TableService {
     return tables;
   }
 
-  static async getById(id: string) {
+  static async getById(tenantId: string, id: string) {
     const table = await prisma.table.findUnique({
-      where: { id },
+      where: { id, tenantId },
       include: {
         orders: {
           where: {
@@ -54,16 +54,16 @@ export class TableService {
     return table;
   }
 
-  static async create(data: {
+  static async create(tenantId: string, data: {
     number: number;
     name?: string;
     capacity?: number;
     positionX?: number;
     positionY?: number;
   }) {
-    // Check if table number exists
-    const existing = await prisma.table.findUnique({
-      where: { number: data.number },
+    // Check if table number exists for this tenant
+    const existing = await prisma.table.findFirst({
+      where: { number: data.number, tenantId },
     });
 
     if (existing) {
@@ -75,6 +75,7 @@ export class TableService {
 
     const table = await prisma.table.create({
       data: {
+        tenantId,
         number: data.number,
         name: data.name || `Stol ${data.number}`,
         capacity: data.capacity || 4,
@@ -88,6 +89,7 @@ export class TableService {
   }
 
   static async update(
+    tenantId: string,
     id: string,
     data: {
       name?: string;
@@ -98,18 +100,18 @@ export class TableService {
       isActive?: boolean;
     }
   ) {
-    await this.getById(id);
+    await this.getById(tenantId, id);
 
     const table = await prisma.table.update({
-      where: { id },
+      where: { id, tenantId },
       data,
     });
 
     return table;
   }
 
-  static async delete(id: string) {
-    const table = await this.getById(id);
+  static async delete(tenantId: string, id: string) {
+    const table = await this.getById(tenantId, id);
 
     // Check for active orders
     if (table.orders.length > 0) {
@@ -117,12 +119,12 @@ export class TableService {
     }
 
     await prisma.table.delete({
-      where: { id },
+      where: { id, tenantId },
     });
   }
 
-  static async generateQRCode(id: string) {
-    const table = await this.getById(id);
+  static async generateQRCode(tenantId: string, id: string) {
+    const table = await this.getById(tenantId, id);
 
     const menuUrl = `${process.env.CLIENT_URL}/menu?table=${table.qrCode}`;
 
@@ -142,9 +144,9 @@ export class TableService {
     };
   }
 
-  static async getByQRCode(qrCode: string) {
-    const table = await prisma.table.findUnique({
-      where: { qrCode },
+  static async getByQRCode(tenantId: string, qrCode: string) {
+    const table = await prisma.table.findFirst({
+      where: { qrCode, tenantId },
       include: {
         orders: {
           where: {
@@ -163,11 +165,11 @@ export class TableService {
     return table;
   }
 
-  static async updateStatus(id: string, status: TableStatus) {
-    await this.getById(id);
+  static async updateStatus(tenantId: string, id: string, status: TableStatus) {
+    await this.getById(tenantId, id);
 
     const table = await prisma.table.update({
-      where: { id },
+      where: { id, tenantId },
       data: { status },
     });
 

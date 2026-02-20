@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -53,7 +53,7 @@ export function LoginPage() {
         <div className="mx-auto w-full max-w-md">
           {/* Logo */}
           <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-[#FF5722] to-[#E91E63]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-600">
               <UtensilsCrossed className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -86,7 +86,7 @@ export function LoginPage() {
                   id="email"
                   type="email"
                   placeholder="admin@oshxona.uz"
-                  className="h-12 pl-10 border-gray-300 focus:border-[#FF5722] focus:ring-[#FF5722]"
+                  className="h-12 pl-10 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                   {...register('email')}
                 />
               </div>
@@ -105,7 +105,7 @@ export function LoginPage() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
-                  className="h-12 pl-10 border-gray-300 focus:border-[#FF5722] focus:ring-[#FF5722]"
+                  className="h-12 pl-10 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                   {...register('password')}
                 />
               </div>
@@ -116,17 +116,17 @@ export function LoginPage() {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-sm text-gray-600">
-                <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-[#FF5722] focus:ring-[#FF5722]" />
+                <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500" />
                 Eslab qolish
               </label>
-              <a href="#" className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
-                Parolni unutdingizmi?
-              </a>
+              <Link to="/forgot-password" className="text-sm font-medium text-orange-500 hover:text-orange-600">
+                Forgot Password?
+              </Link>
             </div>
 
             <Button
               type="submit"
-              className="h-12 w-full bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:from-[#F4511E] hover:to-[#D81B60] text-white font-medium text-base"
+              className="h-12 w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium text-base"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -140,8 +140,12 @@ export function LoginPage() {
             </Button>
           </form>
 
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Don't have an account? <Link to="/register" className="font-semibold text-orange-500 hover:text-orange-600">Sign Up</Link>
+          </p>
+
           {/* Demo Credentials */}
-          <div className="mt-6 rounded-xl bg-gray-50 border border-gray-200 p-4">
+          <div className="mt-4 rounded-xl bg-gray-50 border border-gray-200 p-4">
             <p className="text-sm font-semibold text-gray-700 mb-2">Demo kirish:</p>
             <div className="space-y-1 text-sm text-gray-600">
               <p><span className="font-medium">Email:</span> admin@oshxona.uz</p>
@@ -152,7 +156,7 @@ export function LoginPage() {
       </div>
 
       {/* Right Side - Illustration */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#FF5722] to-[#E91E63] relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-orange-500 to-orange-600 relative overflow-hidden">
         {/* Decorative circles */}
         <div className="absolute top-20 right-20 h-64 w-64 rounded-full bg-white/10"></div>
         <div className="absolute bottom-20 left-20 h-48 w-48 rounded-full bg-white/10"></div>

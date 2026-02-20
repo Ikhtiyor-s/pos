@@ -46,13 +46,13 @@ export function ProductCard({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50 transition-all duration-200',
-        'hover:border-slate-600 hover:shadow-xl hover:shadow-black/20',
+        'group relative overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200',
+        'hover:border-gray-300 hover:shadow-xl hover:shadow-gray-200/50',
         isSelected && 'border-orange-500 ring-2 ring-orange-500/20'
       )}
     >
       {/* Rasm qismi */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-slate-700">
+      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         {product.image ? (
           <img
             src={product.image}
@@ -61,7 +61,7 @@ export function ProductCard({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <Package size={48} className="text-slate-500" />
+            <Package size={48} className="text-gray-400" />
           </div>
         )}
 
@@ -71,7 +71,7 @@ export function ProductCard({
             type="checkbox"
             checked={isSelected}
             onChange={() => onSelect(product.id)}
-            className="h-5 w-5 rounded border-slate-600 bg-slate-800/80 text-orange-500 focus:ring-orange-500"
+            className="h-5 w-5 rounded border-gray-300 bg-white/80 text-orange-500 focus:ring-orange-500"
           />
         </div>
 
@@ -119,23 +119,23 @@ export function ProductCard({
       <div className="p-4">
         {/* Nomi va SKU */}
         <div className="mb-3">
-          <h3 className="font-semibold text-white line-clamp-1">{product.name}</h3>
-          <p className="text-sm text-slate-500">SKU: {product.sku}</p>
+          <h3 className="font-semibold text-gray-900 line-clamp-1">{product.name}</h3>
+          <p className="text-sm text-gray-400">SKU: {product.sku}</p>
         </div>
 
         {/* Narx */}
         <div className="mb-3 flex items-baseline justify-between">
-          <span className="text-lg font-bold text-white">
+          <span className="text-lg font-bold text-gray-900">
             {formatPrice(product.price)}
           </span>
           <span
             className={cn(
               'text-sm font-medium',
               profitMargin >= 30
-                ? 'text-green-400'
+                ? 'text-green-600'
                 : profitMargin >= 15
-                  ? 'text-amber-400'
-                  : 'text-red-400'
+                  ? 'text-amber-600'
+                  : 'text-red-600'
             )}
           >
             +{profitMargin}% foyda
@@ -145,22 +145,22 @@ export function ProductCard({
         {/* Zahira */}
         <div className="mb-3">
           <div className="mb-1.5 flex items-center justify-between text-sm">
-            <span className="text-slate-400">Zahira</span>
+            <span className="text-gray-500">Zahira</span>
             <div className="flex items-center gap-1.5">
               {stockStatus.variant === 'danger' && (
-                <AlertTriangle size={14} className="text-red-400" />
+                <AlertTriangle size={14} className="text-red-600" />
               )}
               {stockStatus.variant === 'warning' && (
-                <AlertTriangle size={14} className="text-amber-400" />
+                <AlertTriangle size={14} className="text-amber-600" />
               )}
               <span
                 className={cn(
                   'font-medium',
                   stockStatus.variant === 'danger'
-                    ? 'text-red-400'
+                    ? 'text-red-600'
                     : stockStatus.variant === 'warning'
-                      ? 'text-amber-400'
-                      : 'text-green-400'
+                      ? 'text-amber-600'
+                      : 'text-green-600'
                 )}
               >
                 {product.stock} {product.unit}
@@ -168,7 +168,7 @@ export function ProductCard({
             </div>
           </div>
           {/* Progress bar */}
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-700">
+          <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
               className={cn('h-full rounded-full transition-all', stockStatus.color)}
               style={{
@@ -179,7 +179,7 @@ export function ProductCard({
         </div>
 
         {/* Qo'shimcha ma'lumot */}
-        <div className="flex items-center gap-4 text-sm text-slate-500">
+        <div className="flex items-center gap-4 text-sm text-gray-400">
           {product.cookingTime && (
             <div className="flex items-center gap-1">
               <Clock size={14} />
@@ -227,9 +227,9 @@ export function ProductGrid({
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Package size={48} className="mb-4 text-slate-600" />
-        <p className="text-lg font-medium text-slate-400">Mahsulot topilmadi</p>
-        <p className="text-sm text-slate-500">
+        <Package size={48} className="mb-4 text-gray-400" />
+        <p className="text-lg font-medium text-gray-500">Mahsulot topilmadi</p>
+        <p className="text-sm text-gray-400">
           Filtrlarni o'zgartiring yoki yangi mahsulot qo'shing
         </p>
       </div>

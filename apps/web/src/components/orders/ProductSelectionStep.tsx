@@ -111,26 +111,26 @@ export function ProductSelectionStep({
   return (
     <div className="flex h-full">
       {/* Chap tomon - Mahsulotlar */}
-      <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-700">
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-gray-200">
         {/* Kategoriyalar va qidiruv */}
-        <div className="border-b border-slate-700 p-4 space-y-3">
+        <div className="border-b border-gray-200 p-4 space-y-3">
           {/* Qidiruv */}
           <div className="relative">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
             <input
               type="text"
               placeholder="Mahsulot qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900"
               >
                 <X size={16} />
               </button>
@@ -147,7 +147,7 @@ export function ProductSelectionStep({
                   'flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   selectedCategory === category.id
                     ? 'bg-orange-500 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                    : 'bg-white text-gray-500 hover:bg-gray-200 hover:text-gray-900'
                 )}
               >
                 <span>{category.icon}</span>
@@ -172,13 +172,13 @@ export function ProductSelectionStep({
                     product.isAvailable
                       ? quantity > 0
                         ? 'border-orange-500 bg-orange-500/10'
-                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                      : 'border-slate-700 bg-slate-800/30 opacity-50 cursor-not-allowed'
+                        : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                      : 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
                   )}
                 >
                   {/* Mahsulot nomi va narxi */}
                   <div className="mb-3">
-                    <h4 className="font-medium text-white text-sm line-clamp-2">
+                    <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
                       {product.name}
                     </h4>
                     <p className="mt-1 text-orange-400 font-semibold text-sm">
@@ -195,11 +195,11 @@ export function ProductSelectionStep({
                             onClick={() =>
                               cartItem && onUpdateQuantity(cartItem.id, quantity - 1)
                             }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-700 text-white hover:bg-slate-600 transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors"
                           >
                             <Minus size={14} />
                           </button>
-                          <span className="w-8 text-center font-bold text-white">
+                          <span className="w-8 text-center font-bold text-gray-900">
                             {quantity}
                           </span>
                           <button
@@ -224,7 +224,7 @@ export function ProductSelectionStep({
                   )}
 
                   {!product.isAvailable && (
-                    <div className="text-center text-xs text-slate-500">
+                    <div className="text-center text-xs text-gray-400">
                       Mavjud emas
                     </div>
                   )}
@@ -241,7 +241,7 @@ export function ProductSelectionStep({
           </div>
 
           {filteredProducts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Search size={48} className="mb-4 opacity-50" />
               <p>Mahsulot topilmadi</p>
             </div>
@@ -250,12 +250,12 @@ export function ProductSelectionStep({
       </div>
 
       {/* O'ng tomon - Savatcha */}
-      <div className="w-80 flex flex-col bg-slate-800/50">
+      <div className="w-80 flex flex-col bg-gray-50">
         {/* Savatcha header */}
-        <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <div className="flex items-center gap-2">
             <ShoppingCart size={18} className="text-orange-400" />
-            <span className="font-medium text-white">Savatcha</span>
+            <span className="font-medium text-gray-900">Savatcha</span>
             {items.length > 0 && (
               <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">
                 {items.reduce((sum, item) => sum + item.quantity, 0)}
@@ -265,7 +265,7 @@ export function ProductSelectionStep({
           {items.length > 0 && (
             <button
               onClick={onClearCart}
-              className="text-xs text-slate-400 hover:text-red-400 transition-colors"
+              className="text-xs text-gray-500 hover:text-red-400 transition-colors"
             >
               Tozalash
             </button>
@@ -275,7 +275,7 @@ export function ProductSelectionStep({
         {/* Savatcha items */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
               <ShoppingCart size={40} className="mb-3 opacity-50" />
               <p className="text-sm">Savatcha bo'sh</p>
               <p className="text-xs mt-1">Mahsulot tanlang</p>
@@ -284,20 +284,20 @@ export function ProductSelectionStep({
             items.map((item) => (
               <div
                 key={item.id}
-                className="rounded-lg border border-slate-700 bg-slate-800 p-3"
+                className="rounded-lg border border-gray-200 bg-white p-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-white text-sm truncate">
+                    <h4 className="font-medium text-gray-900 text-sm truncate">
                       {item.name}
                     </h4>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-gray-500">
                       {new Intl.NumberFormat('uz-UZ').format(item.price)} so'm
                     </p>
                   </div>
                   <button
                     onClick={() => onRemoveItem(item.id)}
-                    className="text-slate-500 hover:text-red-400 transition-colors"
+                    className="text-gray-400 hover:text-red-400 transition-colors"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -307,11 +307,11 @@ export function ProductSelectionStep({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                      className="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-white hover:bg-slate-600 transition-colors"
+                      className="flex h-6 w-6 items-center justify-center rounded bg-gray-200 text-gray-900 hover:bg-gray-300 transition-colors"
                     >
                       <Minus size={12} />
                     </button>
-                    <span className="w-8 text-center text-sm font-medium text-white">
+                    <span className="w-8 text-center text-sm font-medium text-gray-900">
                       {item.quantity}
                     </span>
                     <button
@@ -321,7 +321,7 @@ export function ProductSelectionStep({
                       <Plus size={12} />
                     </button>
                   </div>
-                  <span className="font-semibold text-white text-sm">
+                  <span className="font-semibold text-gray-900 text-sm">
                     {new Intl.NumberFormat('uz-UZ').format(
                       item.price * item.quantity
                     )}{' '}
@@ -335,10 +335,10 @@ export function ProductSelectionStep({
 
         {/* Izoh */}
         {items.length > 0 && (
-          <div className="border-t border-slate-700 px-3 py-2">
+          <div className="border-t border-gray-200 px-3 py-2">
             <button
               onClick={() => setShowNotes(!showNotes)}
-              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
             >
               <MessageSquare size={14} />
               <span>{notes ? 'Izohni tahrirlash' : 'Izoh qo\'shish'}</span>
@@ -348,7 +348,7 @@ export function ProductSelectionStep({
                 value={notes}
                 onChange={(e) => onNotesChange(e.target.value)}
                 placeholder="Buyurtma uchun izoh..."
-                className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-sm text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
+                className="mt-2 w-full rounded-lg border border-gray-200 bg-white p-2 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
                 rows={2}
               />
             )}
@@ -356,18 +356,18 @@ export function ProductSelectionStep({
         )}
 
         {/* Jami va tugma */}
-        <div className="border-t border-slate-700 p-4 space-y-3">
+        <div className="border-t border-gray-200 p-4 space-y-3">
           {items.length > 0 && (
             <>
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Jami:</span>
-                  <span className="text-white">
+                  <span className="text-gray-500">Jami:</span>
+                  <span className="text-gray-900">
                     {new Intl.NumberFormat('uz-UZ').format(subtotal)} so'm
                   </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
-                  <span className="text-white">Umumiy:</span>
+                  <span className="text-gray-900">Umumiy:</span>
                   <span className="text-orange-400">
                     {new Intl.NumberFormat('uz-UZ').format(total)} so'm
                   </span>

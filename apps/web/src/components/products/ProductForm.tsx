@@ -153,32 +153,32 @@ export function ProductForm({
         <div className="space-y-6">
           {/* ===== ASOSIY MA'LUMOTLAR ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Asosiy ma'lumotlar
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
               {/* Mahsulot nomi */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Mahsulot nomi <span className="text-red-400">*</span>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Mahsulot nomi <span className="text-red-500">*</span>
                 </label>
                 <Input
                   value={formData.name}
                   onChange={(e) => updateField('name', e.target.value)}
                   placeholder="Masalan: O'zbek oshi"
                   className={cn(
-                    'bg-slate-800 border-slate-700 text-white',
+                    'bg-white border-gray-300 text-gray-900',
                     errors.name && 'border-red-500'
                   )}
                 />
                 {errors.name && (
-                  <p className="mt-1 text-sm text-red-400">{errors.name}</p>
+                  <p className="mt-1 text-sm text-red-500">{errors.name}</p>
                 )}
               </div>
 
               {/* Tavsif */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Tavsif
                 </label>
                 <textarea
@@ -186,7 +186,7 @@ export function ProductForm({
                   onChange={(e) => updateField('description', e.target.value)}
                   placeholder="Mahsulot haqida qisqacha tavsif..."
                   rows={3}
-                  className="flex w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                  className="flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 />
               </div>
 
@@ -204,14 +204,14 @@ export function ProductForm({
 
               {/* SKU */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   SKU (Mahsulot kodi)
                 </label>
                 <Input
                   value={formData.sku}
                   onChange={(e) => updateField('sku', e.target.value.toUpperCase())}
                   placeholder="Masalan: OSH-001"
-                  className="bg-slate-800 border-slate-700 text-white uppercase"
+                  className="bg-white border-gray-300 text-gray-900 uppercase"
                 />
               </div>
             </div>
@@ -219,14 +219,14 @@ export function ProductForm({
 
           {/* ===== NARX VA TANNARX ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Narx va tannarx
             </h3>
             <div className="grid gap-4 md:grid-cols-3">
               {/* Sotuv narxi */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Sotuv narxi <span className="text-red-400">*</span>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Sotuv narxi <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Input
@@ -235,23 +235,23 @@ export function ProductForm({
                     onChange={(e) => updateField('price', Number(e.target.value))}
                     placeholder="0"
                     className={cn(
-                      'bg-slate-800 border-slate-700 text-white pr-16',
+                      'bg-white border-gray-300 text-gray-900 pr-16',
                       errors.price && 'border-red-500'
                     )}
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                     so'm
                   </span>
                 </div>
                 {errors.price && (
-                  <p className="mt-1 text-sm text-red-400">{errors.price}</p>
+                  <p className="mt-1 text-sm text-red-500">{errors.price}</p>
                 )}
               </div>
 
               {/* Tannarx */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Tannarx <span className="text-red-400">*</span>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Tannarx <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Input
@@ -260,33 +260,33 @@ export function ProductForm({
                     onChange={(e) => updateField('costPrice', Number(e.target.value))}
                     placeholder="0"
                     className={cn(
-                      'bg-slate-800 border-slate-700 text-white pr-16',
+                      'bg-white border-gray-300 text-gray-900 pr-16',
                       errors.costPrice && 'border-red-500'
                     )}
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                     so'm
                   </span>
                 </div>
                 {errors.costPrice && (
-                  <p className="mt-1 text-sm text-red-400">{errors.costPrice}</p>
+                  <p className="mt-1 text-sm text-red-500">{errors.costPrice}</p>
                 )}
               </div>
 
               {/* Foyda ko'rsatkichi */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Foyda
                 </label>
-                <div className="flex h-10 items-center rounded-lg border border-slate-700 bg-slate-800/50 px-3">
+                <div className="flex h-10 items-center rounded-lg border border-gray-300 bg-gray-50 px-3">
                   <span
                     className={cn(
                       'text-sm font-medium',
-                      profitAmount > 0 ? 'text-green-400' : 'text-slate-400'
+                      profitAmount > 0 ? 'text-green-600' : 'text-gray-500'
                     )}
                   >
                     {profitAmount > 0 ? '+' : ''}{profitAmount.toLocaleString()} so'm
-                    <span className="ml-2 text-slate-500">({profitMargin}%)</span>
+                    <span className="ml-2 text-gray-400">({profitMargin}%)</span>
                   </span>
                 </div>
               </div>
@@ -295,13 +295,13 @@ export function ProductForm({
 
           {/* ===== ZAHIRA BOSHQARUVI ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Zahira boshqaruvi
             </h3>
             <div className="grid gap-4 md:grid-cols-4">
               {/* Joriy zahira */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Joriy zahira
                 </label>
                 <Input
@@ -310,18 +310,18 @@ export function ProductForm({
                   onChange={(e) => updateField('stock', Number(e.target.value))}
                   placeholder="0"
                   className={cn(
-                    'bg-slate-800 border-slate-700 text-white',
+                    'bg-white border-gray-300 text-gray-900',
                     errors.stock && 'border-red-500'
                   )}
                 />
                 {errors.stock && (
-                  <p className="mt-1 text-sm text-red-400">{errors.stock}</p>
+                  <p className="mt-1 text-sm text-red-500">{errors.stock}</p>
                 )}
               </div>
 
               {/* Minimal zahira */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Minimal zahira
                 </label>
                 <Input
@@ -329,7 +329,7 @@ export function ProductForm({
                   value={formData.minStock || ''}
                   onChange={(e) => updateField('minStock', Number(e.target.value))}
                   placeholder="10"
-                  className="bg-slate-800 border-slate-700 text-white"
+                  className="bg-white border-gray-300 text-gray-900"
                 />
               </div>
 
@@ -357,13 +357,13 @@ export function ProductForm({
 
           {/* ===== QO'SHIMCHA MA'LUMOTLAR ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Qo'shimcha ma'lumotlar
             </h3>
             <div className="grid gap-4 md:grid-cols-3">
               {/* Tayyorlash vaqti */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Tayyorlash vaqti
                 </label>
                 <div className="relative">
@@ -372,9 +372,9 @@ export function ProductForm({
                     value={formData.cookingTime || ''}
                     onChange={(e) => updateField('cookingTime', Number(e.target.value) || undefined)}
                     placeholder="0"
-                    className="bg-slate-800 border-slate-700 text-white pr-14"
+                    className="bg-white border-gray-300 text-gray-900 pr-14"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                     min
                   </span>
                 </div>
@@ -382,7 +382,7 @@ export function ProductForm({
 
               {/* Kaloriya */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Kaloriya
                 </label>
                 <div className="relative">
@@ -391,9 +391,9 @@ export function ProductForm({
                     value={formData.calories || ''}
                     onChange={(e) => updateField('calories', Number(e.target.value) || undefined)}
                     placeholder="0"
-                    className="bg-slate-800 border-slate-700 text-white pr-14"
+                    className="bg-white border-gray-300 text-gray-900 pr-14"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
                     kkal
                   </span>
                 </div>
@@ -401,14 +401,14 @@ export function ProductForm({
 
               {/* Rasm URL */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Rasm URL
                 </label>
                 <Input
                   value={formData.image || ''}
                   onChange={(e) => updateField('image', e.target.value)}
                   placeholder="https://..."
-                  className="bg-slate-800 border-slate-700 text-white"
+                  className="bg-white border-gray-300 text-gray-900"
                 />
               </div>
             </div>
@@ -416,7 +416,7 @@ export function ProductForm({
             {/* Rasm preview */}
             {formData.image && (
               <div className="mt-4">
-                <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-slate-700 bg-slate-800">
+                <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-gray-300 bg-white">
                   <img
                     src={formData.image}
                     alt="Preview"
@@ -439,7 +439,7 @@ export function ProductForm({
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
-            className="border-slate-700"
+            className="border-gray-200"
           >
             Bekor qilish
           </Button>

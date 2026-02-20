@@ -66,7 +66,7 @@ export default function TablesPage() {
       case 'OCCUPIED': return 'bg-orange-500';
       case 'RESERVED': return 'bg-blue-500';
       case 'CLEANING': return 'bg-yellow-500';
-      default: return 'bg-gray-400';
+      default: return 'bg-muted-foreground';
     }
   };
 
@@ -76,7 +76,7 @@ export default function TablesPage() {
       case 'OCCUPIED': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
       case 'RESERVED': return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800';
       case 'CLEANING': return 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800';
-      default: return 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700';
+      default: return 'bg-muted border-border';
     }
   };
 
@@ -174,8 +174,8 @@ export default function TablesPage() {
           <div className="w-2 h-2 rounded-full bg-yellow-500" />
           <span className="text-xs font-medium whitespace-nowrap">{tables.filter((tbl: Table) => tbl.status === 'RESERVED').length} {t('tables.reserved')}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          <div className="w-2 h-2 rounded-full bg-gray-500" />
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground">
+          <div className="w-2 h-2 rounded-full bg-muted-foreground" />
           <span className="text-xs font-medium whitespace-nowrap">{tables.filter((tbl: Table) => tbl.status === 'CLEANING').length} {t('tables.cleaning')}</span>
         </div>
       </div>

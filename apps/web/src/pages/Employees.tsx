@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Search,
@@ -18,8 +18,13 @@ import {
   Wallet,
   Crown,
   Clock,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { employeeApiService, type EmployeeApi } from '@/services/employee.service';
 
 type EmployeeRole = 'CASHIER' | 'WAITER' | 'CHEF' | 'MANAGER' | 'SUPER_ADMIN';
 type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
@@ -49,84 +54,21 @@ interface EmployeeFormData {
   password: string;
 }
 
-// Mock data
-const mockEmployees: Employee[] = [
-  {
-    id: '1',
-    firstName: 'Sardor',
-    lastName: 'Kassirov',
-    phone: '+998 90 111 22 33',
-    email: 'sardor@oshxona.uz',
-    role: 'CASHIER',
-    status: 'ACTIVE',
-    pin: '1234',
-    createdAt: '2025-01-15',
-    lastActiveAt: '2026-02-14T10:30:00',
-    shiftsToday: 1,
-    ordersToday: 23,
-  },
-  {
-    id: '2',
-    firstName: 'Jasur',
-    lastName: 'Ofitsiantov',
-    phone: '+998 91 222 33 44',
-    email: 'jasur@oshxona.uz',
-    role: 'WAITER',
-    status: 'ACTIVE',
-    pin: '5678',
-    createdAt: '2025-02-20',
-    lastActiveAt: '2026-02-14T11:15:00',
-    shiftsToday: 1,
-    ordersToday: 15,
-  },
-  {
-    id: '3',
-    firstName: 'Dilshod',
-    lastName: 'Oshpazov',
-    phone: '+998 93 333 44 55',
-    email: 'dilshod@oshxona.uz',
-    role: 'CHEF',
-    status: 'ACTIVE',
-    pin: '9012',
-    createdAt: '2025-03-10',
-    lastActiveAt: '2026-02-14T09:00:00',
-    shiftsToday: 1,
-    ordersToday: 47,
-  },
-  {
-    id: '4',
-    firstName: 'Aziza',
-    lastName: 'Kassirova',
-    phone: '+998 94 444 55 66',
-    role: 'CASHIER',
-    status: 'INACTIVE',
-    createdAt: '2025-06-01',
-    lastActiveAt: '2026-01-20T18:00:00',
-  },
-  {
-    id: '5',
-    firstName: 'Bobur',
-    lastName: 'Ofitsiantov',
-    phone: '+998 95 555 66 77',
-    role: 'WAITER',
-    status: 'BLOCKED',
-    createdAt: '2025-04-15',
-    lastActiveAt: '2025-12-10T16:30:00',
-  },
-  {
-    id: '6',
-    firstName: 'Nodir',
-    lastName: 'Menejerov',
-    phone: '+998 97 777 88 99',
-    email: 'nodir@oshxona.uz',
-    role: 'MANAGER',
-    status: 'ACTIVE',
-    pin: '0000',
-    createdAt: '2025-01-01',
-    lastActiveAt: '2026-02-14T08:00:00',
-    shiftsToday: 1,
-  },
-];
+// EmployeeApi -> Employee mapping
+function mapApiToEmployee(apiEmp: EmployeeApi): Employee {
+  return {
+    id: apiEmp.id,
+    firstName: apiEmp.firstName,
+    lastName: apiEmp.lastName || '',
+    phone: apiEmp.phone || '',
+    email: apiEmp.email || undefined,
+    role: (apiEmp.role as EmployeeRole) || 'WAITER',
+    status: apiEmp.isActive ? 'ACTIVE' : 'INACTIVE',
+    pin: apiEmp.pinCode || undefined,
+    createdAt: apiEmp.createdAt ? apiEmp.createdAt.slice(0, 10) : '',
+    lastActiveAt: apiEmp.updatedAt || undefined,
+  };
+}
 
 const roleConfig: Record<EmployeeRole, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
   CASHIER: { label: 'Kassir', color: 'text-green-700', bgColor: 'bg-green-100', icon: Wallet },
@@ -142,12 +84,35 @@ const statusConfig: Record<EmployeeStatus, { label: string; color: string; bgCol
   BLOCKED: { label: 'Bloklangan', color: 'text-red-700', bgColor: 'bg-red-100' },
 };
 
+const emptyFormData: EmployeeFormData = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  role: 'WAITER',
+  pin: '',
+  password: '',
+};
+
 export function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<EmployeeRole | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'ALL'>('ALL');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  // Loading / Error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -159,17 +124,28 @@ export function EmployeesPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Form state
-  const [formData, setFormData] = useState<EmployeeFormData>({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    role: 'WAITER',
-    pin: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState<EmployeeFormData>({ ...emptyFormData });
 
-  // Filtrlangan xodimlar
+  // ---------- DATA LOADING ----------
+  const loadEmployees = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await employeeApiService.getAll();
+      setEmployees(data.map(mapApiToEmployee));
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Xodimlarni yuklashda xatolik';
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
+
+  // ---------- FILTERS ----------
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
       `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -179,7 +155,7 @@ export function EmployeesPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Statistika
+  // ---------- STATS ----------
   const stats = {
     total: employees.length,
     active: employees.filter((e) => e.status === 'ACTIVE').length,
@@ -187,37 +163,47 @@ export function EmployeesPage() {
     blocked: employees.filter((e) => e.status === 'BLOCKED').length,
   };
 
-  // Handlers
+  // ---------- HANDLERS ----------
   const handleAddEmployee = () => {
-    setFormData({
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      role: 'WAITER',
-      pin: '',
-      password: '',
-    });
+    setFormData({ ...emptyFormData });
+    setShowPin(false);
+    setShowPassword(false);
     setIsAddModalOpen(true);
   };
 
-  const handleSaveNewEmployee = () => {
-    if (!formData.firstName || !formData.lastName || !formData.phone) return;
+  const handleSaveNewEmployee = async () => {
+    if (!formData.firstName || !formData.email || !formData.password) return;
 
-    const newEmployee: Employee = {
-      id: String(Date.now()),
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
-      email: formData.email || undefined,
-      role: formData.role,
-      status: 'ACTIVE',
-      pin: formData.pin || undefined,
-      createdAt: new Date().toISOString().slice(0, 10),
-    };
+    try {
+      setIsSaving(true);
+      const created = await employeeApiService.create({
+        email: formData.email,
+        phone: formData.phone || undefined,
+        firstName: formData.firstName,
+        lastName: formData.lastName || undefined,
+        role: formData.role,
+        password: formData.password,
+      });
 
-    setEmployees((prev) => [...prev, newEmployee]);
-    setIsAddModalOpen(false);
+      // PIN o'rnatish (agar kiritilgan bo'lsa)
+      if (formData.pin && formData.pin.length === 4) {
+        try {
+          await employeeApiService.setPin(created.id, formData.pin);
+        } catch {
+          // PIN xatoligi — asosiy yaratish muvaffaqiyatli bo'ldi
+          showToast('error', 'Xodim yaratildi, lekin PIN o\'rnatishda xatolik');
+        }
+      }
+
+      setEmployees((prev) => [...prev, mapApiToEmployee(created)]);
+      setIsAddModalOpen(false);
+      showToast('success', `${formData.firstName} muvaffaqiyatli qo'shildi`);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Xodim qo\'shishda xatolik';
+      showToast('error', msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEditEmployee = (emp: Employee) => {
@@ -231,30 +217,70 @@ export function EmployeesPage() {
       pin: emp.pin || '',
       password: '',
     });
+    setShowPin(false);
+    setShowPassword(false);
     setIsEditModalOpen(true);
     setActiveDropdown(null);
   };
 
-  const handleSaveEditEmployee = () => {
+  const handleSaveEditEmployee = async () => {
     if (!selectedEmployee) return;
 
-    setEmployees((prev) =>
-      prev.map((e) =>
-        e.id === selectedEmployee.id
-          ? {
-              ...e,
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              phone: formData.phone,
-              email: formData.email || undefined,
-              role: formData.role,
-              pin: formData.pin || undefined,
-            }
-          : e
-      )
-    );
-    setIsEditModalOpen(false);
-    setSelectedEmployee(null);
+    try {
+      setIsSaving(true);
+
+      const updatePayload: Record<string, any> = {
+        firstName: formData.firstName,
+        lastName: formData.lastName || undefined,
+        phone: formData.phone || undefined,
+        email: formData.email || undefined,
+        role: formData.role,
+      };
+
+      // Parol o'zgartirilgan bo'lsa
+      if (formData.password) {
+        updatePayload.password = formData.password;
+      }
+
+      const updated = await employeeApiService.update(selectedEmployee.id, updatePayload);
+
+      // PIN boshqaruvi
+      const oldPin = selectedEmployee.pin;
+      const newPin = formData.pin;
+
+      if (newPin && newPin.length === 4 && newPin !== oldPin) {
+        try {
+          await employeeApiService.setPin(selectedEmployee.id, newPin);
+        } catch {
+          showToast('error', 'Xodim yangilandi, lekin PIN o\'zgartirishda xatolik');
+        }
+      } else if (!newPin && oldPin) {
+        try {
+          await employeeApiService.removePin(selectedEmployee.id);
+        } catch {
+          showToast('error', 'Xodim yangilandi, lekin PIN o\'chirishda xatolik');
+        }
+      }
+
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.id === selectedEmployee.id
+            ? {
+                ...mapApiToEmployee(updated),
+                pin: newPin || undefined,
+              }
+            : e
+        )
+      );
+      setIsEditModalOpen(false);
+      setSelectedEmployee(null);
+      showToast('success', `${formData.firstName} muvaffaqiyatli yangilandi`);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Xodimni yangilashda xatolik';
+      showToast('error', msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteEmployee = (emp: Employee) => {
@@ -263,18 +289,45 @@ export function EmployeesPage() {
     setActiveDropdown(null);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!selectedEmployee) return;
-    setEmployees((prev) => prev.filter((e) => e.id !== selectedEmployee.id));
-    setIsDeleteModalOpen(false);
-    setSelectedEmployee(null);
+
+    try {
+      setIsSaving(true);
+      await employeeApiService.delete(selectedEmployee.id);
+      setEmployees((prev) => prev.filter((e) => e.id !== selectedEmployee.id));
+      setIsDeleteModalOpen(false);
+      showToast('success', `${selectedEmployee.firstName} ${selectedEmployee.lastName} o'chirildi`);
+      setSelectedEmployee(null);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Xodimni o\'chirishda xatolik';
+      showToast('error', msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleToggleStatus = (empId: string, newStatus: EmployeeStatus) => {
-    setEmployees((prev) =>
-      prev.map((e) => (e.id === empId ? { ...e, status: newStatus } : e))
-    );
-    setActiveDropdown(null);
+  const handleToggleStatus = async (empId: string, newStatus: EmployeeStatus) => {
+    const emp = employees.find((e) => e.id === empId);
+    if (!emp) return;
+
+    // API faqat isActive: true/false qabul qiladi
+    const isActive = newStatus === 'ACTIVE';
+
+    try {
+      await employeeApiService.update(empId, { isActive });
+      setEmployees((prev) =>
+        prev.map((e) => (e.id === empId ? { ...e, status: isActive ? 'ACTIVE' : 'INACTIVE' } : e))
+      );
+      setActiveDropdown(null);
+      showToast(
+        'success',
+        `${emp.firstName} ${isActive ? 'faollashtirildi' : 'nofaol qilindi'}`
+      );
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Statusni o\'zgartirishda xatolik';
+      showToast('error', msg);
+    }
   };
 
   const handleViewEmployee = (emp: Employee) => {
@@ -283,6 +336,37 @@ export function EmployeesPage() {
     setActiveDropdown(null);
   };
 
+  // ---------- LOADING STATE ----------
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-orange-500" />
+          <p className="mt-3 text-sm text-gray-500">Xodimlar yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- ERROR STATE ----------
+  if (error) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
+          <p className="mt-3 text-sm text-gray-600">{error}</p>
+          <button
+            onClick={loadEmployees}
+            className="mt-4 rounded-lg bg-orange-500 px-4 py-2 text-sm text-white hover:bg-orange-600"
+          >
+            Qayta yuklash
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- MAIN RENDER ----------
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -293,7 +377,7 @@ export function EmployeesPage() {
         </div>
         <button
           onClick={handleAddEmployee}
-          className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
+          className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
         >
           <Plus size={18} />
           <span>Yangi xodim</span>
@@ -359,7 +443,7 @@ export function EmployeesPage() {
               placeholder="Xodim qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-[#FF5722] focus:outline-none focus:ring-1 focus:ring-[#FF5722]"
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
             />
           </div>
 
@@ -372,7 +456,7 @@ export function EmployeesPage() {
                 className={cn(
                   'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                   roleFilter === role
-                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 )}
               >
@@ -426,7 +510,7 @@ export function EmployeesPage() {
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63] font-bold text-white text-sm">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-orange-600 font-bold text-white text-sm">
                           {emp.firstName.charAt(0)}
                           {emp.lastName.charAt(0)}
                         </div>
@@ -445,7 +529,7 @@ export function EmployeesPage() {
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-sm text-gray-700">{emp.phone}</span>
+                    <span className="text-sm text-gray-700">{emp.phone || '—'}</span>
                   </td>
                   <td className="px-4 py-4">
                     <span
@@ -543,7 +627,7 @@ export function EmployeesPage() {
                           )}
                           {emp.status !== 'BLOCKED' && (
                             <button
-                              onClick={() => handleToggleStatus(emp.id, 'BLOCKED')}
+                              onClick={() => handleToggleStatus(emp.id, 'INACTIVE')}
                               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50"
                             >
                               <Shield size={14} />
@@ -623,37 +707,25 @@ export function EmployeesPage() {
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     placeholder="Ism"
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Familiya *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Familiya</label>
                   <input
                     type="text"
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     placeholder="Familiya"
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Telefon raqami *</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+998 90 123 45 67"
-                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email {isAddModalOpen && '*'}
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -661,7 +733,21 @@ export function EmployeesPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="email@oshxona.uz"
-                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefon raqami</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+998 90 123 45 67"
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -671,7 +757,7 @@ export function EmployeesPage() {
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as EmployeeRole })}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 >
                   <option value="WAITER">Ofitsiant</option>
                   <option value="CASHIER">Kassir</option>
@@ -691,9 +777,9 @@ export function EmployeesPage() {
                         const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                         setFormData({ ...formData, pin: val });
                       }}
-                      placeholder="••••"
+                      placeholder="----"
                       maxLength={4}
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -705,14 +791,16 @@ export function EmployeesPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Parol</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Parol {isAddModalOpen && '*'}
+                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="••••••••"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      placeholder={isEditModalOpen ? 'O\'zgartirish uchun yozing' : 'Parol kiriting'}
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -733,16 +821,23 @@ export function EmployeesPage() {
                   setIsEditModalOpen(false);
                   setSelectedEmployee(null);
                 }}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+                disabled={isSaving}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={isAddModalOpen ? handleSaveNewEmployee : handleSaveEditEmployee}
-                disabled={!formData.firstName || !formData.lastName || !formData.phone}
-                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={
+                  isSaving ||
+                  !formData.firstName ||
+                  !formData.email ||
+                  (isAddModalOpen && !formData.password)
+                }
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Saqlash
+                {isSaving && <Loader2 size={16} className="animate-spin" />}
+                {isSaving ? 'Saqlanmoqda...' : 'Saqlash'}
               </button>
             </div>
           </div>
@@ -767,7 +862,7 @@ export function EmployeesPage() {
             </div>
 
             <div className="text-center mb-6">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-2xl font-bold text-white mb-3">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-2xl font-bold text-white mb-3">
                 {selectedEmployee.firstName.charAt(0)}
                 {selectedEmployee.lastName.charAt(0)}
               </div>
@@ -788,7 +883,7 @@ export function EmployeesPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">Telefon</span>
-                <span className="text-sm font-medium text-gray-800">{selectedEmployee.phone}</span>
+                <span className="text-sm font-medium text-gray-800">{selectedEmployee.phone || '—'}</span>
               </div>
               {selectedEmployee.email && (
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -836,7 +931,7 @@ export function EmployeesPage() {
                   setIsViewModalOpen(false);
                   setSelectedEmployee(null);
                 }}
-                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110"
+                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-white hover:brightness-110"
               >
                 Yopish
               </button>
@@ -868,18 +963,34 @@ export function EmployeesPage() {
                   setIsDeleteModalOpen(false);
                   setSelectedEmployee(null);
                 }}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+                disabled={isSaving}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-white hover:bg-red-600"
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2.5 text-white hover:bg-red-600 disabled:opacity-50"
               >
-                O'chirish
+                {isSaving && <Loader2 size={16} className="animate-spin" />}
+                {isSaving ? 'O\'chirilmoqda...' : 'O\'chirish'}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={cn(
+            'fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg transition-all',
+            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          )}
+        >
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <XCircle size={18} />}
+          {toast.message}
         </div>
       )}
     </div>

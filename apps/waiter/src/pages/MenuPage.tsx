@@ -171,7 +171,7 @@ export default function MenuPage() {
       case 'PREPARING': return 'bg-yellow-500';
       case 'READY': return 'bg-green-500';
       case 'SERVED': return 'bg-purple-500';
-      default: return 'bg-gray-500';
+      default: return 'bg-muted-foreground';
     }
   };
 

@@ -88,19 +88,19 @@ export function OrderCard({
   return (
     <div
       className={cn(
-        'group relative rounded-xl border bg-slate-800/50 transition-all duration-200',
-        'hover:border-slate-600 hover:shadow-lg hover:shadow-black/20',
-        isLate ? 'border-amber-500/50' : 'border-slate-700',
+        'group relative rounded-xl border bg-gray-50 transition-all duration-200',
+        'hover:border-gray-300 hover:shadow-lg hover:shadow-black/20',
+        isLate ? 'border-amber-500/50' : 'border-gray-200',
         order.status === 'cancelled' && 'opacity-60'
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-700/50 px-3 py-2">
+      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Buyurtma raqami */}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-base font-bold text-white">
+              <span className="text-base font-bold text-gray-900">
                 #{order.orderNumber.split('-').pop()}
               </span>
               <span
@@ -110,7 +110,7 @@ export function OrderCard({
                 {statusInfo.label}
               </span>
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500">
               <span>{typeInfo.icon} {typeInfo.label}</span>
               {order.tableNumber && (
                 <span>• Stol {order.tableNumber}</span>
@@ -124,7 +124,7 @@ export function OrderCard({
           <div
             className={cn(
               'flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px]',
-              isLate ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/50 text-slate-400'
+              isLate ? 'bg-amber-500/20 text-amber-600' : 'bg-gray-200 text-gray-500'
             )}
           >
             <Clock size={10} />
@@ -135,7 +135,7 @@ export function OrderCard({
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+              className="rounded-md p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
             >
               <MoreHorizontal size={16} />
             </button>
@@ -146,24 +146,24 @@ export function OrderCard({
                   className="fixed inset-0 z-10"
                   onClick={() => setShowMenu(false)}
                 />
-                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-700 bg-slate-800 py-1 shadow-xl">
+                <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-xl">
                   <button
                     onClick={() => {
                       onView(order);
                       setShowMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
                     <Eye size={16} />
                     Ko'rish
                   </button>
-                  <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700">
+                  <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     <Printer size={16} />
                     Chek chiqarish
                   </button>
                   {order.status === 'new' && (
                     <>
-                      <div className="my-1 border-t border-slate-700" />
+                      <div className="my-1 border-t border-gray-200" />
                       <button
                         onClick={() => {
                           const reason = prompt('Bekor qilish sababi:');
@@ -172,7 +172,7 @@ export function OrderCard({
                             setShowMenu(false);
                           }
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-700"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
                       >
                         <X size={16} />
                         Bekor qilish
@@ -192,20 +192,20 @@ export function OrderCard({
         {(order.customerName || order.customerPhone || order.deliveryAddress) && (
           <div className="mb-3 space-y-1">
             {order.customerName && (
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <User size={14} className="text-slate-500" />
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <User size={14} className="text-gray-400" />
                 {order.customerName}
               </div>
             )}
             {order.customerPhone && (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Phone size={14} className="text-slate-500" />
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Phone size={14} className="text-gray-400" />
                 {order.customerPhone}
               </div>
             )}
             {order.deliveryAddress && (
-              <div className="flex items-start gap-2 text-sm text-slate-400">
-                <MapPin size={14} className="mt-0.5 text-slate-500" />
+              <div className="flex items-start gap-2 text-sm text-gray-500">
+                <MapPin size={14} className="mt-0.5 text-gray-400" />
                 <span className="line-clamp-2">{order.deliveryAddress}</span>
               </div>
             )}
@@ -220,39 +220,39 @@ export function OrderCard({
               className="flex items-center justify-between text-sm"
             >
               <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-700 text-xs font-medium text-white">
+                <span className="flex h-5 w-5 items-center justify-center rounded bg-gray-200 text-xs font-medium text-gray-900">
                   {item.quantity}
                 </span>
-                <span className="text-slate-300">{item.name}</span>
+                <span className="text-gray-700">{item.name}</span>
                 {item.notes && (
-                  <span className="text-slate-500" title={item.notes}>
+                  <span className="text-gray-400" title={item.notes}>
                     📝
                   </span>
                 )}
               </div>
-              <span className="text-slate-400">
+              <span className="text-gray-500">
                 {formatPrice(item.total)}
               </span>
             </div>
           ))}
           {order.items.length > (compact ? 2 : 4) && (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-gray-400">
               +{order.items.length - (compact ? 2 : 4)} ta boshqa...
             </div>
           )}
         </div>
 
         {/* Jami */}
-        <div className="flex items-center justify-between border-t border-slate-700/50 pt-3">
-          <span className="text-sm text-slate-400">Jami:</span>
-          <span className="text-lg font-bold text-white">
+        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+          <span className="text-sm text-gray-500">Jami:</span>
+          <span className="text-lg font-bold text-gray-900">
             {formatPrice(order.total)}
           </span>
         </div>
 
         {/* Eslatma */}
         {order.notes && (
-          <div className="mt-2 rounded-lg bg-slate-700/30 p-2 text-sm text-slate-400">
+          <div className="mt-2 rounded-lg bg-gray-100 p-2 text-sm text-gray-500">
             📝 {order.notes}
           </div>
         )}
@@ -260,7 +260,7 @@ export function OrderCard({
 
       {/* Footer - Actionlar */}
       {order.status !== 'completed' && order.status !== 'cancelled' && (
-        <div className="flex gap-2 border-t border-slate-700/50 p-2">
+        <div className="flex gap-2 border-t border-gray-200 p-2">
           {nextStatus && (
             <Button
               onClick={() => onStatusChange(order.id, nextStatus)}
@@ -281,7 +281,7 @@ export function OrderCard({
             onClick={() => onView(order)}
             variant="outline"
             size="sm"
-            className="border-slate-700 px-2 h-auto min-h-[32px]"
+            className="border-gray-200 px-2 h-auto min-h-[32px]"
           >
             <Eye size={14} />
           </Button>

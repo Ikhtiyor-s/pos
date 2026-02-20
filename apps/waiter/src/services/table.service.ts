@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '/api',
-});
+import api from './api';
 
 export interface Table {
   id: string;
@@ -12,6 +8,7 @@ export interface Table {
   status: 'FREE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING';
   isActive: boolean;
   activeOrders?: { id: string }[];
+  orders?: { id: string; status: string }[];
 }
 
 interface TablesResponse {
@@ -24,13 +21,20 @@ interface TableResponse {
 
 export const tableService = {
   getAll: async (): Promise<TablesResponse> => {
-    const { data } = await api.get('/tables');
-    return data;
+    const { data: response } = await api.get('/tables');
+    // API returns { success, data: [...tables] }
+    const tables: Table[] = (response.data || []).map((t: Table & { orders?: { id: string; status: string }[] }) => ({
+      ...t,
+      activeOrders: t.orders?.filter((o) =>
+        ['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)
+      ) || [],
+    }));
+    return { data: tables };
   },
 
   getById: async (id: string): Promise<TableResponse> => {
-    const { data } = await api.get(`/tables/${id}`);
-    return data;
+    const { data: response } = await api.get(`/tables/${id}`);
+    return { data: response.data };
   },
 
   updateStatus: async (id: string, status: Table['status']): Promise<void> => {

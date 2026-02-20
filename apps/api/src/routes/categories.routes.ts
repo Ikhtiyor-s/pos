@@ -34,10 +34,10 @@ const upload = multer({
   },
 });
 
-// Public routes
-router.get('/', CategoryController.getAll);
-router.get('/slug/:slug', CategoryController.getBySlug);
-router.get('/:id', CategoryController.getById);
+// Protected routes (tenant required)
+router.get('/', authenticate, CategoryController.getAll);
+router.get('/slug/:slug', authenticate, CategoryController.getBySlug);
+router.get('/:id', authenticate, CategoryController.getById);
 
 // Protected routes
 router.post(

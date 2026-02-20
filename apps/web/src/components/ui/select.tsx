@@ -20,7 +20,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
             {label}
           </label>
         )}
@@ -31,7 +31,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             onChange={(e) => onChange?.(e.target.value)}
             className={cn(
               'block h-10 w-full appearance-none rounded-lg border pr-10 pl-3 py-2 text-sm',
-              'border-gray-300 bg-white text-gray-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white',
+              'border-gray-300 bg-white text-gray-900',
               'focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500',
               'disabled:cursor-not-allowed disabled:opacity-50',
               error && 'border-red-500 focus:ring-red-500/50',
@@ -51,10 +51,10 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             ))}
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-            <ChevronDown size={16} className="text-gray-500 dark:text-slate-400" />
+            <ChevronDown size={16} className="text-gray-500" />
           </div>
         </div>
-        {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
       </div>
     );
   }

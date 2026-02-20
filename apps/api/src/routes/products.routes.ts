@@ -34,9 +34,11 @@ const upload = multer({
   },
 });
 
-// Public routes (for menu)
-router.get('/', ProductController.getAll);
-router.get('/:id', ProductController.getById);
+// Protected routes (tenant required)
+router.get('/', authenticate, ProductController.getAll);
+router.get('/barcode/:barcode', authenticate, ProductController.getByBarcode);
+router.get('/:id', authenticate, ProductController.getById);
+router.get('/:id/qr', authenticate, ProductController.getQRCode);
 
 // Protected routes
 router.post(
@@ -66,6 +68,13 @@ router.post(
   authorize(Role.SUPER_ADMIN, Role.MANAGER),
   upload.single('image'),
   ProductController.uploadImage
+);
+
+router.post(
+  '/:id/generate-barcode',
+  authenticate,
+  authorize(Role.SUPER_ADMIN, Role.MANAGER),
+  ProductController.generateBarcode
 );
 
 export default router;

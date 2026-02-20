@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Search,
@@ -17,8 +17,11 @@ import {
   Phone,
   Calendar,
   Download,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { tableApiService, type TableApi } from '@/services/table.service';
 
 // Stol holatlari
 type TableStatus = 'FREE' | 'OCCUPIED' | 'RESERVED' | 'CLEANING';
@@ -36,6 +39,7 @@ interface Table {
   capacity: number;
   status: TableStatus;
   hallId: string;
+  qrCode?: string;
   currentOrder?: {
     id: string;
     total: number;
@@ -56,8 +60,8 @@ interface TableFormData {
   hallId: string;
 }
 
-// Mock halls
-const mockHalls: Hall[] = [
+// Local halls (no backend API for halls)
+const defaultHalls: Hall[] = [
   { id: 'h1', name: 'Ichki zal', description: 'Asosiy restoran zali' },
   { id: 'h2', name: 'Yozgi zal', description: 'Tashqi ochiq joy' },
   { id: 'h3', name: 'VIP xona', description: 'Maxsus VIP mehmonlar uchun' },
@@ -71,22 +75,6 @@ interface ReservationFormData {
   guests: number;
 }
 
-// Mock data
-const mockTables: Table[] = [
-  { id: '1', number: 1, name: 'Oyna yonida', capacity: 4, status: 'OCCUPIED', hallId: 'h1', currentOrder: { id: 'ORD-001', total: 285000, itemsCount: 5, startTime: '14:30' } },
-  { id: '2', number: 2, name: 'Tashqi joy', capacity: 6, status: 'FREE', hallId: 'h2' },
-  { id: '3', number: 3, name: 'VIP 1', capacity: 8, status: 'RESERVED', hallId: 'h3', reservedFor: { name: 'Alisher', time: '19:00', phone: '+998901234567' } },
-  { id: '4', number: 4, name: 'Markazda', capacity: 4, status: 'OCCUPIED', hallId: 'h1', currentOrder: { id: 'ORD-002', total: 156000, itemsCount: 3, startTime: '15:15' } },
-  { id: '5', number: 5, name: 'Bog\'da', capacity: 4, status: 'CLEANING', hallId: 'h2' },
-  { id: '6', number: 6, name: 'Burchak', capacity: 2, status: 'FREE', hallId: 'h1' },
-  { id: '7', number: 7, name: 'VIP 2', capacity: 10, status: 'FREE', hallId: 'h3' },
-  { id: '8', number: 8, name: 'Oshxona yonida', capacity: 4, status: 'OCCUPIED', hallId: 'h1', currentOrder: { id: 'ORD-003', total: 420000, itemsCount: 8, startTime: '13:45' } },
-  { id: '9', number: 9, name: 'Kirish yonida', capacity: 4, status: 'FREE', hallId: 'h1' },
-  { id: '10', number: 10, name: 'Orqa tomon', capacity: 6, status: 'RESERVED', hallId: 'h2', reservedFor: { name: 'Bobur', time: '20:30', phone: '+998909876543' } },
-  { id: '11', number: 11, name: 'Balkon', capacity: 4, status: 'FREE', hallId: 'h2' },
-  { id: '12', number: 12, name: 'Xususiy xona', capacity: 12, status: 'OCCUPIED', hallId: 'h3', currentOrder: { id: 'ORD-004', total: 890000, itemsCount: 15, startTime: '12:00' } },
-];
-
 const statusConfig: Record<TableStatus, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
   FREE: { label: 'Bo\'sh', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle },
   OCCUPIED: { label: 'Band', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: Users },
@@ -94,14 +82,42 @@ const statusConfig: Record<TableStatus, { label: string; color: string; bgColor:
   CLEANING: { label: 'Tozalanmoqda', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: RefreshCw },
 };
 
+// Map TableApi -> local Table
+function mapApiToTable(apiTable: TableApi): Table {
+  const status = (['FREE', 'OCCUPIED', 'RESERVED', 'CLEANING'].includes(apiTable.status)
+    ? apiTable.status
+    : 'FREE') as TableStatus;
+
+  return {
+    id: apiTable.id,
+    number: apiTable.number,
+    name: apiTable.name || `Stol ${apiTable.number}`,
+    capacity: apiTable.capacity,
+    status,
+    hallId: 'h1', // default hall since backend doesn't store hall
+    qrCode: apiTable.qrCode,
+  };
+}
+
 export function TablesPage() {
-  const [tables, setTables] = useState<Table[]>(mockTables);
-  const [halls, setHalls] = useState<Hall[]>(mockHalls);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [halls, setHalls] = useState<Hall[]>(defaultHalls);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TableStatus | 'ALL'>('ALL');
   const [hallFilter, setHallFilter] = useState<string>('ALL');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -118,6 +134,23 @@ export function TablesPage() {
   const [reservationData, setReservationData] = useState<ReservationFormData>({
     name: '', phone: '', time: '', date: '', guests: 2
   });
+
+  // Load tables from API
+  const loadTables = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const apiTables = await tableApiService.getAll();
+      setTables(apiTables.map(mapApiToTable));
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Stollarni yuklashda xatolik yuz berdi';
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadTables(); }, [loadTables]);
 
   // Filtrlangan stollar
   const filteredTables = tables.filter((table) => {
@@ -138,24 +171,35 @@ export function TablesPage() {
     cleaning: tables.filter((t) => t.status === 'CLEANING').length,
   };
 
-  const handleStatusChange = (tableId: string, newStatus: TableStatus) => {
-    setTables((prev) =>
-      prev.map((t) => {
-        if (t.id === tableId) {
-          const updated = { ...t, status: newStatus };
-          if (newStatus === 'FREE') {
-            delete updated.currentOrder;
-            delete updated.reservedFor;
-          }
-          return updated;
-        }
-        return t;
-      })
-    );
+  const handleStatusChange = async (tableId: string, newStatus: TableStatus) => {
+    setSavingId(tableId);
     setActiveDropdown(null);
+    try {
+      const updatedApi = await tableApiService.updateStatus(tableId, newStatus);
+      setTables((prev) =>
+        prev.map((t) => {
+          if (t.id === tableId) {
+            const mapped = mapApiToTable(updatedApi);
+            // Preserve local hallId
+            mapped.hallId = t.hallId;
+            if (newStatus === 'FREE') {
+              delete mapped.currentOrder;
+              delete mapped.reservedFor;
+            }
+            return mapped;
+          }
+          return t;
+        })
+      );
+      showToast('success', `Stol holati "${statusConfig[newStatus].label}" ga o'zgartirildi`);
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.message || 'Holatni o\'zgartirishda xatolik');
+    } finally {
+      setSavingId(null);
+    }
   };
 
-  // Hall management
+  // Hall management (LOCAL ONLY)
   const handleAddHall = () => {
     setHallFormData({ name: '', description: '' });
     setIsHallModalOpen(true);
@@ -170,14 +214,16 @@ export function TablesPage() {
     };
     setHalls((prev) => [...prev, newHall]);
     setIsHallModalOpen(false);
+    showToast('success', `"${newHall.name}" zali qo'shildi`);
   };
 
   const handleDeleteHall = (hallId: string) => {
     if (tables.some((t) => t.hallId === hallId)) {
-      alert('Bu zalda stollar bor! Avval stollarni ko\'chiring.');
+      showToast('error', 'Bu zalda stollar bor! Avval stollarni ko\'chiring.');
       return;
     }
     setHalls((prev) => prev.filter((h) => h.id !== hallId));
+    showToast('success', 'Zal o\'chirildi');
   };
 
   // Add new table
@@ -187,18 +233,25 @@ export function TablesPage() {
     setIsAddModalOpen(true);
   };
 
-  const handleSaveNewTable = () => {
-    const newTable: Table = {
-      id: String(Date.now()),
-      number: formData.number,
-      name: formData.name || `Stol ${formData.number}`,
-      capacity: formData.capacity,
-      status: 'FREE',
-      hallId: formData.hallId,
-    };
-    setTables((prev) => [...prev, newTable]);
-    setIsAddModalOpen(false);
-    setFormData({ number: 0, name: '', capacity: 4, hallId: halls[0]?.id || 'h1' });
+  const handleSaveNewTable = async () => {
+    setSavingId('new');
+    try {
+      const created = await tableApiService.create({
+        number: formData.number,
+        name: formData.name || `Stol ${formData.number}`,
+        capacity: formData.capacity,
+      });
+      const newTable = mapApiToTable(created);
+      newTable.hallId = formData.hallId; // Preserve local hall assignment
+      setTables((prev) => [...prev, newTable]);
+      setIsAddModalOpen(false);
+      setFormData({ number: 0, name: '', capacity: 4, hallId: halls[0]?.id || 'h1' });
+      showToast('success', `Stol ${created.number} muvaffaqiyatli qo'shildi`);
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.message || 'Stol qo\'shishda xatolik');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // Edit table
@@ -209,17 +262,28 @@ export function TablesPage() {
     setActiveDropdown(null);
   };
 
-  const handleSaveEditTable = () => {
+  const handleSaveEditTable = async () => {
     if (!selectedTable) return;
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === selectedTable.id
-          ? { ...t, number: formData.number, name: formData.name, capacity: formData.capacity, hallId: formData.hallId }
-          : t
-      )
-    );
-    setIsEditModalOpen(false);
-    setSelectedTable(null);
+    setSavingId(selectedTable.id);
+    try {
+      const updated = await tableApiService.update(selectedTable.id, {
+        number: formData.number,
+        name: formData.name,
+        capacity: formData.capacity,
+      });
+      const mappedTable = mapApiToTable(updated);
+      mappedTable.hallId = formData.hallId; // Preserve local hall assignment
+      setTables((prev) =>
+        prev.map((t) => (t.id === selectedTable.id ? { ...t, ...mappedTable } : t))
+      );
+      setIsEditModalOpen(false);
+      setSelectedTable(null);
+      showToast('success', `Stol ${updated.number} yangilandi`);
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.message || 'Stolni tahrirlashda xatolik');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // Delete table
@@ -229,11 +293,20 @@ export function TablesPage() {
     setActiveDropdown(null);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!selectedTable) return;
-    setTables((prev) => prev.filter((t) => t.id !== selectedTable.id));
-    setIsDeleteModalOpen(false);
-    setSelectedTable(null);
+    setSavingId(selectedTable.id);
+    try {
+      await tableApiService.delete(selectedTable.id);
+      setTables((prev) => prev.filter((t) => t.id !== selectedTable.id));
+      setIsDeleteModalOpen(false);
+      showToast('success', `Stol ${selectedTable.number} o'chirildi`);
+      setSelectedTable(null);
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.message || 'Stolni o\'chirishda xatolik');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // Reserve table
@@ -244,25 +317,34 @@ export function TablesPage() {
     setActiveDropdown(null);
   };
 
-  const handleConfirmReservation = () => {
+  const handleConfirmReservation = async () => {
     if (!selectedTable) return;
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === selectedTable.id
-          ? {
-              ...t,
-              status: 'RESERVED' as TableStatus,
-              reservedFor: {
-                name: reservationData.name,
-                phone: reservationData.phone,
-                time: reservationData.time,
-              },
-            }
-          : t
-      )
-    );
-    setIsReserveModalOpen(false);
-    setSelectedTable(null);
+    setSavingId(selectedTable.id);
+    try {
+      await tableApiService.updateStatus(selectedTable.id, 'RESERVED');
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === selectedTable.id
+            ? {
+                ...t,
+                status: 'RESERVED' as TableStatus,
+                reservedFor: {
+                  name: reservationData.name,
+                  phone: reservationData.phone,
+                  time: reservationData.time,
+                },
+              }
+            : t
+        )
+      );
+      setIsReserveModalOpen(false);
+      showToast('success', `Stol ${selectedTable.number} bron qilindi`);
+      setSelectedTable(null);
+    } catch (err: any) {
+      showToast('error', err?.response?.data?.message || 'Bron qilishda xatolik');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // QR Code
@@ -271,6 +353,36 @@ export function TablesPage() {
     setIsQRModalOpen(true);
     setActiveDropdown(null);
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl bg-white py-20 shadow-sm border border-gray-100">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-orange-500" />
+          <p className="mt-3 text-sm text-gray-500">Stollar yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl bg-white py-20 shadow-sm border border-gray-100">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
+          <p className="mt-3 text-sm text-gray-600">{error}</p>
+          <button
+            onClick={loadTables}
+            className="mt-4 rounded-lg bg-orange-500 px-4 py-2 text-sm text-white hover:bg-orange-600 transition-colors"
+          >
+            Qayta yuklash
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -283,14 +395,14 @@ export function TablesPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleAddHall}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[#FF5722] px-4 py-2.5 text-sm font-medium text-[#FF5722] hover:bg-orange-50 transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg border border-orange-500 px-4 py-2.5 text-sm font-medium text-orange-500 hover:bg-orange-50 transition-colors"
           >
             <Plus size={18} />
             <span>Yangi zal</span>
           </button>
           <button
             onClick={handleAddTable}
-            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
+            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
           >
             <Plus size={18} />
             <span>Yangi stol</span>
@@ -368,7 +480,7 @@ export function TablesPage() {
           className={cn(
             'rounded-lg px-4 py-2 text-sm font-medium transition-colors border',
             hallFilter === 'ALL'
-              ? 'bg-[#FF5722] text-white border-[#FF5722]'
+              ? 'bg-orange-500 text-white border-orange-500'
               : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
           )}
         >
@@ -383,7 +495,7 @@ export function TablesPage() {
               className={cn(
                 'rounded-lg px-4 py-2 text-sm font-medium transition-colors border group relative',
                 hallFilter === hall.id
-                  ? 'bg-[#FF5722] text-white border-[#FF5722]'
+                  ? 'bg-orange-500 text-white border-orange-500'
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
               )}
             >
@@ -416,7 +528,7 @@ export function TablesPage() {
               placeholder="Qidirish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-[#FF5722] focus:outline-none focus:ring-1 focus:ring-[#FF5722]"
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
             />
           </div>
 
@@ -429,7 +541,7 @@ export function TablesPage() {
                 className={cn(
                   'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                   statusFilter === status
-                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
                 )}
               >
@@ -474,18 +586,27 @@ export function TablesPage() {
           {filteredTables.map((table) => {
             const config = statusConfig[table.status];
             const StatusIcon = config.icon;
+            const isSaving = savingId === table.id;
 
             return (
               <div
                 key={table.id}
                 className={cn(
                   'group relative rounded-xl bg-white p-5 shadow-sm border-2 transition-all hover:shadow-md cursor-pointer',
+                  isSaving && 'opacity-60 pointer-events-none',
                   table.status === 'FREE' && 'border-green-200 hover:border-green-400',
                   table.status === 'OCCUPIED' && 'border-orange-200 hover:border-orange-400',
                   table.status === 'RESERVED' && 'border-blue-200 hover:border-blue-400',
                   table.status === 'CLEANING' && 'border-purple-200 hover:border-purple-400'
                 )}
               >
+                {/* Saving overlay */}
+                {isSaving && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/50">
+                    <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                  </div>
+                )}
+
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -636,9 +757,10 @@ export function TablesPage() {
               {filteredTables.map((table) => {
                 const config = statusConfig[table.status];
                 const StatusIcon = config.icon;
+                const isSaving = savingId === table.id;
 
                 return (
-                  <tr key={table.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={table.id} className={cn('hover:bg-gray-50 transition-colors', isSaving && 'opacity-60')}>
                     <td className="px-4 py-4">
                       <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold', config.bgColor, config.color)}>
                         {table.number}
@@ -682,7 +804,8 @@ export function TablesPage() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleEditTable(table)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          disabled={isSaving}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
                           title="Tahrirlash"
                         >
                           <Edit size={16} />
@@ -697,7 +820,8 @@ export function TablesPage() {
                         {table.status === 'FREE' && (
                           <button
                             onClick={() => handleReserveTable(table)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+                            disabled={isSaving}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-500 disabled:opacity-50"
                             title="Bron qilish"
                           >
                             <Clock size={16} />
@@ -705,7 +829,8 @@ export function TablesPage() {
                         )}
                         <button
                           onClick={() => handleDeleteTable(table)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
+                          disabled={isSaving}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
                           title="O'chirish"
                         >
                           <Trash2 size={16} />
@@ -756,7 +881,7 @@ export function TablesPage() {
                 <select
                   value={formData.hallId}
                   onChange={(e) => setFormData({ ...formData, hallId: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 >
                   {halls.map((hall) => (
                     <option key={hall.id} value={hall.id}>{hall.name}</option>
@@ -769,7 +894,7 @@ export function TablesPage() {
                   type="number"
                   value={formData.number}
                   onChange={(e) => setFormData({ ...formData, number: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -779,7 +904,7 @@ export function TablesPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Masalan: VIP xona, Balkon..."
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -789,7 +914,7 @@ export function TablesPage() {
                   value={formData.capacity}
                   onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
                   min="1"
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -797,14 +922,17 @@ export function TablesPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+                disabled={savingId === 'new'}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleSaveNewTable}
-                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110"
+                disabled={savingId === 'new'}
+                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {savingId === 'new' && <Loader2 size={16} className="animate-spin" />}
                 Saqlash
               </button>
             </div>
@@ -829,7 +957,7 @@ export function TablesPage() {
                 <select
                   value={formData.hallId}
                   onChange={(e) => setFormData({ ...formData, hallId: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 >
                   {halls.map((hall) => (
                     <option key={hall.id} value={hall.id}>{hall.name}</option>
@@ -842,7 +970,7 @@ export function TablesPage() {
                   type="number"
                   value={formData.number}
                   onChange={(e) => setFormData({ ...formData, number: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -851,7 +979,7 @@ export function TablesPage() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -861,7 +989,7 @@ export function TablesPage() {
                   value={formData.capacity}
                   onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })}
                   min="1"
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -869,14 +997,17 @@ export function TablesPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setIsEditModalOpen(false)}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+                disabled={savingId === selectedTable.id}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleSaveEditTable}
-                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110"
+                disabled={savingId === selectedTable.id}
+                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {savingId === selectedTable.id && <Loader2 size={16} className="animate-spin" />}
                 Saqlash
               </button>
             </div>
@@ -901,14 +1032,17 @@ export function TablesPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+                disabled={savingId === selectedTable.id}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-white hover:bg-red-600"
+                disabled={savingId === selectedTable.id}
+                className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-white hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {savingId === selectedTable.id && <Loader2 size={16} className="animate-spin" />}
                 O'chirish
               </button>
             </div>
@@ -935,7 +1069,7 @@ export function TablesPage() {
                   value={reservationData.name}
                   onChange={(e) => setReservationData({ ...reservationData, name: e.target.value })}
                   placeholder="Ism familiya"
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -947,7 +1081,7 @@ export function TablesPage() {
                     value={reservationData.phone}
                     onChange={(e) => setReservationData({ ...reservationData, phone: e.target.value })}
                     placeholder="+998 90 123 45 67"
-                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -960,7 +1094,7 @@ export function TablesPage() {
                       type="date"
                       value={reservationData.date}
                       onChange={(e) => setReservationData({ ...reservationData, date: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -972,7 +1106,7 @@ export function TablesPage() {
                       type="time"
                       value={reservationData.time}
                       onChange={(e) => setReservationData({ ...reservationData, time: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -987,7 +1121,7 @@ export function TablesPage() {
                     onChange={(e) => setReservationData({ ...reservationData, guests: parseInt(e.target.value) || 1 })}
                     min="1"
                     max={selectedTable.capacity}
-                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Maksimal: {selectedTable.capacity} kishi</p>
@@ -997,15 +1131,17 @@ export function TablesPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setIsReserveModalOpen(false)}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50"
+                disabled={savingId === selectedTable.id}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Bekor qilish
               </button>
               <button
                 onClick={handleConfirmReservation}
-                disabled={!reservationData.name || !reservationData.phone || !reservationData.time}
-                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!reservationData.name || !reservationData.phone || !reservationData.time || savingId === selectedTable.id}
+                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
+                {savingId === selectedTable.id && <Loader2 size={16} className="animate-spin" />}
                 Bron qilish
               </button>
             </div>
@@ -1032,7 +1168,7 @@ export function TablesPage() {
                   value={hallFormData.name}
                   onChange={(e) => setHallFormData({ ...hallFormData, name: e.target.value })}
                   placeholder="Masalan: Yozgi terassa"
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -1042,7 +1178,7 @@ export function TablesPage() {
                   value={hallFormData.description}
                   onChange={(e) => setHallFormData({ ...hallFormData, description: e.target.value })}
                   placeholder="Qisqacha tavsif"
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -1085,7 +1221,7 @@ export function TablesPage() {
               <button
                 onClick={handleSaveHall}
                 disabled={!hallFormData.name}
-                className="flex-1 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Qo'shish
               </button>
@@ -1122,6 +1258,16 @@ export function TablesPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={cn(
+          'fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg',
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        )}>
+          {toast.message}
         </div>
       )}
     </div>

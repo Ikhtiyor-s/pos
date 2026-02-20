@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus,
   RefreshCw,
@@ -7,6 +7,8 @@ import {
   VolumeX,
   Filter,
   LayoutDashboard,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OrderCard } from '@/components/orders/OrderCard';
@@ -14,8 +16,8 @@ import { OrderStats } from '@/components/orders/OrderStats';
 import { OrderFilter, StatusTabs } from '@/components/orders/OrderFilter';
 import { OrderDetailModal } from '@/components/orders/OrderDetailModal';
 import { NewOrderModal } from '@/components/orders/NewOrderModal';
-import { mockOrders, calculateOrderStats } from '@/data/mockOrders';
-import type { Order, OrderStatus, OrderFilters, OrderStats as OrderStatsType } from '@/types/order';
+import { orderApiService, type OrderApi, type OrderApiItem } from '@/services/order.service';
+import type { Order, OrderStatus, OrderType, OrderItem, OrderItemStatus, PaymentStatus, OrderFilters, OrderStats as OrderStatsType } from '@/types/order';
 import { ORDER_STATUS_INFO } from '@/types/order';
 import { cn } from '@/lib/utils';
 
@@ -31,9 +33,156 @@ const initialFilters: OrderFilters = {
 // View mode
 type ViewMode = 'kanban' | 'list';
 
+// Backend type -> frontend type mapping
+const mapApiType = (type: string): OrderType => {
+  const typeMap: Record<string, OrderType> = {
+    'DINE_IN': 'dine-in',
+    'TAKEAWAY': 'takeaway',
+    'DELIVERY': 'delivery',
+    'dine_in': 'dine-in',
+    'takeaway': 'takeaway',
+    'delivery': 'delivery',
+  };
+  return typeMap[type] || (type.toLowerCase().replace('_', '-') as OrderType);
+};
+
+// Backend status -> frontend status mapping
+const mapApiStatus = (status: string): OrderStatus => {
+  const statusMap: Record<string, OrderStatus> = {
+    'NEW': 'new',
+    'CONFIRMED': 'confirmed',
+    'PREPARING': 'preparing',
+    'READY': 'ready',
+    'DELIVERING': 'delivering',
+    'COMPLETED': 'completed',
+    'CANCELLED': 'cancelled',
+  };
+  return statusMap[status] || (status.toLowerCase() as OrderStatus);
+};
+
+// Backend item status -> frontend item status mapping
+const mapItemStatus = (status: string): OrderItemStatus => {
+  const statusMap: Record<string, OrderItemStatus> = {
+    'PENDING': 'pending',
+    'PREPARING': 'preparing',
+    'READY': 'ready',
+    'SERVED': 'served',
+    'CANCELLED': 'cancelled',
+  };
+  return statusMap[status] || (status.toLowerCase() as OrderItemStatus);
+};
+
+// Payment status ni hisoblash
+const calculatePaymentStatus = (payments: OrderApi['payments'], total: number): PaymentStatus => {
+  if (!payments || payments.length === 0) return 'pending';
+  const paidAmount = payments
+    .filter((p) => p.status === 'COMPLETED' || p.status === 'completed' || p.status === 'success')
+    .reduce((sum, p) => sum + p.amount, 0);
+  if (paidAmount >= total) return 'paid';
+  if (paidAmount > 0) return 'pending'; // partial - frontend uses 'pending' as there's no 'partial'
+  return 'pending';
+};
+
+// OrderApi -> Order mapper
+const mapApiOrder = (apiOrder: OrderApi): Order => {
+  const items: OrderItem[] = (apiOrder.items || []).map((item: OrderApiItem) => ({
+    id: item.id,
+    productId: item.productId,
+    name: item.product?.name || `Mahsulot #${item.productId}`,
+    quantity: item.quantity,
+    price: item.price,
+    total: item.total,
+    notes: item.notes,
+    status: mapItemStatus(item.status),
+  }));
+
+  const paymentStatus = calculatePaymentStatus(apiOrder.payments, apiOrder.total);
+
+  // Payment method - oxirgi muvaffaqiyatli to'lovdan
+  const lastPayment = apiOrder.payments?.find(
+    (p) => p.status === 'COMPLETED' || p.status === 'completed' || p.status === 'success'
+  );
+
+  // Customer name
+  const customerName = apiOrder.customer
+    ? [apiOrder.customer.firstName, apiOrder.customer.lastName].filter(Boolean).join(' ')
+    : undefined;
+
+  // Waiter/user name
+  const userName = apiOrder.user
+    ? [apiOrder.user.firstName, apiOrder.user.lastName].filter(Boolean).join(' ')
+    : undefined;
+
+  return {
+    id: apiOrder.id,
+    orderNumber: apiOrder.orderNumber,
+    type: mapApiType(apiOrder.type),
+    status: mapApiStatus(apiOrder.status),
+    customerId: apiOrder.customerId,
+    customerName,
+    customerPhone: apiOrder.customer?.phone,
+    tableId: apiOrder.tableId,
+    tableNumber: apiOrder.table?.number,
+    deliveryAddress: apiOrder.address,
+    items,
+    subtotal: apiOrder.subtotal,
+    deliveryFee: 0,
+    discount: apiOrder.discount,
+    tax: apiOrder.tax,
+    total: apiOrder.total,
+    paymentMethod: lastPayment?.method as Order['paymentMethod'],
+    paymentStatus,
+    paidAt: paymentStatus === 'paid' ? apiOrder.updatedAt : undefined,
+    notes: apiOrder.notes,
+    userId: apiOrder.userId,
+    userName,
+    createdAt: apiOrder.createdAt,
+  };
+};
+
+// Statistika hisoblash funksiyasi (lokal)
+function calculateOrderStats(orders: Order[]): OrderStatsType {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayOrders = orders.filter(
+    (o) => new Date(o.createdAt) >= today
+  );
+
+  const completedOrders = todayOrders.filter((o) => o.status === 'completed');
+  const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total, 0);
+
+  // O'rtacha kutish vaqtini hisoblash
+  const completedWithTimes = completedOrders.filter(
+    (o) => o.createdAt && o.completedAt
+  );
+  const avgWaitTime =
+    completedWithTimes.length > 0
+      ? Math.round(
+          completedWithTimes.reduce((sum, o) => {
+            const created = new Date(o.createdAt).getTime();
+            const completed = new Date(o.completedAt!).getTime();
+            return sum + (completed - created) / 60000;
+          }, 0) / completedWithTimes.length
+        )
+      : 0;
+
+  return {
+    totalOrders: todayOrders.length,
+    newOrders: todayOrders.filter((o) => o.status === 'new').length,
+    preparingOrders: todayOrders.filter((o) => o.status === 'preparing').length,
+    readyOrders: todayOrders.filter((o) => o.status === 'ready').length,
+    completedOrders: completedOrders.length,
+    cancelledOrders: todayOrders.filter((o) => o.status === 'cancelled').length,
+    totalRevenue,
+    avgOrderValue: completedOrders.length > 0 ? Math.round(totalRevenue / completedOrders.length) : 0,
+    avgWaitTime,
+  };
+}
+
 export function OrdersPage() {
   // State
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [filters, setFilters] = useState<OrderFilters>(initialFilters);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -42,6 +191,38 @@ export function OrdersPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Toast ko'rsatish
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Ma'lumotlarni yuklash
+  const loadOrders = useCallback(async () => {
+    try {
+      setError(null);
+      const { orders: apiOrders } = await orderApiService.getAll({ limit: 200 });
+      const mappedOrders = apiOrders.map(mapApiOrder);
+      setOrders(mappedOrders);
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Buyurtmalarni yuklashda xatolik yuz berdi';
+      setError(message);
+      console.error('Orders load error:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Sahifa ochilganda ma'lumot yuklash
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   // Statistika hisoblash
   const stats: OrderStatsType = useMemo(() => calculateOrderStats(orders), [orders]);
@@ -116,13 +297,11 @@ export function OrdersPage() {
   }, [filteredOrders]);
 
   // Yangilash
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    // Simulatsiya
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
-  };
+    await loadOrders();
+    showToast('success', 'Buyurtmalar yangilandi');
+  }, [loadOrders, showToast]);
 
   // Buyurtmani ko'rish
   const handleViewOrder = (order: Order) => {
@@ -131,59 +310,54 @@ export function OrdersPage() {
   };
 
   // Buyurtma statusini o'zgartirish
-  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== orderId) return order;
+  const handleStatusChange = useCallback(async (orderId: string, newStatus: OrderStatus) => {
+    setIsSaving(true);
+    try {
+      const updatedApiOrder = await orderApiService.updateStatus(orderId, newStatus.toUpperCase());
+      const updatedOrder = mapApiOrder(updatedApiOrder);
 
-        const now = new Date().toISOString();
-        const updates: Partial<Order> = { status: newStatus };
-
-        // Tegishli vaqt maydonini yangilash
-        switch (newStatus) {
-          case 'confirmed':
-            updates.confirmedAt = now;
-            break;
-          case 'preparing':
-            updates.preparingAt = now;
-            if (!order.confirmedAt) updates.confirmedAt = now;
-            break;
-          case 'ready':
-            updates.readyAt = now;
-            break;
-          case 'completed':
-            updates.completedAt = now;
-            break;
-        }
-
-        return { ...order, ...updates };
-      })
-    );
-
-    // Modal ochiq bo'lsa, uni ham yangilash
-    if (selectedOrder?.id === orderId) {
-      setSelectedOrder((prev) =>
-        prev ? { ...prev, status: newStatus } : null
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? updatedOrder : order))
       );
+
+      // Modal ochiq bo'lsa, uni ham yangilash
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(updatedOrder);
+      }
+
+      const statusLabel = ORDER_STATUS_INFO[newStatus]?.label || newStatus;
+      showToast('success', `Buyurtma holati "${statusLabel}" ga o'zgartirildi`);
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Status o\'zgartirishda xatolik yuz berdi';
+      showToast('error', message);
+      console.error('Status change error:', err);
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [selectedOrder, showToast]);
 
   // Buyurtmani bekor qilish
-  const handleCancelOrder = (orderId: string, reason: string) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: 'cancelled' as OrderStatus,
-              cancelledAt: new Date().toISOString(),
-              cancelReason: reason,
-            }
-          : order
-      )
-    );
-    setIsDetailModalOpen(false);
-  };
+  const handleCancelOrder = useCallback(async (orderId: string, _reason: string) => {
+    setIsSaving(true);
+    try {
+      const updatedApiOrder = await orderApiService.updateStatus(orderId, 'CANCELLED');
+      const updatedOrder = mapApiOrder(updatedApiOrder);
+
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? { ...updatedOrder, cancelReason: _reason } : order))
+      );
+
+      setIsDetailModalOpen(false);
+      setSelectedOrder(null);
+      showToast('success', 'Buyurtma bekor qilindi');
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Buyurtmani bekor qilishda xatolik';
+      showToast('error', message);
+      console.error('Cancel order error:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [showToast]);
 
   // Chop etish
   const handlePrintOrder = (order: Order) => {
@@ -196,10 +370,45 @@ export function OrdersPage() {
     setFilters(initialFilters);
   };
 
-  // Yangi buyurtma qo'shish
-  const handleOrderCreated = (newOrder: Order) => {
-    setOrders((prev) => [newOrder, ...prev]);
-  };
+  // Yangi buyurtma qo'shilganda - API dan qayta yuklash
+  const handleOrderCreated = useCallback(async (_newOrder: Order) => {
+    // API dan yangi ma'lumotlarni yuklash
+    await loadOrders();
+    showToast('success', 'Yangi buyurtma yaratildi');
+  }, [loadOrders, showToast]);
+
+  // Loading holati
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-orange-500" />
+          <p className="mt-3 text-sm text-gray-500">Buyurtmalar yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Xatolik holati
+  if (error) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
+          <p className="mt-3 text-sm text-gray-600">{error}</p>
+          <Button
+            onClick={() => {
+              setIsLoading(true);
+              loadOrders();
+            }}
+            className="mt-4 bg-orange-500 text-white hover:bg-orange-600"
+          >
+            Qayta yuklash
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -220,7 +429,7 @@ export function OrdersPage() {
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors',
                 soundEnabled
-                  ? 'border-[#FF5722]/30 bg-[#FF5722]/10 text-[#FF5722]'
+                  ? 'border-orange-500/30 bg-orange-500/10 text-orange-500'
                   : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600'
               )}
               title={soundEnabled ? 'Ovozni o\'chirish' : 'Ovozni yoqish'}
@@ -233,7 +442,7 @@ export function OrdersPage() {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={isRefreshing}
+              disabled={isRefreshing || isSaving}
               className="border-gray-200 text-gray-600 hover:text-gray-800 hover:bg-gray-50 text-xs px-2"
             >
               <RefreshCw
@@ -251,7 +460,7 @@ export function OrdersPage() {
               className={cn(
                 'border-gray-200 text-xs px-2',
                 showFilters
-                  ? 'bg-[#FF5722]/10 text-[#FF5722] border-[#FF5722]/30'
+                  ? 'bg-orange-500/10 text-orange-500 border-orange-500/30'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               )}
             >
@@ -266,7 +475,7 @@ export function OrdersPage() {
                 className={cn(
                   'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
                   viewMode === 'kanban'
-                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                     : 'text-gray-500 hover:text-gray-700'
                 )}
               >
@@ -278,7 +487,7 @@ export function OrdersPage() {
                 className={cn(
                   'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
                   viewMode === 'list'
-                    ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                     : 'text-gray-500 hover:text-gray-700'
                 )}
               >
@@ -291,7 +500,7 @@ export function OrdersPage() {
             <Button
               size="sm"
               onClick={() => setIsNewOrderModalOpen(true)}
-              className="bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:brightness-110 text-white text-xs px-2"
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:brightness-110 text-white text-xs px-2"
             >
               <Plus size={14} className="mr-1" />
               <span className="hidden sm:inline">Yangi</span>
@@ -449,6 +658,16 @@ export function OrdersPage() {
           onClose={() => setIsNewOrderModalOpen(false)}
           onOrderCreated={handleOrderCreated}
         />
+
+        {/* Toast */}
+        {toast && (
+          <div className={cn(
+            'fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg transition-all',
+            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          )}>
+            {toast.message}
+          </div>
+        )}
       </div>
     </div>
   );

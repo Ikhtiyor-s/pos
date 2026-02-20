@@ -53,57 +53,57 @@ export function ReceiptStep({
           {/* Chek ko'rinishi */}
           <div
             id="receipt-content"
-            className="rounded-xl border border-slate-700 bg-white text-slate-900 p-6 shadow-xl"
+            className="rounded-xl border border-gray-200 bg-white text-gray-900 p-6 shadow-xl"
           >
             {/* Header */}
-            <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4">
+            <div className="text-center border-b border-dashed border-gray-300 pb-4 mb-4">
               <h2 className="text-xl font-bold">🍽️ OSHXONA</h2>
-              <p className="text-sm text-slate-500 mt-1">Restoran POS Tizimi</p>
-              <div className="mt-3 text-xs text-slate-500">
+              <p className="text-sm text-gray-400 mt-1">Restoran POS Tizimi</p>
+              <div className="mt-3 text-xs text-gray-400">
                 <p>Toshkent sh., Chilonzor t.</p>
                 <p>Tel: +998 90 123 45 67</p>
               </div>
             </div>
 
             {/* Buyurtma ma'lumotlari */}
-            <div className="border-b border-dashed border-slate-300 pb-3 mb-3">
+            <div className="border-b border-dashed border-gray-300 pb-3 mb-3">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Buyurtma №:</span>
+                <span className="text-gray-400">Buyurtma №:</span>
                 <span className="font-mono font-semibold">{orderNumber}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-slate-500">Sana:</span>
+                <span className="text-gray-400">Sana:</span>
                 <span>{currentDate}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-slate-500">Turi:</span>
+                <span className="text-gray-400">Turi:</span>
                 <span className="font-medium">
                   {orderType === 'dine-in' ? 'Shu yerda' : 'Olib ketish'}
                 </span>
               </div>
               {orderType === 'dine-in' && tableNumber && (
                 <div className="flex justify-between text-sm mt-1">
-                  <span className="text-slate-500">Stol:</span>
+                  <span className="text-gray-400">Stol:</span>
                   <span className="font-bold text-orange-600">#{tableNumber}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-slate-500">To'lov:</span>
+                <span className="text-gray-400">To'lov:</span>
                 <span className="font-medium text-green-600">
                   {PAYMENT_METHOD_LABELS[paymentMethod]}
                 </span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-slate-500">Kassir:</span>
+                <span className="text-gray-400">Kassir:</span>
                 <span>Kassir</span>
               </div>
             </div>
 
             {/* Mahsulotlar */}
-            <div className="border-b border-dashed border-slate-300 pb-3 mb-3">
+            <div className="border-b border-dashed border-gray-300 pb-3 mb-3">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-slate-500 text-xs">
+                  <tr className="text-gray-400 text-xs">
                     <th className="text-left pb-2">Mahsulot</th>
                     <th className="text-center pb-2">Soni</th>
                     <th className="text-right pb-2">Narxi</th>
@@ -112,13 +112,13 @@ export function ReceiptStep({
                 </thead>
                 <tbody>
                   {items.map((item, index) => (
-                    <tr key={item.id} className="border-t border-slate-100">
+                    <tr key={item.id} className="border-t border-gray-100">
                       <td className="py-2 pr-2">
-                        <span className="text-slate-400 text-xs mr-1">{index + 1}.</span>
+                        <span className="text-gray-500 text-xs mr-1">{index + 1}.</span>
                         {item.name}
                       </td>
                       <td className="text-center py-2">{item.quantity}</td>
-                      <td className="text-right py-2 text-slate-500 text-xs">
+                      <td className="text-right py-2 text-gray-400 text-xs">
                         {new Intl.NumberFormat('uz-UZ').format(item.price)}
                       </td>
                       <td className="text-right py-2 font-medium">
@@ -134,8 +134,8 @@ export function ReceiptStep({
 
             {/* Izoh */}
             {notes && (
-              <div className="border-b border-dashed border-slate-300 pb-3 mb-3">
-                <p className="text-xs text-slate-500">Izoh:</p>
+              <div className="border-b border-dashed border-gray-300 pb-3 mb-3">
+                <p className="text-xs text-gray-400">Izoh:</p>
                 <p className="text-sm mt-1">{notes}</p>
               </div>
             )}
@@ -143,22 +143,22 @@ export function ReceiptStep({
             {/* Jami */}
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Oraliq jami:</span>
+                <span className="text-gray-400">Oraliq jami:</span>
                 <span>{new Intl.NumberFormat('uz-UZ').format(subtotal)} so'm</span>
               </div>
-              <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-200">
+              <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
                 <span>JAMI:</span>
                 <span>{new Intl.NumberFormat('uz-UZ').format(total)} so'm</span>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="mt-6 text-center border-t border-dashed border-slate-300 pt-4">
+            <div className="mt-6 text-center border-t border-dashed border-gray-300 pt-4">
               <p className="text-sm font-medium">Xaridingiz uchun rahmat!</p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 Yana kutib qolamiz
               </p>
-              <div className="mt-4 text-xs text-slate-400">
+              <div className="mt-4 text-xs text-gray-500">
                 ═══════════════════════════
               </div>
             </div>
@@ -167,13 +167,13 @@ export function ReceiptStep({
       </div>
 
       {/* Footer tugmalari */}
-      <div className="border-t border-slate-700 p-4">
+      <div className="border-t border-gray-200 p-4">
         <div className="mx-auto max-w-md flex gap-3">
           <Button
             variant="outline"
             onClick={onBack}
             disabled={isSubmitting}
-            className="flex-1 border-slate-700 text-slate-400 hover:text-white"
+            className="flex-1 border-gray-200 text-gray-500 hover:text-gray-900"
           >
             <ArrowLeft size={16} className="mr-2" />
             Orqaga

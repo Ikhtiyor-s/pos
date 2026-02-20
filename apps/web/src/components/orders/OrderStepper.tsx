@@ -32,7 +32,7 @@ export function OrderStepper({
               className={cn(
                 'flex items-center gap-2 rounded-lg px-3 py-2 transition-all',
                 isActive && 'bg-orange-500/20',
-                isClickable && !isActive && 'hover:bg-slate-700/50 cursor-pointer',
+                isClickable && !isActive && 'hover:bg-gray-200/50 cursor-pointer',
                 !isClickable && 'cursor-default'
               )}
             >
@@ -42,7 +42,7 @@ export function OrderStepper({
                   'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all',
                   isActive && 'bg-orange-500 text-white',
                   isCompleted && !isActive && 'bg-green-500 text-white',
-                  !isActive && !isCompleted && 'bg-slate-700 text-slate-400'
+                  !isActive && !isCompleted && 'bg-gray-200 text-gray-500'
                 )}
               >
                 {isCompleted && !isActive ? (
@@ -57,8 +57,8 @@ export function OrderStepper({
                 className={cn(
                   'text-sm font-medium hidden sm:block',
                   isActive && 'text-orange-400',
-                  isCompleted && !isActive && 'text-green-400',
-                  !isActive && !isCompleted && 'text-slate-500'
+                  isCompleted && !isActive && 'text-green-600',
+                  !isActive && !isCompleted && 'text-gray-400'
                 )}
               >
                 {step.label}
@@ -70,7 +70,7 @@ export function OrderStepper({
               <div
                 className={cn(
                   'h-0.5 flex-1 mx-2 rounded-full transition-all',
-                  index < currentIndex ? 'bg-green-500' : 'bg-slate-700'
+                  index < currentIndex ? 'bg-green-500' : 'bg-gray-200'
                 )}
               />
             )}

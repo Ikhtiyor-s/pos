@@ -218,7 +218,7 @@ export function QuickOrderModal({
       {/* Modal */}
       <div
         className={cn(
-          'relative w-full rounded-xl bg-slate-900 shadow-2xl border border-slate-700',
+          'relative w-full rounded-xl bg-white shadow-2xl border border-gray-200',
           'animate-in fade-in-0 zoom-in-95 duration-200',
           'flex flex-col',
           currentStep === 'type' ? 'max-w-2xl h-[80vh]' :
@@ -228,11 +228,11 @@ export function QuickOrderModal({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-white">Tezkor buyurtma</h2>
-              <p className="mt-0.5 text-sm text-slate-400">
+              <h2 className="text-xl font-semibold text-gray-900">Tezkor buyurtma</h2>
+              <p className="mt-0.5 text-sm text-gray-500">
                 {orderType === 'dine-in' && selectedTable && (
                   <span className="text-orange-400">Stol #{selectedTable.number}</span>
                 )}
@@ -269,15 +269,15 @@ export function QuickOrderModal({
                         : isCompleted
                         ? 'bg-green-500/20 text-green-400 cursor-pointer hover:bg-green-500/30'
                         : canGoToStep(step.id)
-                        ? 'bg-slate-800 text-slate-400 hover:text-white cursor-pointer'
-                        : 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                        ? 'bg-white text-gray-500 hover:text-gray-900 cursor-pointer'
+                        : 'bg-gray-50 text-gray-400 cursor-not-allowed'
                     )}
                   >
                     <Icon size={14} />
                     <span className="hidden sm:inline">{step.label}</span>
                   </button>
                   {index < STEPS.length - 1 && (
-                    <div className="mx-1 h-px w-4 bg-slate-700" />
+                    <div className="mx-1 h-px w-4 bg-gray-200" />
                   )}
                 </div>
               );
@@ -286,7 +286,7 @@ export function QuickOrderModal({
 
           <button
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-white hover:text-gray-900 transition-colors"
           >
             <X size={20} />
           </button>

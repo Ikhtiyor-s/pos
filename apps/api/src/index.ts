@@ -9,6 +9,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import routes from './routes/index.js';
 import { setupSocket } from './config/socket.js';
+import { nonborSyncService } from './services/nonbor-sync.service.js';
+import { startWorker } from './integration/index.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -85,6 +87,18 @@ httpServer.listen(PORT, () => {
   ║  🌍 Environment: ${process.env.NODE_ENV || 'development'}                 ║
   ╚═══════════════════════════════════════════════╝
   `);
+
+  // Integration Core worker boshlash
+  try {
+    startWorker();
+  } catch (err) {
+    console.error('[Integration] Worker boshlashda xatolik:', err);
+  }
+
+  // Nonbor integratsiya pollingni boshlash
+  nonborSyncService.startPolling(io).catch((err) => {
+    console.error('[Nonbor] Polling boshlashda xatolik:', err);
+  });
 });
 
 export { io };

@@ -65,19 +65,19 @@ export function CategoryFilter({
         <div className="relative flex-1">
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
           />
           <Input
             type="text"
             placeholder="Kategoriya nomini qidiring..."
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder:text-slate-500"
+            className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
           />
           {filters.search && (
             <button
               onClick={() => updateFilter('search', '')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:text-slate-400 dark:hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
             >
               <X size={16} />
             </button>
@@ -118,8 +118,7 @@ export function CategoryFilter({
             }
             className={cn(
               'flex h-10 w-10 items-center justify-center rounded-lg border transition-colors',
-              'border-gray-300 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-              'dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white'
+              'border-gray-300 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             )}
             title={filters.sortOrder === 'asc' ? 'O\'sish tartibi' : 'Kamayish tartibi'}
           >
@@ -132,7 +131,7 @@ export function CategoryFilter({
           <Button
             variant="outline"
             onClick={onReset}
-            className="flex items-center gap-2 border-slate-700 text-slate-400 hover:text-white"
+            className="flex items-center gap-2 border-gray-200 text-gray-500 hover:text-gray-900"
           >
             <RotateCcw size={16} />
             Tozalash
@@ -176,11 +175,11 @@ function FilterTag({
   onRemove: () => void;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/20 px-3 py-1 text-sm text-orange-400">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-sm text-orange-500">
       {label}
       <button
         onClick={onRemove}
-        className="rounded-full p-0.5 hover:bg-orange-500/30"
+        className="rounded-full p-0.5 hover:bg-orange-100"
       >
         <X size={14} />
       </button>

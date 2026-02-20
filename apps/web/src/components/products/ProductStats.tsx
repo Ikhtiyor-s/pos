@@ -21,45 +21,45 @@ export function ProductStats({ stats, className }: ProductStatsProps) {
       value: stats.totalProducts,
       icon: Package,
       color: 'blue',
-      bgColor: 'bg-blue-500/10',
-      iconColor: 'text-blue-400',
-      borderColor: 'border-blue-500/20',
+      bgColor: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+      borderColor: 'border-blue-200',
     },
     {
       title: 'Faol mahsulotlar',
       value: stats.activeProducts,
       icon: CheckCircle,
       color: 'green',
-      bgColor: 'bg-green-500/10',
-      iconColor: 'text-green-400',
-      borderColor: 'border-green-500/20',
+      bgColor: 'bg-green-50',
+      iconColor: 'text-green-600',
+      borderColor: 'border-green-200',
     },
     {
       title: 'Zahirada kam',
       value: stats.lowStockProducts,
       icon: AlertTriangle,
       color: 'amber',
-      bgColor: 'bg-amber-500/10',
-      iconColor: 'text-amber-400',
-      borderColor: 'border-amber-500/20',
+      bgColor: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+      borderColor: 'border-amber-200',
     },
     {
       title: 'Zahirada yo\'q',
       value: stats.outOfStockProducts,
       icon: XCircle,
       color: 'red',
-      bgColor: 'bg-red-500/10',
-      iconColor: 'text-red-400',
-      borderColor: 'border-red-500/20',
+      bgColor: 'bg-red-50',
+      iconColor: 'text-red-600',
+      borderColor: 'border-red-200',
     },
     {
       title: 'O\'rtacha narx',
       value: new Intl.NumberFormat('uz-UZ').format(stats.averagePrice) + ' so\'m',
       icon: TrendingUp,
       color: 'purple',
-      bgColor: 'bg-purple-500/10',
-      iconColor: 'text-purple-400',
-      borderColor: 'border-purple-500/20',
+      bgColor: 'bg-purple-50',
+      iconColor: 'text-purple-600',
+      borderColor: 'border-purple-200',
       isPrice: true,
     },
   ];
@@ -87,7 +87,7 @@ export function ProductStats({ stats, className }: ProductStatsProps) {
                 <Icon size={20} className={stat.iconColor} />
               </div>
               <div>
-                <p className="text-sm text-slate-400">{stat.title}</p>
+                <p className="text-sm text-gray-500">{stat.title}</p>
                 <p className={cn('text-xl font-bold', stat.iconColor)}>
                   {stat.isPrice ? stat.value : stat.value.toLocaleString()}
                 </p>

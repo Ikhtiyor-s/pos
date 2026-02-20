@@ -67,19 +67,19 @@ export function OrderFilter({
         <div className="relative flex-1">
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
           />
           <Input
             type="text"
             placeholder="Buyurtma raqami yoki mijoz nomi..."
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+            className="pl-10 bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
           />
           {filters.search && (
             <button
               onClick={() => updateFilter('search', '')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900"
             >
               <X size={16} />
             </button>
@@ -115,7 +115,7 @@ export function OrderFilter({
           <Button
             variant="outline"
             onClick={onReset}
-            className="flex items-center gap-2 border-slate-700 text-slate-400 hover:text-white"
+            className="flex items-center gap-2 border-gray-200 text-gray-500 hover:text-gray-900"
           >
             <RotateCcw size={16} />
             Tozalash
@@ -170,7 +170,7 @@ export function StatusTabs({ currentStatus, counts, onChange }: StatusTabsProps)
     { value: 'preparing' as const, label: 'Tayyorlan..', count: counts.preparing || 0, color: 'amber' },
     { value: 'ready' as const, label: 'Tayyor', count: counts.ready || 0, color: 'green' },
     { value: 'delivering' as const, label: 'Yetkazil..', count: counts.delivering || 0, color: 'cyan' },
-    { value: 'completed' as const, label: 'Yakunlan..', count: counts.completed || 0, color: 'emerald' },
+    { value: 'completed' as const, label: 'Yakunlan..', count: counts.completed || 0, color: 'orange' },
   ];
 
   return (
@@ -183,7 +183,7 @@ export function StatusTabs({ currentStatus, counts, onChange }: StatusTabsProps)
             'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
             currentStatus === tab.value
               ? 'bg-orange-500 text-white'
-              : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+              : 'bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-900'
           )}
         >
           <span className="whitespace-nowrap">{tab.label}</span>
@@ -192,7 +192,7 @@ export function StatusTabs({ currentStatus, counts, onChange }: StatusTabsProps)
               'flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px]',
               currentStatus === tab.value
                 ? 'bg-white/20'
-                : 'bg-slate-700'
+                : 'bg-gray-200'
             )}
           >
             {tab.count}

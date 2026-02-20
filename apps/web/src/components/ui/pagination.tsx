@@ -69,14 +69,14 @@ export function Pagination({
       )}
     >
       {/* Ma'lumot */}
-      <div className="text-sm text-slate-400">
+      <div className="text-sm text-gray-500">
         {totalItems > 0 ? (
           <>
-            <span className="font-medium text-white">{startItem}</span>
+            <span className="font-medium text-gray-900">{startItem}</span>
             {' - '}
-            <span className="font-medium text-white">{endItem}</span>
+            <span className="font-medium text-gray-900">{endItem}</span>
             {' / '}
-            <span className="font-medium text-white">{totalItems}</span>
+            <span className="font-medium text-gray-900">{totalItems}</span>
             {' ta mahsulot'}
           </>
         ) : (
@@ -91,8 +91,8 @@ export function Pagination({
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors',
-            'hover:bg-slate-800 hover:text-white',
+            'flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors',
+            'hover:bg-gray-100 hover:text-gray-700',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
           )}
         >
@@ -104,8 +104,8 @@ export function Pagination({
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors',
-            'hover:bg-slate-800 hover:text-white',
+            'flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors',
+            'hover:bg-gray-100 hover:text-gray-700',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
           )}
         >
@@ -123,8 +123,8 @@ export function Pagination({
               page === currentPage
                 ? 'bg-orange-500 text-white'
                 : page === '...'
-                  ? 'cursor-default text-slate-500'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'cursor-default text-gray-400'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             )}
           >
             {page}
@@ -136,8 +136,8 @@ export function Pagination({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors',
-            'hover:bg-slate-800 hover:text-white',
+            'flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors',
+            'hover:bg-gray-100 hover:text-gray-700',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
           )}
         >
@@ -149,8 +149,8 @@ export function Pagination({
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors',
-            'hover:bg-slate-800 hover:text-white',
+            'flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors',
+            'hover:bg-gray-100 hover:text-gray-700',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
           )}
         >

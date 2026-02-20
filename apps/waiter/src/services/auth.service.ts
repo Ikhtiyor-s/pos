@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '/api',
-});
+import api from './api';
 
 export interface User {
   id: string;
@@ -35,24 +31,48 @@ interface DailyStats {
 
 export const authService = {
   login: async (phone: string, password: string): Promise<LoginResponse> => {
-    const { data } = await api.post('/auth/login', { phone, password });
-    return data;
+    const { data: response } = await api.post('/auth/login', { phone, password });
+    // API returns { success, data: { user, accessToken, refreshToken } }
+    return response.data;
   },
 
   logout: async (refreshToken: string): Promise<void> => {
     await api.post('/auth/logout', { refreshToken });
   },
 
+  getMe: async (): Promise<User> => {
+    const { data: response } = await api.get('/auth/me');
+    return response.data;
+  },
+
   getMyDailyStats: async (): Promise<DailyStats> => {
-    const { data } = await api.get('/auth/me/stats');
-    return data;
+    try {
+      const { data: response } = await api.get('/auth/me/stats');
+      return response.data;
+    } catch {
+      // Stats endpoint may not exist yet
+      return {
+        ordersCount: 0,
+        completedOrdersCount: 0,
+        totalSales: 0,
+        averageOrderValue: 0,
+      };
+    }
   },
 
   checkIn: async (): Promise<void> => {
-    await api.post('/auth/attendance/check-in');
+    try {
+      await api.post('/auth/attendance/check-in');
+    } catch {
+      // Attendance endpoint may not exist yet
+    }
   },
 
   checkOut: async (): Promise<void> => {
-    await api.post('/auth/attendance/check-out');
+    try {
+      await api.post('/auth/attendance/check-out');
+    } catch {
+      // Attendance endpoint may not exist yet
+    }
   },
 };

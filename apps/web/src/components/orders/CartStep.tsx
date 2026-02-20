@@ -76,7 +76,7 @@ export function CartStep({
     <div className="space-y-4">
       {/* Mahsulotlar ro'yxati */}
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-slate-400">
+        <h3 className="text-sm font-medium text-gray-500">
           Buyurtma elementlari ({items.length})
         </h3>
 
@@ -84,11 +84,11 @@ export function CartStep({
           {items.map((item) => (
             <div
               key={item.id}
-              className="rounded-xl border border-slate-700 bg-slate-800/50 p-3"
+              className="rounded-xl border border-gray-200 bg-gray-50 p-3"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-white">{item.name}</h4>
+                  <h4 className="font-medium text-gray-900">{item.name}</h4>
                   <p className="text-sm text-orange-400">
                     {formatPrice(item.price)} x {item.quantity} ={' '}
                     <span className="font-semibold">
@@ -103,7 +103,7 @@ export function CartStep({
                         type="text"
                         placeholder="Izoh qo'shing..."
                         defaultValue={item.notes}
-                        className="h-8 text-sm bg-slate-700 border-slate-600"
+                        className="h-8 text-sm bg-gray-200 border-gray-300"
                         autoFocus
                         onBlur={(e) => {
                           onUpdateItemNotes(item.id, e.target.value);
@@ -120,7 +120,7 @@ export function CartStep({
                   ) : item.notes ? (
                     <button
                       onClick={() => setEditingNotes(item.id)}
-                      className="mt-1 text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                      className="mt-1 text-xs text-gray-500 hover:text-gray-900 flex items-center gap-1"
                     >
                       <MessageSquare size={12} />
                       {item.notes}
@@ -128,7 +128,7 @@ export function CartStep({
                   ) : (
                     <button
                       onClick={() => setEditingNotes(item.id)}
-                      className="mt-1 text-xs text-slate-500 hover:text-slate-400 flex items-center gap-1"
+                      className="mt-1 text-xs text-gray-400 hover:text-gray-500 flex items-center gap-1"
                     >
                       <MessageSquare size={12} />
                       Izoh qo'shish
@@ -147,16 +147,16 @@ export function CartStep({
                           onUpdateQuantity(item.id, item.quantity - 1);
                         }
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-700 text-white hover:bg-slate-600"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-200 text-gray-900 hover:bg-gray-300"
                     >
                       <Minus size={14} />
                     </button>
-                    <span className="w-8 text-center text-sm font-medium text-white">
+                    <span className="w-8 text-center text-sm font-medium text-gray-900">
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-white hover:bg-orange-600"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-gray-900 hover:bg-orange-600"
                     >
                       <Plus size={14} />
                     </button>
@@ -164,7 +164,7 @@ export function CartStep({
 
                   <button
                     onClick={() => onRemoveItem(item.id)}
-                    className="text-slate-400 hover:text-red-400"
+                    className="text-gray-500 hover:text-red-400"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -176,18 +176,18 @@ export function CartStep({
       </div>
 
       {/* Chegirma */}
-      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Tag size={18} className="text-green-400" />
-            <span className="font-medium text-white">Chegirma</span>
+            <span className="font-medium text-gray-900">Chegirma</span>
           </div>
           {!showDiscount ? (
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowDiscount(true)}
-              className="border-slate-600 text-slate-400 text-xs"
+              className="border-gray-300 text-gray-500 text-xs"
             >
               <Plus size={14} className="mr-1" />
               Qo'shish
@@ -200,7 +200,7 @@ export function CartStep({
                 setShowDiscount(false);
                 onDiscountChange(0, 0);
               }}
-              className="border-slate-600 text-slate-400 text-xs"
+              className="border-gray-300 text-gray-500 text-xs"
             >
               Bekor
             </Button>
@@ -220,7 +220,7 @@ export function CartStep({
                   'flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors',
                   discountType === 'percent'
                     ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                    : 'bg-slate-700 text-slate-400'
+                    : 'bg-gray-200 text-gray-500'
                 )}
               >
                 <Percent size={16} />
@@ -235,7 +235,7 @@ export function CartStep({
                   'flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-colors',
                   discountType === 'amount'
                     ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                    : 'bg-slate-700 text-slate-400'
+                    : 'bg-gray-200 text-gray-500'
                 )}
               >
                 <Tag size={16} />
@@ -250,9 +250,9 @@ export function CartStep({
                 placeholder={discountType === 'percent' ? '0-100%' : '0 so\'m'}
                 value={discountType === 'percent' ? discountPercent || '' : discountAmount || ''}
                 onChange={(e) => handleDiscountChange(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white pr-12"
+                className="bg-gray-200 border-gray-300 text-gray-900 pr-12"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
                 {discountType === 'percent' ? '%' : 'so\'m'}
               </span>
             </div>
@@ -267,8 +267,8 @@ export function CartStep({
       </div>
 
       {/* Buyurtma izohi */}
-      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-400">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
           <MessageSquare size={16} />
           Buyurtma uchun izoh
         </label>
@@ -277,21 +277,21 @@ export function CartStep({
           placeholder="Qo'shimcha ko'rsatmalar..."
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
-          className="bg-slate-700 border-slate-600 text-white"
+          className="bg-gray-200 border-gray-300 text-gray-900"
         />
       </div>
 
       {/* Hisob-kitob */}
-      <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 space-y-2">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Mahsulotlar:</span>
-          <span className="text-white">{formatPrice(subtotal)} so'm</span>
+          <span className="text-gray-500">Mahsulotlar:</span>
+          <span className="text-gray-900">{formatPrice(subtotal)} so'm</span>
         </div>
 
         {orderType === 'delivery' && (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-400">Yetkazish:</span>
-            <span className="text-white">{formatPrice(deliveryFee)} so'm</span>
+            <span className="text-gray-500">Yetkazish:</span>
+            <span className="text-gray-900">{formatPrice(deliveryFee)} so'm</span>
           </div>
         )}
 
@@ -302,8 +302,8 @@ export function CartStep({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-          <span className="font-medium text-white">Jami:</span>
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+          <span className="font-medium text-gray-900">Jami:</span>
           <span className="text-xl font-bold text-orange-400">
             {formatPrice(total)} so'm
           </span>
@@ -311,17 +311,17 @@ export function CartStep({
       </div>
 
       {/* Harakatlar */}
-      <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <Button
           variant="outline"
           onClick={onBack}
-          className="border-slate-600 text-slate-400"
+          className="border-gray-300 text-gray-500"
         >
           Orqaga
         </Button>
         <Button
           onClick={onNext}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
+          className="bg-orange-500 hover:bg-orange-600 text-gray-900"
         >
           To'lovga o'tish
         </Button>

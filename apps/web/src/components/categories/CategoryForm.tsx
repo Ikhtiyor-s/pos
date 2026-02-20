@@ -134,32 +134,32 @@ export function CategoryForm({
         <div className="space-y-6">
           {/* ===== ASOSIY MA'LUMOTLAR ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Asosiy ma'lumotlar
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
               {/* Kategoriya nomi */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Kategoriya nomi <span className="text-red-400">*</span>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Kategoriya nomi <span className="text-red-600">*</span>
                 </label>
                 <Input
                   value={formData.name}
                   onChange={(e) => updateField('name', e.target.value)}
                   placeholder="Masalan: Milliy taomlar"
                   className={cn(
-                    'bg-slate-800 border-slate-700 text-white',
+                    'bg-white border-gray-200 text-gray-900',
                     errors.name && 'border-red-500'
                   )}
                 />
                 {errors.name && (
-                  <p className="mt-1 text-sm text-red-400">{errors.name}</p>
+                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
                 )}
               </div>
 
               {/* Tavsif */}
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Tavsif (ixtiyoriy)
                 </label>
                 <textarea
@@ -167,7 +167,7 @@ export function CategoryForm({
                   onChange={(e) => updateField('description', e.target.value)}
                   placeholder="Kategoriya haqida qisqacha tavsif..."
                   rows={2}
-                  className="flex w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
+                  className="flex w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 />
               </div>
 
@@ -183,7 +183,7 @@ export function CategoryForm({
 
               {/* Tartib raqami */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Tartib raqami
                 </label>
                 <Input
@@ -193,7 +193,7 @@ export function CategoryForm({
                     updateField('displayOrder', Number(e.target.value))
                   }
                   min={1}
-                  className="bg-slate-800 border-slate-700 text-white"
+                  className="bg-white border-gray-200 text-gray-900"
                 />
               </div>
             </div>
@@ -201,24 +201,24 @@ export function CategoryForm({
 
           {/* ===== VIZUAL IDENTIFIKATORLAR ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Vizual identifikatorlar
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
               {/* Ikonka tanlash */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Ikonka
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowIconPicker(!showIconPicker)}
-                    className="flex h-10 w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-3 text-white"
+                    className="flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 text-gray-900"
                   >
                     <span className="flex items-center gap-2">
                       <span className="text-xl">{formData.icon}</span>
-                      <span className="text-sm text-slate-400">Ikonka tanlang</span>
+                      <span className="text-sm text-gray-500">Ikonka tanlang</span>
                     </span>
                   </button>
 
@@ -228,7 +228,7 @@ export function CategoryForm({
                         className="fixed inset-0 z-10"
                         onClick={() => setShowIconPicker(false)}
                       />
-                      <div className="absolute left-0 top-full z-20 mt-1 grid w-full grid-cols-10 gap-1 rounded-lg border border-slate-700 bg-slate-800 p-2 shadow-xl">
+                      <div className="absolute left-0 top-full z-20 mt-1 grid w-full grid-cols-10 gap-1 rounded-lg border border-gray-200 bg-white p-2 shadow-xl">
                         {categoryIcons.map((icon) => (
                           <button
                             key={icon}
@@ -241,7 +241,7 @@ export function CategoryForm({
                               'flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors',
                               formData.icon === icon
                                 ? 'bg-orange-500 text-white'
-                                : 'hover:bg-slate-700'
+                                : 'hover:bg-gray-100'
                             )}
                           >
                             {icon}
@@ -255,21 +255,21 @@ export function CategoryForm({
 
               {/* Rang tanlash */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
                   Rang
                 </label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowColorPicker(!showColorPicker)}
-                    className="flex h-10 w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-3 text-white"
+                    className="flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 text-gray-900"
                   >
                     <span className="flex items-center gap-2">
                       <span
                         className="h-5 w-5 rounded"
                         style={{ backgroundColor: formData.color }}
                       />
-                      <span className="text-sm text-slate-400">
+                      <span className="text-sm text-gray-500">
                         {formData.color}
                       </span>
                     </span>
@@ -281,7 +281,7 @@ export function CategoryForm({
                         className="fixed inset-0 z-10"
                         onClick={() => setShowColorPicker(false)}
                       />
-                      <div className="absolute left-0 top-full z-20 mt-1 grid w-full grid-cols-5 gap-2 rounded-lg border border-slate-700 bg-slate-800 p-3 shadow-xl">
+                      <div className="absolute left-0 top-full z-20 mt-1 grid w-full grid-cols-5 gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-xl">
                         {categoryColors.map((color) => (
                           <button
                             key={color}
@@ -292,7 +292,7 @@ export function CategoryForm({
                             }}
                             className={cn(
                               'flex h-8 items-center justify-center rounded-lg transition-transform hover:scale-110',
-                              formData.color === color && 'ring-2 ring-white ring-offset-2 ring-offset-slate-800'
+                              formData.color === color && 'ring-2 ring-gray-900 ring-offset-2 ring-offset-white'
                             )}
                             style={{ backgroundColor: color }}
                           >
@@ -311,15 +311,15 @@ export function CategoryForm({
 
           {/* ===== DISPLAY SOZLAMALARI ===== */}
           <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
               Ko'rsatish sozlamalari
             </h3>
             <div className="space-y-4">
               {/* Status */}
-              <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div>
-                  <p className="font-medium text-white">Kategoriyani faollashtirish</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="font-medium text-gray-900">Kategoriyani faollashtirish</p>
+                  <p className="text-sm text-gray-500">
                     Faol kategoriyalar menyuda ko'rinadi
                   </p>
                 </div>
@@ -333,7 +333,7 @@ export function CategoryForm({
                   }
                   className={cn(
                     'relative h-6 w-11 rounded-full transition-colors',
-                    formData.status === 'active' ? 'bg-green-500' : 'bg-slate-600'
+                    formData.status === 'active' ? 'bg-green-500' : 'bg-gray-300'
                   )}
                 >
                   <span
@@ -352,10 +352,10 @@ export function CategoryForm({
               </div>
 
               {/* Chekda ko'rsatish */}
-              <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div>
-                  <p className="font-medium text-white">Chekda ko'rsatish</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="font-medium text-gray-900">Chekda ko'rsatish</p>
+                  <p className="text-sm text-gray-500">
                     Kategoriya nomi chekda chop etiladi
                   </p>
                 </div>
@@ -366,7 +366,7 @@ export function CategoryForm({
                   }
                   className={cn(
                     'relative h-6 w-11 rounded-full transition-colors',
-                    formData.showOnReceipt ? 'bg-green-500' : 'bg-slate-600'
+                    formData.showOnReceipt ? 'bg-green-500' : 'bg-gray-300'
                   )}
                 >
                   <span
@@ -383,7 +383,7 @@ export function CategoryForm({
               {/* Qisqartma nom va kalit so'zlar */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Qisqartma nom (chek uchun)
                   </label>
                   <Input
@@ -392,26 +392,26 @@ export function CategoryForm({
                     placeholder="max 12 belgi"
                     maxLength={12}
                     className={cn(
-                      'bg-slate-800 border-slate-700 text-white',
+                      'bg-white border-gray-200 text-gray-900',
                       errors.shortName && 'border-red-500'
                     )}
                   />
                   {errors.shortName && (
-                    <p className="mt-1 text-sm text-red-400">{errors.shortName}</p>
+                    <p className="mt-1 text-sm text-red-600">{errors.shortName}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Kalit so'zlar (ixtiyoriy)
                   </label>
                   <Input
                     value={formData.keywords || ''}
                     onChange={(e) => updateField('keywords', e.target.value)}
                     placeholder="osh, palov, milliy..."
-                    className="bg-slate-800 border-slate-700 text-white"
+                    className="bg-white border-gray-200 text-gray-900"
                   />
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-gray-400">
                     Vergul bilan ajrating
                   </p>
                 </div>
@@ -427,7 +427,7 @@ export function CategoryForm({
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
-            className="border-slate-700"
+            className="border-gray-200"
           >
             Bekor qilish
           </Button>

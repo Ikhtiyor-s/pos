@@ -5,6 +5,8 @@ import {
   loginSchema,
   registerSchema,
   refreshTokenSchema,
+  pinLoginSchema,
+  setPinSchema,
 } from '../validators/auth.validator.js';
 
 export class AuthController {
@@ -58,6 +60,42 @@ export class AuthController {
   static async me(req: Request, res: Response, next: NextFunction) {
     try {
       return successResponse(res, req.user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============ PIN ============
+
+  static async loginWithPin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = pinLoginSchema.parse(req.body);
+      const result = await AuthService.loginWithPin(data);
+
+      return successResponse(res, result, 'PIN orqali muvaffaqiyatli kirdingiz');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async setUserPin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { pin } = setPinSchema.parse(req.body);
+      const adminTenantId = req.user!.tenantId!;
+      await AuthService.setUserPin(req.params.userId, pin, adminTenantId);
+
+      return successResponse(res, null, 'PIN muvaffaqiyatli o\'rnatildi');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async removeUserPin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const adminTenantId = req.user!.tenantId!;
+      await AuthService.removeUserPin(req.params.userId, adminTenantId);
+
+      return successResponse(res, null, 'PIN muvaffaqiyatli o\'chirildi');
     } catch (error) {
       next(error);
     }

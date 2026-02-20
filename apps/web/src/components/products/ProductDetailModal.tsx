@@ -72,7 +72,7 @@ export function ProductDetailModal({
         <div className="flex flex-col md:flex-row gap-6">
           {/* Rasm */}
           <div className="w-full md:w-1/3">
-            <div className="aspect-square overflow-hidden rounded-xl border border-slate-700 bg-slate-800">
+            <div className="aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
               {product.image ? (
                 <img
                   src={product.image}
@@ -81,7 +81,7 @@ export function ProductDetailModal({
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
-                  <Package size={64} className="text-slate-600" />
+                  <Package size={64} className="text-gray-400" />
                 </div>
               )}
             </div>
@@ -98,31 +98,31 @@ export function ProductDetailModal({
             </div>
 
             {/* Nomi */}
-            <h2 className="text-2xl font-bold text-white">{product.name}</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{product.name}</h2>
 
             {/* Tavsif */}
             {product.description && (
-              <p className="text-slate-400">{product.description}</p>
+              <p className="text-gray-500">{product.description}</p>
             )}
 
             {/* SKU */}
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-gray-400">
               <Tag size={16} />
               <span>SKU: {product.sku}</span>
             </div>
 
             {/* Narx */}
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-white">
+              <span className="text-3xl font-bold text-gray-900">
                 {formatPrice(product.price)}
               </span>
-              <span className="text-lg text-slate-500 line-through">
+              <span className="text-lg text-gray-400 line-through">
                 {formatPrice(product.costPrice)}
               </span>
               <span
                 className={cn(
                   'text-sm font-medium',
-                  profitMargin >= 30 ? 'text-green-400' : 'text-amber-400'
+                  profitMargin >= 30 ? 'text-green-600' : 'text-amber-600'
                 )}
               >
                 +{profitMargin}% foyda
@@ -135,7 +135,7 @@ export function ProductDetailModal({
                 onClose();
                 onEdit(product);
               }}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-gray-900"
             >
               <Edit size={18} className="mr-2" />
               Tahrirlash
@@ -146,30 +146,30 @@ export function ProductDetailModal({
         {/* Detailllar grid */}
         <div className="grid gap-4 md:grid-cols-2">
           {/* Zahira */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
               <Box size={16} />
               Zahira holati
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Joriy zahira</span>
-                <span className="font-medium text-white">
+                <span className="text-gray-500">Joriy zahira</span>
+                <span className="font-medium text-gray-900">
                   {product.stock} {product.unit}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Minimal zahira</span>
-                <span className="font-medium text-white">
+                <span className="text-gray-500">Minimal zahira</span>
+                <span className="font-medium text-gray-900">
                   {product.minStock} {product.unit}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Holat</span>
+                <span className="text-gray-500">Holat</span>
                 <Badge variant={stockStatus.variant}>{stockStatus.label}</Badge>
               </div>
               {/* Progress bar */}
-              <div className="h-2 overflow-hidden rounded-full bg-slate-700">
+              <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                 <div
                   className={cn(
                     'h-full rounded-full transition-all',
@@ -188,36 +188,36 @@ export function ProductDetailModal({
           </div>
 
           {/* Narxlar */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
               <DollarSign size={16} />
               Narx ma'lumotlari
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Sotuv narxi</span>
-                <span className="font-medium text-white">
+                <span className="text-gray-500">Sotuv narxi</span>
+                <span className="font-medium text-gray-900">
                   {formatPrice(product.price)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Tannarx</span>
-                <span className="font-medium text-white">
+                <span className="text-gray-500">Tannarx</span>
+                <span className="font-medium text-gray-900">
                   {formatPrice(product.costPrice)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Foyda</span>
-                <span className="font-medium text-green-400">
+                <span className="text-gray-500">Foyda</span>
+                <span className="font-medium text-green-600">
                   +{formatPrice(profitAmount)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Foyda marjasi</span>
+                <span className="text-gray-500">Foyda marjasi</span>
                 <span
                   className={cn(
                     'font-medium',
-                    profitMargin >= 30 ? 'text-green-400' : 'text-amber-400'
+                    profitMargin >= 30 ? 'text-green-600' : 'text-amber-600'
                   )}
                 >
                   {profitMargin}%
@@ -228,25 +228,25 @@ export function ProductDetailModal({
 
           {/* Qo'shimcha ma'lumotlar */}
           {(product.cookingTime || product.calories) && (
-            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
                 <Clock size={16} />
                 Qo'shimcha
               </h3>
               <div className="space-y-3">
                 {product.cookingTime && (
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Tayyorlash vaqti</span>
-                    <span className="font-medium text-white">
+                    <span className="text-gray-500">Tayyorlash vaqti</span>
+                    <span className="font-medium text-gray-900">
                       {product.cookingTime} daqiqa
                     </span>
                   </div>
                 )}
                 {product.calories && (
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Kaloriya</span>
-                    <span className="flex items-center gap-1 font-medium text-white">
-                      <Flame size={14} className="text-orange-400" />
+                    <span className="text-gray-500">Kaloriya</span>
+                    <span className="flex items-center gap-1 font-medium text-gray-900">
+                      <Flame size={14} className="text-orange-500" />
                       {product.calories} kkal
                     </span>
                   </div>
@@ -256,21 +256,21 @@ export function ProductDetailModal({
           )}
 
           {/* Sanalar */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500">
               <Calendar size={16} />
               Sanalar
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Yaratilgan</span>
-                <span className="font-medium text-white">
+                <span className="text-gray-500">Yaratilgan</span>
+                <span className="font-medium text-gray-900">
                   {formatDate(product.createdAt)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Yangilangan</span>
-                <span className="font-medium text-white">
+                <span className="text-gray-500">Yangilangan</span>
+                <span className="font-medium text-gray-900">
                   {formatDate(product.updatedAt)}
                 </span>
               </div>

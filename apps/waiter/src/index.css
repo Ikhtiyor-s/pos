@@ -5,12 +5,78 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Light Mode - #F8F8F8 / #FFFFFF palette */
+    --background: 0 0% 97.3%;       /* #F8F8F8 */
+    --foreground: 0 0% 20%;          /* #333333 */
+
+    --card: 0 0% 100%;              /* #FFFFFF */
+    --card-foreground: 0 0% 20%;    /* #333333 */
+
+    --muted: 0 0% 95%;              /* #F2F2F2 */
+    --muted-foreground: 0 0% 40%;   /* #666666 */
+
+    --accent: 0 0% 95%;             /* #F2F2F2 */
+    --accent-foreground: 0 0% 20%;  /* #333333 */
+
+    --primary: 25 100% 50%;          /* #FF6B00 */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+
+    --destructive: 0 100% 41.8%;    /* #D50000 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 89.8%;           /* #E5E5E5 */
+    --input: 0 0% 83.1%;            /* #D4D4D4 */
+    --ring: 25 100% 50%;            /* #FF6B00 */
+
+    /* Table Status Colors - Light */
+    --table-free: 145 100% 39.2%;   /* #00C853 */
+    --table-occupied: 50 100% 50%;  /* #FFD600 */
+    --table-reserved: 224 100% 58%; /* #2962FF */
+    --table-payment: 0 100% 41.8%;  /* #D50000 */
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Dark Mode - #121212 / #1E1E1E palette */
+    --background: 0 0% 7.1%;        /* #121212 */
+    --foreground: 0 0% 87.8%;       /* #E0E0E0 */
+
+    --card: 0 0% 11.8%;             /* #1E1E1E */
+    --card-foreground: 0 0% 87.8%;  /* #E0E0E0 */
+
+    --muted: 0 0% 15.7%;            /* #282828 */
+    --muted-foreground: 0 0% 66.7%; /* #AAAAAA */
+
+    --accent: 0 0% 15.7%;           /* #282828 */
+    --accent-foreground: 0 0% 87.8%;/* #E0E0E0 */
+
+    --primary: 25 100% 50%;          /* #FF6B00 (same) */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+
+    --destructive: 0 100% 66.1%;    /* #FF5252 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;             /* #333333 */
+    --input: 0 0% 33.3%;            /* #555555 */
+    --ring: 25 100% 50%;            /* #FF6B00 */
+
+    /* Table Status Colors - Dark (slightly desaturated) */
+    --table-free: 145 85% 39.2%;    /* #00C853 desaturated */
+    --table-occupied: 50 85% 50%;   /* #FFD600 muted */
+    --table-reserved: 224 85% 58%;  /* #2962FF muted */
+    --table-payment: 0 100% 66.1%;  /* #FF5252 */
+
+    --radius: 0.75rem;
+  }
+
   * {
-    @apply box-border;
+    @apply box-border border-border;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-background text-foreground antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -21,22 +87,23 @@
   }
 }
 
-/* Mobile-optimized scrollbar */
+/* Custom scrollbar - adapts to theme */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  background: hsl(var(--muted));
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full;
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 /* Touch-friendly button styles */
@@ -52,7 +119,7 @@
 
 /* Card styles */
 .card-elevated {
-  @apply bg-white rounded-2xl shadow-lg;
+  @apply bg-card rounded-2xl shadow-lg;
 }
 
 /* Status badges */
@@ -61,21 +128,26 @@
 }
 
 .status-new {
-  @apply bg-blue-100 text-blue-700;
+  @apply bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400;
 }
 
 .status-preparing {
-  @apply bg-yellow-100 text-yellow-700;
+  @apply bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400;
 }
 
 .status-ready {
-  @apply bg-green-100 text-green-700;
+  @apply bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400;
 }
 
 .status-served {
-  @apply bg-purple-100 text-purple-700;
+  @apply bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400;
 }
 
 .status-cancelled {
-  @apply bg-red-100 text-red-700;
+  @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+}
+
+/* Theme transition */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
 }

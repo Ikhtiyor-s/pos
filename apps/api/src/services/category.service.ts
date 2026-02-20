@@ -12,9 +12,9 @@ function slugify(text: string): string {
 }
 
 export class CategoryService {
-  static async getAll(includeProducts = false) {
+  static async getAll(tenantId: string, includeProducts = false) {
     const categories = await prisma.category.findMany({
-      where: { isActive: true },
+      where: { tenantId, isActive: true },
       include: includeProducts
         ? {
             products: {
@@ -29,7 +29,7 @@ export class CategoryService {
     return categories;
   }
 
-  static async getById(id: string) {
+  static async getById(tenantId: string, id: string) {
     const category = await prisma.category.findUnique({
       where: { id },
       include: {
@@ -40,16 +40,16 @@ export class CategoryService {
       },
     });
 
-    if (!category) {
+    if (!category || category.tenantId !== tenantId) {
       throw new AppError('Kategoriya topilmadi', 404);
     }
 
     return category;
   }
 
-  static async getBySlug(slug: string) {
-    const category = await prisma.category.findUnique({
-      where: { slug },
+  static async getBySlug(tenantId: string, slug: string) {
+    const category = await prisma.category.findFirst({
+      where: { slug, tenantId },
       include: {
         products: {
           where: { isActive: true },
@@ -65,11 +65,11 @@ export class CategoryService {
     return category;
   }
 
-  static async create(data: CreateCategoryInput) {
+  static async create(tenantId: string, data: CreateCategoryInput) {
     const slug = data.slug || slugify(data.name);
 
-    const existingCategory = await prisma.category.findUnique({
-      where: { slug },
+    const existingCategory = await prisma.category.findFirst({
+      where: { slug, tenantId },
     });
 
     if (existingCategory) {
@@ -84,19 +84,21 @@ export class CategoryService {
         slug,
         sortOrder: data.sortOrder,
         isActive: data.isActive,
+        tenantId,
       },
     });
 
     return category;
   }
 
-  static async update(id: string, data: UpdateCategoryInput) {
-    await this.getById(id);
+  static async update(tenantId: string, id: string, data: UpdateCategoryInput) {
+    await this.getById(tenantId, id);
 
     if (data.slug) {
       const existingCategory = await prisma.category.findFirst({
         where: {
           slug: data.slug,
+          tenantId,
           NOT: { id },
         },
       });
@@ -114,12 +116,12 @@ export class CategoryService {
     return category;
   }
 
-  static async delete(id: string) {
-    const category = await this.getById(id);
+  static async delete(tenantId: string, id: string) {
+    const category = await this.getById(tenantId, id);
 
     // Check if category has products
     const productsCount = await prisma.product.count({
-      where: { categoryId: id },
+      where: { categoryId: id, tenantId },
     });
 
     if (productsCount > 0) {
@@ -136,8 +138,8 @@ export class CategoryService {
     return category;
   }
 
-  static async updateImage(id: string, imagePath: string) {
-    await this.getById(id);
+  static async updateImage(tenantId: string, id: string, imagePath: string) {
+    await this.getById(tenantId, id);
 
     const category = await prisma.category.update({
       where: { id },

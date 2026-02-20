@@ -13,8 +13,7 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    this.socket = io('/', {
-      path: '/socket.io',
+    this.socket = io('http://localhost:3005', {
       transports: ['websocket', 'polling'],
     });
 

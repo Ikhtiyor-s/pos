@@ -124,22 +124,22 @@ export function QuickPaymentStep({
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-md">
-            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6 text-center">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 text-center">
               {/* QR kod sarlavhasi */}
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-white">
+                <h3 className="text-xl font-semibold text-gray-900">
                   {selectedMethod === 'payme' && 'Payme orqali to\'lash'}
                   {selectedMethod === 'click' && 'Click orqali to\'lash'}
                   {selectedMethod === 'uzum' && 'Uzum orqali to\'lash'}
                 </h3>
-                <p className="text-slate-400 mt-2">
+                <p className="text-gray-500 mt-2">
                   QR kodni skanerlang va to'lovni amalga oshiring
                 </p>
               </div>
 
               {/* To'lov summasi */}
-              <div className="mb-6 p-4 rounded-lg bg-slate-900/50">
-                <p className="text-sm text-slate-400">To'lov summasi</p>
+              <div className="mb-6 p-4 rounded-lg bg-gray-100">
+                <p className="text-sm text-gray-500">To'lov summasi</p>
                 <p className="text-3xl font-bold text-orange-400 mt-1">
                   {new Intl.NumberFormat('uz-UZ').format(total)} so'm
                 </p>
@@ -155,12 +155,12 @@ export function QuickPaymentStep({
                 )}
               >
                 <div className="bg-white p-4 rounded-lg">
-                  <QrCode size={140} className="text-slate-900" />
+                  <QrCode size={140} className="text-gray-900" />
                 </div>
               </div>
 
               {/* Izoh */}
-              <p className="text-sm text-slate-500 mb-6">
+              <p className="text-sm text-gray-400 mb-6">
                 {selectedMethod === 'payme' && 'Payme ilovasini oching va QR kodni skanerlang'}
                 {selectedMethod === 'click' && 'Click ilovasini oching va QR kodni skanerlang'}
                 {selectedMethod === 'uzum' && 'Uzum ilovasini oching va QR kodni skanerlang'}
@@ -188,12 +188,12 @@ export function QuickPaymentStep({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-700 p-4">
+        <div className="border-t border-gray-200 p-4">
           <div className="mx-auto max-w-md flex gap-3">
             <Button
               variant="outline"
               onClick={handleBackFromQR}
-              className="flex-1 border-slate-700 text-slate-400 hover:text-white"
+              className="flex-1 border-gray-200 text-gray-500 hover:text-gray-900"
             >
               <ArrowLeft size={16} className="mr-2" />
               Orqaga
@@ -217,22 +217,22 @@ export function QuickPaymentStep({
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Buyurtma xulosasi */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="text-sm font-medium text-slate-400 mb-3">Buyurtma xulosasi</h3>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-3">Buyurtma xulosasi</h3>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {items.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-white">
-                    {item.name} <span className="text-slate-500">x{item.quantity}</span>
+                  <span className="text-gray-900">
+                    {item.name} <span className="text-gray-400">x{item.quantity}</span>
                   </span>
-                  <span className="text-white">
+                  <span className="text-gray-900">
                     {new Intl.NumberFormat('uz-UZ').format(item.price * item.quantity)} so'm
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-slate-700 flex justify-between">
-              <span className="text-lg font-bold text-white">Jami:</span>
+            <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between">
+              <span className="text-lg font-bold text-gray-900">Jami:</span>
               <span className="text-lg font-bold text-orange-400">
                 {new Intl.NumberFormat('uz-UZ').format(total)} so'm
               </span>
@@ -241,7 +241,7 @@ export function QuickPaymentStep({
 
           {/* To'lov usulini tanlash */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">To'lov usulini tanlang</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">To'lov usulini tanlang</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {paymentMethods.map((method) => {
                 const Icon = method.icon;
@@ -285,14 +285,14 @@ export function QuickPaymentStep({
                       'relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all',
                       isSelected
                         ? colors.selected
-                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800'
+                        : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
                     )}
                   >
                     {/* Icon */}
                     <div
                       className={cn(
                         'flex h-12 w-12 items-center justify-center rounded-full transition-colors',
-                        isSelected ? colors.icon : 'bg-slate-700 text-slate-400'
+                        isSelected ? colors.icon : 'bg-gray-200 text-gray-500'
                       )}
                     >
                       <Icon size={24} />
@@ -303,17 +303,17 @@ export function QuickPaymentStep({
                       <p
                         className={cn(
                           'font-semibold',
-                          isSelected ? 'text-white' : 'text-slate-300'
+                          isSelected ? 'text-gray-900' : 'text-gray-700'
                         )}
                       >
                         {method.label}
                       </p>
-                      <p className="text-xs text-slate-500">{method.description}</p>
+                      <p className="text-xs text-gray-400">{method.description}</p>
                     </div>
 
                     {/* QR badge */}
                     {method.hasQR && (
-                      <span className="absolute left-2 top-2 text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">
+                      <span className="absolute left-2 top-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">
                         QR
                       </span>
                     )}
@@ -338,13 +338,13 @@ export function QuickPaymentStep({
       </div>
 
       {/* Footer tugmalari */}
-      <div className="border-t border-slate-700 p-4">
+      <div className="border-t border-gray-200 p-4">
         <div className="mx-auto max-w-2xl flex gap-3">
           <Button
             variant="outline"
             onClick={onBack}
             disabled={isSubmitting}
-            className="flex-1 border-slate-700 text-slate-400 hover:text-white"
+            className="flex-1 border-gray-200 text-gray-500 hover:text-gray-900"
           >
             <ArrowLeft size={16} className="mr-2" />
             Orqaga

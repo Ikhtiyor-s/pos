@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '/api',
-});
+import api from './api';
 
 interface CreateOrderPayload {
   type: string;
@@ -29,18 +25,19 @@ interface OrdersResponse {
 
 export const orderService = {
   getAll: async (): Promise<OrdersResponse> => {
-    const { data } = await api.get('/orders');
-    return data;
+    const { data: response } = await api.get('/orders');
+    // API returns { success, data: [...orders] }
+    return { data: response.data || [] };
   },
 
   getByTableId: async (tableId: string): Promise<OrdersResponse> => {
-    const { data } = await api.get(`/orders?tableId=${tableId}&status=active`);
-    return data;
+    const { data: response } = await api.get(`/orders?tableId=${tableId}&status=active`);
+    return { data: response.data || [] };
   },
 
   create: async (payload: CreateOrderPayload): Promise<{ data: { id: string } }> => {
-    const { data } = await api.post('/orders', payload);
-    return data;
+    const { data: response } = await api.post('/orders', payload);
+    return { data: response.data };
   },
 
   addItems: async (orderId: string, items: { productId: string; quantity: number }[]): Promise<void> => {

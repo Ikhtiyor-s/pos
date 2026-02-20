@@ -20,41 +20,41 @@ export function CategoryStats({ stats, className }: CategoryStatsProps) {
       title: 'Jami kategoriyalar',
       value: stats.totalCategories,
       icon: FolderTree,
-      bgColor: 'bg-blue-500/10',
-      iconColor: 'text-blue-400',
-      borderColor: 'border-blue-500/20',
+      bgColor: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+      borderColor: 'border-blue-200',
     },
     {
       title: 'Faol',
       value: stats.activeCategories,
       icon: CheckCircle,
-      bgColor: 'bg-green-500/10',
-      iconColor: 'text-green-400',
-      borderColor: 'border-green-500/20',
+      bgColor: 'bg-green-50',
+      iconColor: 'text-green-600',
+      borderColor: 'border-green-200',
     },
     {
       title: 'Nofaol',
       value: stats.inactiveCategories,
       icon: XCircle,
-      bgColor: 'bg-slate-500/10',
-      iconColor: 'text-slate-400',
-      borderColor: 'border-slate-500/20',
+      bgColor: 'bg-gray-50',
+      iconColor: 'text-gray-500',
+      borderColor: 'border-gray-200',
     },
     {
       title: 'Jami mahsulotlar',
       value: stats.totalProducts,
       icon: Package,
-      bgColor: 'bg-purple-500/10',
-      iconColor: 'text-purple-400',
-      borderColor: 'border-purple-500/20',
+      bgColor: 'bg-purple-50',
+      iconColor: 'text-purple-600',
+      borderColor: 'border-purple-200',
     },
     {
       title: 'O\'rtacha / kategoriya',
       value: stats.avgProductsPerCategory,
       icon: Package,
-      bgColor: 'bg-orange-500/10',
-      iconColor: 'text-orange-400',
-      borderColor: 'border-orange-500/20',
+      bgColor: 'bg-orange-50',
+      iconColor: 'text-orange-500',
+      borderColor: 'border-orange-200',
       suffix: 'ta',
     },
   ];
@@ -82,11 +82,11 @@ export function CategoryStats({ stats, className }: CategoryStatsProps) {
                 <Icon size={20} className={stat.iconColor} />
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-slate-400">{stat.title}</p>
+                <p className="text-sm text-gray-600">{stat.title}</p>
                 <p className={cn('text-xl font-bold', stat.iconColor)}>
                   {stat.value.toLocaleString()}
                   {stat.suffix && (
-                    <span className="ml-1 text-sm font-normal text-gray-500 dark:text-slate-500">
+                    <span className="ml-1 text-sm font-normal text-gray-400">
                       {stat.suffix}
                     </span>
                   )}

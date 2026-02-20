@@ -1,4 +1,4 @@
-// Oshxona POS Tizimi - Ma'lumotlar Bazasi Sxemasi
+// Oshxona POS Tizimi - Ma'lumotlar Bazasi Sxemasi (Multi-Tenant SaaS)
 // Generator va datasource konfiguratsiyasi
 
 generator client {
@@ -8,6 +8,43 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// TENANT (RESTORAN)
+// ==========================================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  domain    String?  @unique
+  logo      String?
+  phone     String?
+  email     String?
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Fillial (branch) tizimi — iyerarxik tenant
+  parentId  String?  @map("parent_id")
+  parent    Tenant?  @relation("TenantBranches", fields: [parentId], references: [id])
+  children  Tenant[] @relation("TenantBranches")
+
+  users          User[]
+  categories     Category[]
+  products       Product[]
+  tables         Table[]
+  orders         Order[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  inventoryItems InventoryItem[]
+  settings       Settings?
+  webhooks       Webhook[]
+  subscription   Subscription?
+
+  @@map("tenants")
 }
 
 // ==========================================
@@ -25,14 +62,17 @@ enum Role {
 
 model User {
   id        String   @id @default(uuid())
-  email     String   @unique
-  phone     String?  @unique
+  email     String
+  phone     String?
   password  String
   firstName String   @map("first_name")
   lastName  String   @map("last_name")
   role      Role     @default(CASHIER)
   avatar    String?
+  pinCode   String?  @map("pin_code")
   isActive  Boolean  @default(true) @map("is_active")
+  tenantId  String?  @map("tenant_id")
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -40,6 +80,7 @@ model User {
   inventoryTransactions InventoryTransaction[]
   refreshTokens         RefreshToken[]
 
+  @@unique([email, tenantId])
   @@map("users")
 }
 
@@ -59,45 +100,56 @@ model RefreshToken {
 // ==========================================
 
 model Category {
-  id        String    @id @default(uuid())
-  name      String
-  nameRu    String?   @map("name_ru")
-  nameEn    String?   @map("name_en")
-  slug      String    @unique
-  image     String?
-  sortOrder Int       @default(0) @map("sort_order")
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id               String   @id @default(uuid())
+  name             String
+  nameRu           String?  @map("name_ru")
+  nameEn           String?  @map("name_en")
+  slug             String
+  image            String?
+  sortOrder        Int      @default(0) @map("sort_order")
+  isActive         Boolean  @default(true) @map("is_active")
+  nonborCategoryId Int?     @map("nonbor_category_id")
+  tenantId         String   @map("tenant_id")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   products Product[]
 
+  @@unique([slug, tenantId])
+  @@unique([nonborCategoryId, tenantId])
   @@map("categories")
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  name        String
-  nameRu      String?  @map("name_ru")
-  nameEn      String?  @map("name_en")
-  description String?
-  price       Decimal  @db.Decimal(12, 2)
-  costPrice   Decimal? @map("cost_price") @db.Decimal(12, 2)
-  image       String?
-  categoryId  String   @map("category_id")
-  category    Category @relation(fields: [categoryId], references: [id])
-  isActive    Boolean  @default(true) @map("is_active")
-  cookingTime Int?     @map("cooking_time") // minutlarda
-  calories    Int?
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  name            String
+  nameRu          String?  @map("name_ru")
+  nameEn          String?  @map("name_en")
+  description     String?
+  barcode         String?
+  price           Decimal  @db.Decimal(12, 2)
+  costPrice       Decimal? @map("cost_price") @db.Decimal(12, 2)
+  image           String?
+  categoryId      String   @map("category_id")
+  category        Category @relation(fields: [categoryId], references: [id])
+  isActive        Boolean  @default(true) @map("is_active")
+  cookingTime     Int?     @map("cooking_time")
+  calories        Int?
+  sortOrder       Int      @default(0) @map("sort_order")
+  nonborProductId Int?     @map("nonbor_product_id")
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   variants    ProductVariant[]
   modifiers   ProductModifier[]
   ingredients ProductIngredient[]
   orderItems  OrderItem[]
 
+  @@unique([barcode, tenantId])
+  @@unique([nonborProductId, tenantId])
   @@map("products")
 }
 
@@ -105,7 +157,7 @@ model ProductVariant {
   id        String  @id @default(uuid())
   productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name      String // kichik, katta, o'rta
+  name      String
   nameRu    String? @map("name_ru")
   nameEn    String? @map("name_en")
   price     Decimal @db.Decimal(12, 2)
@@ -118,7 +170,7 @@ model ProductModifier {
   id        String  @id @default(uuid())
   productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name      String // qo'shimcha piyoz, sous, va h.k.
+  name      String
   nameRu    String? @map("name_ru")
   nameEn    String? @map("name_en")
   price     Decimal @db.Decimal(12, 2)
@@ -133,7 +185,7 @@ model ProductIngredient {
   product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   inventoryItemId String        @map("inventory_item_id")
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
-  quantity        Decimal       @db.Decimal(12, 3) // ingredient miqdori
+  quantity        Decimal       @db.Decimal(12, 3)
 
   @@map("product_ingredients")
 }
@@ -151,26 +203,30 @@ enum TableStatus {
 
 model Table {
   id        String      @id @default(uuid())
-  number    Int         @unique
+  number    Int
   name      String?
   capacity  Int         @default(4)
-  qrCode    String      @unique @map("qr_code")
+  qrCode    String      @map("qr_code")
   status    TableStatus @default(FREE)
   positionX Int?        @map("position_x")
   positionY Int?        @map("position_y")
   isActive  Boolean     @default(true) @map("is_active")
+  tenantId  String      @map("tenant_id")
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
   orders Order[]
 
+  @@unique([number, tenantId])
+  @@unique([qrCode, tenantId])
   @@map("tables")
 }
 
 enum OrderType {
-  DINE_IN  // Stolda
-  TAKEAWAY // Olib ketish
-  DELIVERY // Yetkazib berish
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
 }
 
 enum OrderStatus {
@@ -184,29 +240,35 @@ enum OrderStatus {
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  orderNumber String      @unique @map("order_number")
-  type        OrderType   @default(DINE_IN)
-  status      OrderStatus @default(NEW)
-  tableId     String?     @map("table_id")
-  table       Table?      @relation(fields: [tableId], references: [id])
-  customerId  String?     @map("customer_id")
-  customer    Customer?   @relation(fields: [customerId], references: [id])
-  userId      String      @map("user_id")
-  user        User        @relation(fields: [userId], references: [id])
-  subtotal    Decimal     @db.Decimal(12, 2)
-  discount    Decimal     @default(0) @db.Decimal(12, 2)
-  discountPercent Decimal? @default(0) @map("discount_percent") @db.Decimal(5, 2)
-  tax         Decimal     @default(0) @db.Decimal(12, 2)
-  total       Decimal     @db.Decimal(12, 2)
-  notes       String?
-  address     String?     // Yetkazib berish manzili
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id              String      @id @default(uuid())
+  orderNumber     String      @map("order_number")
+  type            OrderType   @default(DINE_IN)
+  status          OrderStatus @default(NEW)
+  tableId         String?     @map("table_id")
+  table           Table?      @relation(fields: [tableId], references: [id])
+  customerId      String?     @map("customer_id")
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  userId          String      @map("user_id")
+  user            User        @relation(fields: [userId], references: [id])
+  subtotal        Decimal     @db.Decimal(12, 2)
+  discount        Decimal     @default(0) @db.Decimal(12, 2)
+  discountPercent Decimal?    @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  tax             Decimal     @default(0) @db.Decimal(12, 2)
+  total           Decimal     @db.Decimal(12, 2)
+  notes           String?
+  address         String?
+  nonborOrderId   Int?        @map("nonbor_order_id")
+  isNonborOrder   Boolean     @default(false) @map("is_nonbor_order")
+  tenantId        String      @map("tenant_id")
+  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
   items    OrderItem[]
   payments Payment[]
 
+  @@unique([orderNumber, tenantId])
+  @@unique([nonborOrderId, tenantId])
   @@map("orders")
 }
 
@@ -258,16 +320,18 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id           String        @id @default(uuid())
-  orderId      String        @map("order_id")
-  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  method       PaymentMethod
-  amount       Decimal       @db.Decimal(12, 2)
-  status       PaymentStatus @default(PENDING)
-  reference    String?       // Tashqi to'lov ID (Payme, Click)
-  receiptData  Json?         @map("receipt_data")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id            String        @id @default(uuid())
+  orderId       String        @map("order_id")
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(12, 2)
+  status        PaymentStatus @default(PENDING)
+  reference     String?
+  transactionId String?       @map("transaction_id")
+  providerData  Json?         @map("provider_data")
+  receiptData   Json?         @map("receipt_data")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   @@map("payments")
 }
@@ -284,6 +348,8 @@ model Supplier {
   address   String?
   notes     String?
   isActive  Boolean  @default(true) @map("is_active")
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -297,8 +363,8 @@ model InventoryItem {
   name        String
   nameRu      String?   @map("name_ru")
   nameEn      String?   @map("name_en")
-  sku         String    @unique
-  unit        String    // kg, litr, dona, gramm
+  sku         String
+  unit        String
   quantity    Decimal   @default(0) @db.Decimal(12, 3)
   minQuantity Decimal   @default(0) @map("min_quantity") @db.Decimal(12, 3)
   costPrice   Decimal   @default(0) @map("cost_price") @db.Decimal(12, 2)
@@ -306,20 +372,23 @@ model InventoryItem {
   supplier    Supplier? @relation(fields: [supplierId], references: [id])
   expiryDate  DateTime? @map("expiry_date")
   isActive    Boolean   @default(true) @map("is_active")
+  tenantId    String    @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   transactions InventoryTransaction[]
   ingredients  ProductIngredient[]
 
+  @@unique([sku, tenantId])
   @@map("inventory_items")
 }
 
 enum TransactionType {
-  IN     // Kirim
-  OUT    // Chiqim
-  ADJUST // Tuzatish
-  WASTE  // Yo'qotish
+  IN
+  OUT
+  ADJUST
+  WASTE
 }
 
 model InventoryTransaction {
@@ -341,20 +410,23 @@ model InventoryTransaction {
 // ==========================================
 
 model Customer {
-  id          String   @id @default(uuid())
-  phone       String   @unique
-  firstName   String?  @map("first_name")
-  lastName    String?  @map("last_name")
+  id          String    @id @default(uuid())
+  phone       String
+  firstName   String?   @map("first_name")
+  lastName    String?   @map("last_name")
   email       String?
   birthDate   DateTime? @map("birth_date")
-  bonusPoints Int      @default(0) @map("bonus_points")
+  bonusPoints Int       @default(0) @map("bonus_points")
   notes       String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  tenantId    String    @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   orders Order[]
 
+  @@unique([phone, tenantId])
   @@map("customers")
 }
 
@@ -363,24 +435,104 @@ model Customer {
 // ==========================================
 
 model Settings {
-  id           String  @id @default("main")
-  name         String  // Restoran nomi
-  nameRu       String? @map("name_ru")
-  nameEn       String? @map("name_en")
-  address      String?
-  phone        String?
-  email        String?
-  taxRate      Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  currency     String  @default("UZS")
-  logo         String?
-  timezone     String  @default("Asia/Tashkent")
-  orderPrefix  String  @default("ORD") @map("order_prefix")
-  bonusPercent Decimal @default(0) @map("bonus_percent") @db.Decimal(5, 2)
+  id              String  @id @default(uuid())
+  tenantId        String  @unique @map("tenant_id")
+  tenant          Tenant  @relation(fields: [tenantId], references: [id])
+  name            String
+  nameRu          String? @map("name_ru")
+  nameEn          String? @map("name_en")
+  address         String?
+  phone           String?
+  email           String?
+  taxRate         Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  currency        String  @default("UZS")
+  logo            String?
+  timezone        String  @default("Asia/Tashkent")
+  orderPrefix     String  @default("ORD") @map("order_prefix")
+  bonusPercent    Decimal @default(0) @map("bonus_percent") @db.Decimal(5, 2)
+  nonborEnabled   Boolean @default(false) @map("nonbor_enabled")
+  nonborSellerId  Int?    @map("nonbor_seller_id")
+  nonborApiUrl    String? @default("https://nonbor.uz/api/v2") @map("nonbor_api_url")
+  nonborApiSecret String? @default("nonbor-secret-key") @map("nonbor_api_secret")
+
+  // To'lov integratsiyalar
+  paymeEnabled      Boolean  @default(false) @map("payme_enabled")
+  paymeMerchantId   String?  @map("payme_merchant_id")
+  paymeSecretKey    String?  @map("payme_secret_key")
+  paymeTestMode     Boolean  @default(true) @map("payme_test_mode")
+
+  clickEnabled      Boolean  @default(false) @map("click_enabled")
+  clickMerchantId   String?  @map("click_merchant_id")
+  clickServiceId    String?  @map("click_service_id")
+  clickSecretKey    String?  @map("click_secret_key")
+  clickTestMode     Boolean  @default(true) @map("click_test_mode")
+
+  uzumEnabled       Boolean  @default(false) @map("uzum_enabled")
+  uzumMerchantId    String?  @map("uzum_merchant_id")
+  uzumSecretKey     String?  @map("uzum_secret_key")
+  uzumTestMode      Boolean  @default(true) @map("uzum_test_mode")
+
+  // Telegram
+  telegramEnabled   Boolean  @default(false) @map("telegram_enabled")
+  telegramBotToken  String?  @map("telegram_bot_token")
+  telegramChatId    String?  @map("telegram_chat_id")
+  telegramEvents    String[] @default(["order:new"]) @map("telegram_events")
+
+  // Delivery
+  deliveryEnabled   Boolean  @default(false) @map("delivery_enabled")
+  deliveryApiUrl    String?  @map("delivery_api_url")
+  deliveryApiKey    String?  @map("delivery_api_key")
+
+  // CRM
+  crmEnabled        Boolean  @default(false) @map("crm_enabled")
+  crmApiUrl         String?  @map("crm_api_url")
+  crmApiKey         String?  @map("crm_api_key")
+  crmEvents         String[] @default(["order:new", "order:completed"]) @map("crm_events")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+// ==========================================
+// WEBHOOKLAR (Tashqi servis integratsiya)
+// ==========================================
+
+model Webhook {
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  secret    String?
+  events    String[]
+  headers   Json?
+  isActive  Boolean  @default(true) @map("is_active")
+  service   String?
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  logs WebhookLog[]
+
+  @@map("webhooks")
+}
+
+model WebhookLog {
+  id         String   @id @default(uuid())
+  webhookId  String   @map("webhook_id")
+  webhook    Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event      String
+  payload    Json
+  response   Json?
+  statusCode Int?     @map("status_code")
+  success    Boolean  @default(false)
+  direction  String   @default("outgoing")
+  error      String?
+  duration   Int?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("webhook_logs")
 }
 
 // ==========================================
@@ -390,8 +542,9 @@ model Settings {
 model AuditLog {
   id         String   @id @default(uuid())
   userId     String?  @map("user_id")
-  action     String   // CREATE, UPDATE, DELETE
-  entity     String   // User, Product, Order, va h.k.
+  tenantId   String?  @map("tenant_id")
+  action     String
+  entity     String
   entityId   String?  @map("entity_id")
   oldData    Json?    @map("old_data")
   newData    Json?    @map("new_data")
@@ -400,4 +553,133 @@ model AuditLog {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("audit_logs")
+}
+
+// ==========================================
+// INTEGRATION LOGS (Integratsiya loglari)
+// ==========================================
+
+model IntegrationLog {
+  id        String   @id @default(uuid())
+  tenantId  String?  @map("tenant_id")
+  adapter   String
+  event     String
+  payload   Json
+  status    String
+  error     String?
+  duration  Int?
+  attempt   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("integration_logs")
+}
+
+// ==========================================
+// BILLING VA TARIF REJALAR
+// ==========================================
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+model Plan {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  nameRu            String?  @map("name_ru")
+  nameEn            String?  @map("name_en")
+  description       String?
+  basePrice         Decimal  @map("base_price") @db.Decimal(12, 2)
+  pricePerWarehouse Decimal  @default(0) @map("price_per_warehouse") @db.Decimal(12, 2)
+  pricePerKitchen   Decimal  @default(0) @map("price_per_kitchen") @db.Decimal(12, 2)
+  pricePerWaiter    Decimal  @default(0) @map("price_per_waiter") @db.Decimal(12, 2)
+  maxUsers          Int      @default(5) @map("max_users")
+  maxOrders         Int      @default(0) @map("max_orders")
+  maxWarehouses     Int      @default(1) @map("max_warehouses")
+  maxKitchens       Int      @default(1) @map("max_kitchens")
+  maxWaiters        Int      @default(2) @map("max_waiters")
+  hasIntegrations   Boolean  @default(false) @map("has_integrations")
+  hasReports        Boolean  @default(false) @map("has_reports")
+  isActive          Boolean  @default(true) @map("is_active")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id              String             @id @default(uuid())
+  tenantId        String             @unique @map("tenant_id")
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  planId          String             @map("plan_id")
+  plan            Plan               @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  warehouses      Int                @default(1)
+  kitchens        Int                @default(1)
+  waiters         Int                @default(1)
+  calculatedPrice Decimal            @map("calculated_price") @db.Decimal(12, 2)
+  overridePrice   Decimal?           @map("override_price") @db.Decimal(12, 2)
+  totalPrice      Decimal            @map("total_price") @db.Decimal(12, 2)
+  startDate       DateTime           @map("start_date")
+  endDate         DateTime           @map("end_date")
+  ordersThisMonth Int                @default(0) @map("orders_this_month")
+  monthResetDate  DateTime           @map("month_reset_date")
+  notes           String?
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  invoices BillingInvoice[]
+
+  @@map("subscriptions")
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model BillingInvoice {
+  id             String        @id @default(uuid())
+  subscriptionId String        @map("subscription_id")
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id])
+  tenantId       String        @map("tenant_id")
+  invoiceNumber  String        @unique @map("invoice_number")
+  periodYear     Int           @map("period_year")
+  periodMonth    Int           @map("period_month")
+  status         InvoiceStatus @default(PENDING)
+
+  // Xizmatlar tafsiloti (line items)
+  basePrice         Decimal  @map("base_price") @db.Decimal(12, 2)
+  warehouseCount    Int      @map("warehouse_count")
+  warehousePrice    Decimal  @map("warehouse_price") @db.Decimal(12, 2)
+  warehouseTotal    Decimal  @map("warehouse_total") @db.Decimal(12, 2)
+  kitchenCount      Int      @map("kitchen_count")
+  kitchenPrice      Decimal  @map("kitchen_price") @db.Decimal(12, 2)
+  kitchenTotal      Decimal  @map("kitchen_total") @db.Decimal(12, 2)
+  waiterCount       Int      @map("waiter_count")
+  waiterPrice       Decimal  @map("waiter_price") @db.Decimal(12, 2)
+  waiterTotal       Decimal  @map("waiter_total") @db.Decimal(12, 2)
+  calculatedAmount  Decimal  @map("calculated_amount") @db.Decimal(12, 2)
+  overrideAmount    Decimal? @map("override_amount") @db.Decimal(12, 2)
+  totalAmount       Decimal  @map("total_amount") @db.Decimal(12, 2)
+
+  // To'lov ma'lumotlari
+  paidAmount    Decimal?  @map("paid_amount") @db.Decimal(12, 2)
+  paidAt        DateTime? @map("paid_at")
+  paymentMethod String?   @map("payment_method")
+  dueDate       DateTime  @map("due_date")
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([subscriptionId, periodYear, periodMonth])
+  @@map("billing_invoices")
 }

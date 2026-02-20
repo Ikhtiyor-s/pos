@@ -50,14 +50,14 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
       <div
         className={cn(
-          'relative w-full rounded-xl bg-slate-900 shadow-2xl border border-slate-700',
+          'relative w-full rounded-xl bg-white shadow-2xl border border-gray-200',
           'animate-in fade-in-0 zoom-in-95 duration-200',
           'max-h-[90vh] overflow-hidden flex flex-col',
           sizeClasses[size]
@@ -65,18 +65,18 @@ export function Modal({
       >
         {/* Header */}
         {(title || description) && (
-          <div className="flex items-start justify-between border-b border-slate-700 px-6 py-4">
+          <div className="flex items-start justify-between border-b border-gray-200 px-6 py-4">
             <div>
               {title && (
-                <h2 className="text-xl font-semibold text-white">{title}</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
               )}
               {description && (
-                <p className="mt-1 text-sm text-slate-400">{description}</p>
+                <p className="mt-1 text-sm text-gray-500">{description}</p>
               )}
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
             >
               <X size={20} />
             </button>
@@ -100,7 +100,7 @@ export function ModalFooter({ children, className }: ModalFooterProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-end gap-3 border-t border-slate-700 px-6 py-4 bg-slate-900/50',
+        'flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 bg-gray-50',
         className
       )}
     >

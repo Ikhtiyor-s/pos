@@ -2,6 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { Layout } from '@/components/layout/Layout';
 import { LoginPage } from '@/pages/Login';
+import { RegisterPage } from '@/pages/Register';
+import { ForgotPasswordPage } from '@/pages/ForgotPassword';
+import { ResetPasswordPage } from '@/pages/ResetPassword';
 import { DashboardPage } from '@/pages/Dashboard';
 import { ProductsPage } from '@/pages/Products';
 import { CategoriesPage } from '@/pages/Categories';
@@ -11,6 +14,12 @@ import { InventoryPage } from '@/pages/Inventory';
 import { ReportsPage } from '@/pages/Reports';
 import { SettingsPage } from '@/pages/Settings';
 import { EmployeesPage } from '@/pages/Employees';
+import { CustomersPage } from '@/pages/Customers';
+import { MessagesPage } from '@/pages/Messages';
+import { NotificationsPage } from '@/pages/Notifications';
+import { BillingPage } from '@/pages/Billing';
+import { TenantsPage } from '@/pages/Tenants';
+import { BranchesPage } from '@/pages/Branches';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -28,6 +37,9 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected routes */}
       <Route
@@ -39,6 +51,8 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="tenants" element={<TenantsPage />} />
+        <Route path="branches" element={<BranchesPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="orders" element={<OrdersPage />} />
@@ -47,6 +61,10 @@ export default function App() {
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="customers" element={<CustomersPage />} />
+        <Route path="messages" element={<MessagesPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="billing" element={<BillingPage />} />
       </Route>
 
       {/* 404 */}

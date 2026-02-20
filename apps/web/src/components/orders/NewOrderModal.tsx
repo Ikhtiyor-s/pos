@@ -220,7 +220,7 @@ export function NewOrderModal({
       {/* Modal */}
       <div
         className={cn(
-          'relative w-full rounded-xl bg-slate-900 shadow-2xl border border-slate-700',
+          'relative w-full rounded-xl bg-white shadow-2xl border border-gray-200',
           'animate-in fade-in-0 zoom-in-95 duration-200',
           'flex flex-col',
           currentStep === 'menu'
@@ -229,10 +229,10 @@ export function NewOrderModal({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-700 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <h2 className="text-xl font-semibold text-white">Yangi buyurtma</h2>
-            <p className="mt-0.5 text-sm text-slate-400">
+            <h2 className="text-xl font-semibold text-gray-900">Yangi buyurtma</h2>
+            <p className="mt-0.5 text-sm text-gray-500">
               {orderData.items.length > 0 && (
                 <>
                   {orderData.items.length} ta mahsulot •{' '}
@@ -243,14 +243,14 @@ export function NewOrderModal({
           </div>
           <button
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Stepper */}
-        <div className="border-b border-slate-700 px-6 py-3">
+        <div className="border-b border-gray-200 px-6 py-3">
           <OrderStepper
             currentStep={currentStep}
             completedSteps={completedSteps}

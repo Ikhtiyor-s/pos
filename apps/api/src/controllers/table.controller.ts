@@ -24,7 +24,8 @@ const updateTableSchema = z.object({
 export class TableController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const tables = await TableService.getAll();
+      const tenantId = req.user!.tenantId!;
+      const tables = await TableService.getAll(tenantId);
       return successResponse(res, tables);
     } catch (error) {
       next(error);
@@ -33,7 +34,8 @@ export class TableController {
 
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const table = await TableService.getById(req.params.id);
+      const tenantId = req.user!.tenantId!;
+      const table = await TableService.getById(tenantId, req.params.id);
       return successResponse(res, table);
     } catch (error) {
       next(error);
@@ -42,8 +44,9 @@ export class TableController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
+      const tenantId = req.user!.tenantId!;
       const data = createTableSchema.parse(req.body);
-      const table = await TableService.create(data);
+      const table = await TableService.create(tenantId, data);
       return successResponse(res, table, 'Stol yaratildi', 201);
     } catch (error) {
       next(error);
@@ -52,8 +55,9 @@ export class TableController {
 
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
+      const tenantId = req.user!.tenantId!;
       const data = updateTableSchema.parse(req.body);
-      const table = await TableService.update(req.params.id, data);
+      const table = await TableService.update(tenantId, req.params.id, data);
 
       // Emit socket event
       const io = req.app.get('io') as Server;
@@ -67,7 +71,8 @@ export class TableController {
 
   static async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      await TableService.delete(req.params.id);
+      const tenantId = req.user!.tenantId!;
+      await TableService.delete(tenantId, req.params.id);
       return successResponse(res, null, 'Stol o\'chirildi');
     } catch (error) {
       next(error);
@@ -76,7 +81,8 @@ export class TableController {
 
   static async getQRCode(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await TableService.generateQRCode(req.params.id);
+      const tenantId = req.user!.tenantId!;
+      const result = await TableService.generateQRCode(tenantId, req.params.id);
       return successResponse(res, result);
     } catch (error) {
       next(error);
@@ -85,7 +91,8 @@ export class TableController {
 
   static async getByQRCode(req: Request, res: Response, next: NextFunction) {
     try {
-      const table = await TableService.getByQRCode(req.params.qrCode);
+      const tenantId = req.user!.tenantId!;
+      const table = await TableService.getByQRCode(tenantId, req.params.qrCode);
       return successResponse(res, table);
     } catch (error) {
       next(error);
@@ -94,8 +101,9 @@ export class TableController {
 
   static async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
+      const tenantId = req.user!.tenantId!;
       const { status } = req.body;
-      const table = await TableService.updateStatus(req.params.id, status);
+      const table = await TableService.updateStatus(tenantId, req.params.id, status);
 
       // Emit socket event
       const io = req.app.get('io') as Server;

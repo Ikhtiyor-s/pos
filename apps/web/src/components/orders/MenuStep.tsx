@@ -77,19 +77,19 @@ export function MenuStep({
           <div className="relative">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
             />
             <Input
               type="text"
               placeholder="Mahsulot qidirish..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 bg-slate-800 border-slate-700 text-white"
+              className="pl-10 bg-white border-gray-200 text-gray-900"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900"
               >
                 <X size={16} />
               </button>
@@ -105,7 +105,7 @@ export function MenuStep({
               'flex-shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
               selectedCategory === 'all'
                 ? 'bg-orange-500 text-white'
-                : 'bg-slate-800 text-slate-400 hover:text-white'
+                : 'bg-white text-gray-500 hover:text-gray-900'
             )}
           >
             Barchasi
@@ -118,7 +118,7 @@ export function MenuStep({
                 'flex-shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap',
                 selectedCategory === category.id
                   ? 'bg-orange-500 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:text-white'
+                  : 'bg-white text-gray-500 hover:text-gray-900'
               )}
             >
               {category.name}
@@ -138,8 +138,8 @@ export function MenuStep({
                 <div
                   key={product.id}
                   className={cn(
-                    'relative rounded-xl border bg-slate-800/50 overflow-hidden transition-all',
-                    quantity > 0 ? 'border-orange-500/50' : 'border-slate-700',
+                    'relative rounded-xl border bg-gray-50 overflow-hidden transition-all',
+                    quantity > 0 ? 'border-orange-500/50' : 'border-gray-200',
                     isOutOfStock && 'opacity-50'
                   )}
                 >
@@ -152,7 +152,7 @@ export function MenuStep({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="h-full w-full bg-slate-700 flex items-center justify-center">
+                      <div className="h-full w-full bg-gray-200 flex items-center justify-center">
                         <span className="text-4xl">🍽️</span>
                       </div>
                     )}
@@ -176,7 +176,7 @@ export function MenuStep({
 
                   {/* Ma'lumot */}
                   <div className="p-2">
-                    <h4 className="text-sm font-medium text-white line-clamp-1">
+                    <h4 className="text-sm font-medium text-gray-900 line-clamp-1">
                       {product.name}
                     </h4>
                     <div className="flex items-center justify-between mt-1">
@@ -184,7 +184,7 @@ export function MenuStep({
                         {formatPrice(product.price)}
                       </span>
                       {product.cookingTime && product.cookingTime > 0 && (
-                        <span className="flex items-center gap-0.5 text-xs text-slate-500">
+                        <span className="flex items-center gap-0.5 text-xs text-gray-400">
                           <Clock size={10} />
                           {product.cookingTime}m
                         </span>
@@ -202,11 +202,11 @@ export function MenuStep({
                               onUpdateQuantity(cartItem!.id, quantity - 1);
                             }
                           }}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-700 text-white hover:bg-slate-600"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-200 text-gray-900 hover:bg-gray-300"
                         >
                           <Minus size={14} />
                         </button>
-                        <span className="text-sm font-medium text-white">
+                        <span className="text-sm font-medium text-gray-900">
                           {quantity}
                         </span>
                         <button
@@ -223,8 +223,8 @@ export function MenuStep({
                         className={cn(
                           'mt-2 w-full rounded-lg py-1.5 text-xs font-medium transition-colors',
                           isOutOfStock
-                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                            : 'bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white'
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-gray-900'
                         )}
                       >
                         <Plus size={14} className="inline mr-1" />
@@ -239,20 +239,20 @@ export function MenuStep({
 
           {filteredProducts.length === 0 && (
             <div className="py-12 text-center">
-              <p className="text-slate-400">Mahsulot topilmadi</p>
+              <p className="text-gray-500">Mahsulot topilmadi</p>
             </div>
           )}
         </div>
       </div>
 
       {/* O'ng sidebar - Mini savatcha */}
-      <div className="hidden lg:flex w-72 flex-col ml-4 rounded-xl border border-slate-700 bg-slate-800/30">
-        <div className="flex items-center justify-between border-b border-slate-700 p-3">
+      <div className="hidden lg:flex w-72 flex-col ml-4 rounded-xl border border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between border-b border-gray-200 p-3">
           <div className="flex items-center gap-2">
             <ShoppingCart size={18} className="text-orange-400" />
-            <span className="font-medium text-white">Savatcha</span>
+            <span className="font-medium text-gray-900">Savatcha</span>
           </div>
-          <span className="text-sm text-slate-400">{totalItems} ta</span>
+          <span className="text-sm text-gray-500">{totalItems} ta</span>
         </div>
 
         {/* Savatcha elementlari */}
@@ -261,13 +261,13 @@ export function MenuStep({
             items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-lg bg-slate-800/50 p-2"
+                className="flex items-center justify-between rounded-lg bg-gray-50 p-2"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
+                  <p className="text-sm font-medium text-gray-900 truncate">
                     {item.name}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-gray-500">
                     {formatPrice(item.price)} x {item.quantity}
                   </p>
                 </div>
@@ -280,11 +280,11 @@ export function MenuStep({
                         onUpdateQuantity(item.id, item.quantity - 1);
                       }
                     }}
-                    className="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-white hover:bg-slate-600"
+                    className="flex h-6 w-6 items-center justify-center rounded bg-gray-200 text-gray-900 hover:bg-gray-300"
                   >
                     <Minus size={12} />
                   </button>
-                  <span className="w-6 text-center text-sm text-white">
+                  <span className="w-6 text-center text-sm text-gray-900">
                     {item.quantity}
                   </span>
                   <button
@@ -298,18 +298,18 @@ export function MenuStep({
             ))
           ) : (
             <div className="py-8 text-center">
-              <ShoppingCart size={32} className="mx-auto mb-2 text-slate-600" />
-              <p className="text-sm text-slate-500">Savatcha bo'sh</p>
+              <ShoppingCart size={32} className="mx-auto mb-2 text-gray-400" />
+              <p className="text-sm text-gray-400">Savatcha bo'sh</p>
             </div>
           )}
         </div>
 
         {/* Jami */}
         {items.length > 0 && (
-          <div className="border-t border-slate-700 p-3">
+          <div className="border-t border-gray-200 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-400">Jami:</span>
-              <span className="text-lg font-bold text-white">
+              <span className="text-gray-500">Jami:</span>
+              <span className="text-lg font-bold text-gray-900">
                 {formatPrice(total)} so'm
               </span>
             </div>
@@ -318,17 +318,17 @@ export function MenuStep({
       </div>
 
       {/* Mobil uchun savatcha summary */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 border-t border-slate-700 bg-slate-900 p-3">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white p-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-slate-400">{totalItems} ta mahsulot</p>
-            <p className="text-lg font-bold text-white">{formatPrice(total)} so'm</p>
+            <p className="text-sm text-gray-500">{totalItems} ta mahsulot</p>
+            <p className="text-lg font-bold text-gray-900">{formatPrice(total)} so'm</p>
           </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
               onClick={onBack}
-              className="border-slate-600 text-slate-400"
+              className="border-gray-300 text-gray-500"
             >
               Orqaga
             </Button>
@@ -345,11 +345,11 @@ export function MenuStep({
       </div>
 
       {/* Desktop uchun harakatlar */}
-      <div className="hidden lg:flex items-center justify-between pt-4 border-t border-slate-700 absolute bottom-0 left-0 right-0 bg-slate-900 p-4">
+      <div className="hidden lg:flex items-center justify-between pt-4 border-t border-gray-200 absolute bottom-0 left-0 right-0 bg-white p-4">
         <Button
           variant="outline"
           onClick={onBack}
-          className="border-slate-600 text-slate-400"
+          className="border-gray-300 text-gray-500"
         >
           Orqaga
         </Button>

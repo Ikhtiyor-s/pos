@@ -25,17 +25,17 @@ export function DeleteConfirmModal({
       <div className="text-center">
         {/* Ogohlantirish ikonkasi */}
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
-          <AlertTriangle size={32} className="text-red-400" />
+          <AlertTriangle size={32} className="text-red-500" />
         </div>
 
         {/* Sarlavha */}
-        <h3 className="mb-2 text-xl font-semibold text-white">
+        <h3 className="mb-2 text-xl font-semibold text-gray-900">
           Mahsulotni o'chirish
         </h3>
 
         {/* Xabar */}
-        <p className="mb-6 text-slate-400">
-          <span className="font-medium text-white">"{product.name}"</span> mahsulotini
+        <p className="mb-6 text-gray-500">
+          <span className="font-medium text-gray-900">"{product.name}"</span> mahsulotini
           o'chirishni xohlaysizmi? Bu amalni qaytarib bo'lmaydi.
         </p>
 
@@ -45,7 +45,7 @@ export function DeleteConfirmModal({
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
-            className="border-slate-700"
+            className="border-gray-300"
           >
             Bekor qilish
           </Button>

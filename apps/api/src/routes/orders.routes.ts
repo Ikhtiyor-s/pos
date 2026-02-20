@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { OrderController } from '../controllers/order.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { Role } from '@oshxona/database';
+import { checkPlanLimit } from '../middleware/planLimit.js';
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.get(
 router.post(
   '/',
   authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER),
+  checkPlanLimit('orders'),
   OrderController.create
 );
 
@@ -55,6 +57,13 @@ router.post(
   '/:id/items',
   authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER),
   OrderController.addItems
+);
+
+// To'lov qabul qilish (kassir)
+router.post(
+  '/:id/payment',
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER),
+  OrderController.addPayment
 );
 
 export default router;

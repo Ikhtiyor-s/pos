@@ -22,6 +22,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role: Role;
+  tenantId?: string | null;
   avatar?: string;
   isActive: boolean;
   createdAt: string;

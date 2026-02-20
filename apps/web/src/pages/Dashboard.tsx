@@ -1,230 +1,382 @@
+import { useState, useEffect, useCallback } from 'react';
 import {
-  DollarSign,
-  ShoppingCart,
-  Users,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import {
   TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  MoreHorizontal,
+  ShoppingCart,
+  DollarSign,
+  CheckCircle,
+  Clock,
+  GitBranch,
+  Loader2,
 } from 'lucide-react';
-import { Select } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { dashboardService } from '@/services/dashboard.service';
+import { branchService } from '@/services/branch.service';
+import type { DashboardData, DashboardPeriod, DailySalesData } from '@/types/dashboard';
+import type { Branch } from '@/types/branch';
 
-const stats = [
-  {
-    title: 'Bugungi sotuv',
-    value: "12,450,000",
-    unit: "so'm",
-    change: '+12%',
-    changeType: 'positive',
-    icon: DollarSign,
-    bgColor: 'bg-[#FF5722]',
-    lightBg: 'bg-[#FFF3E0]',
-  },
-  {
-    title: 'Buyurtmalar',
-    value: '48',
-    unit: 'ta',
-    change: '+8%',
-    changeType: 'positive',
-    icon: ShoppingCart,
-    bgColor: 'bg-[#2196F3]',
-    lightBg: 'bg-[#E3F2FD]',
-  },
-  {
-    title: "O'rtacha check",
-    value: "259,375",
-    unit: "so'm",
-    change: '+5%',
-    changeType: 'positive',
-    icon: TrendingUp,
-    bgColor: 'bg-[#4CAF50]',
-    lightBg: 'bg-[#E8F5E9]',
-  },
-  {
-    title: 'Faol stollar',
-    value: '6 / 10',
-    unit: '',
-    change: '-2',
-    changeType: 'negative',
-    icon: Users,
-    bgColor: 'bg-[#E91E63]',
-    lightBg: 'bg-[#FCE4EC]',
-  },
+const periods: { key: DashboardPeriod; label: string }[] = [
+  { key: 'today', label: 'Bugun' },
+  { key: 'week', label: 'Hafta' },
+  { key: 'month', label: 'Oy' },
+  { key: 'year', label: 'Yil' },
 ];
 
-const recentOrders = [
-  { id: 'ORD-001', table: 'Stol 3', total: 185000, status: 'Tayyor', statusColor: 'bg-green-100 text-green-700' },
-  { id: 'ORD-002', table: 'Stol 7', total: 320000, status: 'Tayyorlanmoqda', statusColor: 'bg-amber-100 text-amber-700' },
-  { id: 'ORD-003', table: 'Olib ketish', total: 95000, status: 'Yakunlangan', statusColor: 'bg-gray-100 text-gray-700' },
-  { id: 'ORD-004', table: 'Stol 1', total: 450000, status: 'Yangi', statusColor: 'bg-blue-100 text-blue-700' },
-  { id: 'ORD-005', table: 'Yetkazish', total: 275000, status: 'Yetkazilmoqda', statusColor: 'bg-purple-100 text-purple-700' },
-];
+const COLORS = ['#f97316', '#1a1a2e', '#10b981', '#6366f1', '#ec4899', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
-const topProducts = [
-  { name: "O'zbek oshi", quantity: 24, revenue: 1080000, image: '🍚' },
-  { name: 'Shashlik (1 shish)', quantity: 45, revenue: 1125000, image: '🍖' },
-  { name: 'Manti', quantity: 18, revenue: 630000, image: '🥟' },
-  { name: "Lag'mon", quantity: 15, revenue: 570000, image: '🍜' },
-  { name: "Sho'rva", quantity: 12, revenue: 360000, image: '🍲' },
-];
+const statusLabels: Record<string, { label: string; color: string }> = {
+  NEW: { label: 'Yangi', color: '#3b82f6' },
+  CONFIRMED: { label: 'Tasdiqlangan', color: '#8b5cf6' },
+  PREPARING: { label: 'Tayyorlanmoqda', color: '#f59e0b' },
+  READY: { label: 'Tayyor', color: '#10b981' },
+  DELIVERING: { label: 'Yetkazilmoqda', color: '#06b6d4' },
+  COMPLETED: { label: 'Yakunlangan', color: '#22c55e' },
+  CANCELLED: { label: 'Bekor qilingan', color: '#ef4444' },
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('uz-UZ').format(amount) + ' so\'m';
+}
 
 export function DashboardPage() {
-  const periodOptions = [
-    { value: 'today', label: 'Bugun' },
-    { value: 'week', label: 'Hafta' },
-    { value: 'month', label: 'Oy' },
-  ];
+  const [period, setPeriod] = useState<DashboardPeriod>('today');
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [dailySales, setDailySales] = useState<DailySalesData[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filliallar ro'yxatini bir marta yuklash
+  useEffect(() => {
+    branchService.getAll({ limit: 100 })
+      .then((res) => setBranches(res.branches))
+      .catch(() => {}); // Xatolik bo'lsa — filliallar yo'q
+  }, []);
+
+  // Dashboard ma'lumotlarini yuklash
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [dashData, salesData] = await Promise.all([
+        dashboardService.getDashboard(period, selectedBranch || undefined),
+        dashboardService.getDailySales(period),
+      ]);
+      setData(dashData);
+      setDailySales(salesData);
+    } catch (err) {
+      console.error('Dashboard yuklashda xatolik:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [period, selectedBranch]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading && !data) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="animate-spin text-orange-500" size={40} />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-96 text-gray-400">
+        Ma'lumot topilmadi
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Dashboard</h1>
-          <p className="text-gray-500 dark:text-slate-400 text-sm">
-            Bugungi statistika va umumiy ko'rsatkichlar
-          </p>
-        </div>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+
         <div className="flex items-center gap-3">
-          <Select
-            options={periodOptions}
-            value="today"
-            className="w-32"
-          />
+          {/* Branch filter */}
+          {branches.length > 0 && (
+            <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2">
+              <GitBranch size={16} className="text-gray-400" />
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="text-sm border-none bg-transparent focus:outline-none text-gray-700 pr-6"
+              >
+                <option value="">Barcha filliallar</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Period selector */}
+          <div className="flex items-center bg-white rounded-lg border border-gray-200 p-1">
+            {periods.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPeriod(p.key)}
+                className={cn(
+                  'px-4 py-2 text-sm font-medium rounded-md transition-all',
+                  period === p.key
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.title}
-              className="rounded-xl bg-white dark:bg-slate-800 p-5 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${stat.lightBg} dark:bg-opacity-20`}>
-                  <Icon className={`h-6 w-6 ${stat.bgColor.replace('bg-', 'text-')}`} />
-                </div>
-                <button className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200">
-                  <MoreHorizontal size={20} />
-                </button>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-slate-400">{stat.title}</p>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</span>
-                  {stat.unit && <span className="text-sm text-gray-500 dark:text-slate-400">{stat.unit}</span>}
-                </div>
-                <div className="mt-2 flex items-center gap-1 text-sm">
-                  {stat.changeType === 'positive' ? (
-                    <ArrowUpRight className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <ArrowDownRight className="h-4 w-4 text-red-500" />
-                  )}
-                  <span
-                    className={
-                      stat.changeType === 'positive' ? 'font-medium text-green-500' : 'font-medium text-red-500'
-                    }
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Umumiy daromad"
+          value={formatCurrency(data.revenue.total)}
+          icon={DollarSign}
+          color="orange"
+        />
+        <StatCard
+          title="Buyurtmalar"
+          value={String(data.orders.total)}
+          icon={ShoppingCart}
+          color="blue"
+        />
+        <StatCard
+          title="O'rtacha chek"
+          value={formatCurrency(data.revenue.averageCheck)}
+          icon={TrendingUp}
+          color="green"
+        />
+        <StatCard
+          title="Yakunlangan"
+          value={String(data.orders.completed)}
+          icon={CheckCircle}
+          color="purple"
+        />
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Daily Sales Chart */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Kunlik sotuv</h3>
+          {dailySales.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={dailySales}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  tickFormatter={(v) => new Date(v).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                  formatter={(value: number) => [formatCurrency(value), 'Daromad']}
+                  labelFormatter={(v) => new Date(v).toLocaleDateString('uz-UZ', { weekday: 'long', day: 'numeric', month: 'long' })}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[280px] text-gray-400 text-sm">
+              Bu davr uchun ma'lumot yo'q
+            </div>
+          )}
+        </div>
+
+        {/* Branch Revenue Pie / Orders by Status */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          {data.branchRevenues.length > 0 ? (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Filliallar bo'yicha</h3>
+              <div className="flex items-center justify-center">
+                <PieChart width={200} height={200}>
+                  <Pie
+                    data={data.branchRevenues}
+                    cx={100}
+                    cy={100}
+                    innerRadius={55}
+                    outerRadius={85}
+                    dataKey="revenue"
+                    startAngle={90}
+                    endAngle={-270}
+                    stroke="none"
                   >
-                    {stat.change}
-                  </span>
-                  <span className="text-gray-400 dark:text-slate-400">kechagidan</span>
-                </div>
+                    {data.branchRevenues.map((_entry, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                </PieChart>
               </div>
-            </div>
-          );
-        })}
+              <div className="space-y-2 mt-4">
+                {data.branchRevenues.map((br, i) => (
+                  <div key={br.tenantId} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-gray-700">{br.name}</span>
+                    </div>
+                    <span className="font-medium text-gray-900">{formatCurrency(br.revenue)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Buyurtma holatlari</h3>
+              <div className="space-y-3">
+                {data.ordersByStatus.map((os) => {
+                  const info = statusLabels[os.status] || { label: os.status, color: '#6b7280' };
+                  const percent = data.orders.total > 0 ? Math.round((os.count / data.orders.total) * 100) : 0;
+                  return (
+                    <div key={os.status}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-gray-600">{info.label}</span>
+                        <span className="font-medium">{os.count} ({percent}%)</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${percent}%`, backgroundColor: info.color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {data.ordersByStatus.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-8">Buyurtmalar yo'q</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Recent Orders & Top Products */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Recent Orders */}
-        <div className="rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">So'nggi buyurtmalar</h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400">Oxirgi 5 ta buyurtma</p>
-            </div>
-            <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
-              Barchasini ko'rish
-            </button>
-          </div>
-          <div className="p-5">
-            <div className="space-y-4">
-              {recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF5722]/10">
-                      <ShoppingCart className="h-5 w-5 text-[#FF5722]" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800 dark:text-white">{order.id}</p>
-                      <p className="text-sm text-gray-500 dark:text-slate-400">{order.table}</p>
-                    </div>
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Products */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top mahsulotlar</h3>
+          {data.topProducts.length > 0 ? (
+            <div className="space-y-3">
+              {data.topProducts.map((product, i) => (
+                <div key={product.productId} className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 text-sm font-bold text-orange-600">
+                    {i + 1}
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-800 dark:text-white">
-                      {order.total.toLocaleString()} so'm
-                    </p>
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${order.statusColor} dark:opacity-90`}>
-                      {order.status}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                    <p className="text-xs text-gray-400">{product.quantity} ta sotilgan</p>
                   </div>
+                  <span className="text-sm font-semibold text-gray-900">{formatCurrency(product.revenue)}</span>
                 </div>
               ))}
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-8">Ma'lumot yo'q</p>
+          )}
         </div>
 
-        {/* Top Products */}
-        <div className="rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700">
-          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Top mahsulotlar</h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400">Bugungi kun uchun</p>
-            </div>
-            <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
-              Barchasini ko'rish
-            </button>
-          </div>
-          <div className="p-5">
-            <div className="space-y-4">
-              {topProducts.map((product, index) => (
-                <div
-                  key={product.name}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-[#FF5722]/10 to-[#E91E63]/10 text-xl">
-                      {product.image}
+        {/* Recent Orders */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">So'nggi buyurtmalar</h3>
+          {data.recentOrders.length > 0 ? (
+            <div className="space-y-3">
+              {data.recentOrders.slice(0, 8).map((order) => {
+                const statusInfo = statusLabels[order.status] || { label: order.status, color: '#6b7280' };
+                return (
+                  <div key={order.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                        <Clock size={14} className="text-gray-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900">#{order.orderNumber}</p>
+                        <p className="text-xs text-gray-400">
+                          {order.branch && <span>{order.branch} &middot; </span>}
+                          {new Date(order.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-800 dark:text-white">{product.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-slate-400">{product.quantity} ta sotildi</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <p className="font-semibold text-gray-800 dark:text-white">
-                      {product.revenue.toLocaleString()} so'm
-                    </p>
-                    <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                      index === 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                      index === 1 ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300' :
-                      index === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                      'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
-                      {index + 1}
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                        style={{ backgroundColor: statusInfo.color + '20', color: statusInfo.color }}
+                      >
+                        {statusInfo.label}
+                      </span>
+                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                        {formatCurrency(order.total)}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-8">Buyurtmalar yo'q</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Stat Card component
+function StatCard({ title, value, icon: Icon, color }: {
+  title: string;
+  value: string;
+  icon: any;
+  color: 'orange' | 'blue' | 'green' | 'purple';
+}) {
+  const colorMap = {
+    orange: 'bg-orange-100 text-orange-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    purple: 'bg-purple-100 text-purple-600',
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-center gap-4">
+        <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', colorMap[color])}>
+          <Icon size={22} />
+        </div>
+        <div>
+          <p className="text-sm text-gray-500">{title}</p>
+          <p className="text-xl font-bold text-gray-900">{value}</p>
         </div>
       </div>
     </div>

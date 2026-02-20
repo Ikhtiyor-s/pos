@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCartStore } from './store/cart';
 import { useAuthStore } from './store/auth';
 import { cn } from './lib/utils';
@@ -29,51 +29,21 @@ import {
   X,
   BarChart3,
   AlertCircle,
+  AlertTriangle,
   Calculator,
+  Store,
+  ScanLine,
 } from 'lucide-react';
-
-// Demo kategoriyalar
-const categories = [
-  { id: '1', name: 'Osh va taomlar', slug: 'osh', icon: '🍛' },
-  { id: '2', name: 'Salatlar', slug: 'salat', icon: '🥗' },
-  { id: '3', name: "Sho'rvalar", slug: 'shorva', icon: '🍲' },
-  { id: '4', name: 'Ichimliklar', slug: 'ichimlik', icon: '🍵' },
-  { id: '5', name: 'Shirinliklar', slug: 'shirinlik', icon: '🍰' },
-];
-
-// Demo mahsulotlar
-const products = [
-  { id: '1', name: "O'zbek oshi", price: 45000, categoryId: '1', cookTime: 25, image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=400' },
-  { id: '2', name: 'Samarqand oshi', price: 50000, categoryId: '1', cookTime: 30, image: 'https://images.unsplash.com/photo-1645177628172-a94c30a5d4f8?w=400' },
-  { id: '3', name: 'Manti', price: 35000, categoryId: '1', cookTime: 20, image: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=400' },
-  { id: '4', name: 'Shashlik (1 shish)', price: 25000, categoryId: '1', cookTime: 15, image: 'https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=400' },
-  { id: '5', name: "Lag'mon", price: 38000, categoryId: '1', cookTime: 20, image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400' },
-  { id: '6', name: 'Chuchvara', price: 32000, categoryId: '1', cookTime: 18, image: 'https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=400' },
-  { id: '7', name: 'Achichuk', price: 15000, categoryId: '2', cookTime: 5, image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400' },
-  { id: '8', name: 'Shakarob', price: 18000, categoryId: '2', cookTime: 5, image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400' },
-  { id: '9', name: "Ovqat salati", price: 22000, categoryId: '2', cookTime: 10, image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400' },
-  { id: '10', name: "Sho'rva", price: 30000, categoryId: '3', cookTime: 15, image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400' },
-  { id: '11', name: 'Mastava', price: 28000, categoryId: '3', cookTime: 15, image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=400' },
-  { id: '12', name: 'Norin', price: 35000, categoryId: '3', cookTime: 12, image: 'https://images.unsplash.com/photo-1623341214825-9f4f963727da?w=400' },
-  { id: '13', name: "Ko'k choy", price: 8000, categoryId: '4', cookTime: 3, image: 'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=400' },
-  { id: '14', name: 'Qora choy', price: 8000, categoryId: '4', cookTime: 3, image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=400' },
-  { id: '15', name: 'Kompot', price: 6000, categoryId: '4', cookTime: 1, image: 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=400' },
-  { id: '16', name: 'Limonad', price: 12000, categoryId: '4', cookTime: 1, image: 'https://images.unsplash.com/photo-1523677011781-c91d1bbe2f9d?w=400' },
-  { id: '17', name: 'Chak-chak', price: 15000, categoryId: '5', cookTime: 0, image: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?w=400' },
-  { id: '18', name: 'Halvo', price: 12000, categoryId: '5', cookTime: 0, image: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=400' },
-];
-
-// Mock stollar
-const tables = [
-  { id: '1', number: 1, capacity: 2, status: 'free' as const },
-  { id: '2', number: 2, capacity: 4, status: 'occupied' as const },
-  { id: '3', number: 3, capacity: 4, status: 'free' as const },
-  { id: '4', number: 4, capacity: 6, status: 'reserved' as const },
-  { id: '5', number: 5, capacity: 2, status: 'free' as const },
-  { id: '6', number: 6, capacity: 4, status: 'occupied' as const },
-  { id: '7', number: 7, capacity: 8, status: 'free' as const },
-  { id: '8', number: 8, capacity: 4, status: 'free' as const },
-];
+import { productService, categoryService, type Product as ApiProduct, type Category as ApiCategory } from './services/product.service';
+import { tableService, type Table as ApiTable } from './services/table.service';
+import { orderService, type Order as ApiOrder } from './services/order.service';
+import { socketService } from './services/socket.service';
+import { settingsService, type BusinessSettings } from './services/settings.service';
+import { IntegrationHub } from './components/IntegrationHub';
+import { QRScanner } from './components/QRScanner';
+import { LowStockAlert } from './components/LowStockAlert';
+import { inventoryService, type LowStockItem } from './services/inventory.service';
+import type { Product as ApiProduct2 } from './services/product.service';
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
@@ -86,57 +56,21 @@ interface TableData {
   status: 'free' | 'occupied' | 'reserved';
 }
 
+interface ActiveOrderData {
+  orderId: string;
+  tableId: string;
+  tableNumber: number;
+  items: number;
+  total: number;
+  time: string;
+  status: string;
+  awaitingPayment: boolean;
+  orderItems: { productId: string; name: string; price: number; quantity: number }[];
+}
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('uz-UZ').format(price) + " so'm";
 }
-
-// Mock faol buyurtmalar (haqiqiy loyihada backend dan olinadi)
-const activeOrders = [
-  {
-    tableId: '2',
-    tableNumber: 2,
-    items: 3,
-    total: 145000,
-    time: '12:30',
-    status: 'active',
-    awaitingPayment: false,
-    orderItems: [
-      { productId: '1', name: "O'zbek oshi", price: 45000, quantity: 2 },
-      { productId: '7', name: 'Achichuk', price: 15000, quantity: 1 },
-      { productId: '13', name: "Ko'k choy", price: 8000, quantity: 5 },
-    ]
-  },
-  {
-    tableId: '6',
-    tableNumber: 6,
-    items: 5,
-    total: 275000,
-    time: '13:15',
-    status: 'active',
-    awaitingPayment: true,
-    orderItems: [
-      { productId: '2', name: 'Samarqand oshi', price: 50000, quantity: 3 },
-      { productId: '4', name: 'Shashlik (1 shish)', price: 25000, quantity: 4 },
-      { productId: '8', name: 'Shakarob', price: 18000, quantity: 2 },
-      { productId: '14', name: 'Qora choy', price: 8000, quantity: 3 },
-    ]
-  },
-  {
-    tableId: '4',
-    tableNumber: 4,
-    items: 2,
-    total: 80000,
-    time: '14:00',
-    status: 'active',
-    awaitingPayment: true,
-    orderItems: [
-      { productId: '5', name: "Lag'mon", price: 38000, quantity: 1 },
-      { productId: '9', name: "Ovqat salati", price: 22000, quantity: 1 },
-      { productId: '13', name: "Ko'k choy", price: 8000, quantity: 2 },
-    ]
-  },
-];
 
 export default function App() {
   const { isAuthenticated, currentShift } = useAuthStore();
@@ -149,8 +83,16 @@ export default function App() {
   const [showQR, setShowQR] = useState(false);
   const [qrConfirmed, setQrConfirmed] = useState(false);
   const [showOrderTypeModal, setShowOrderTypeModal] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<typeof activeOrders[0] | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<ActiveOrderData | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [currentApiOrderId, setCurrentApiOrderId] = useState<string | null>(null);
+
+  // API data states
+  const [bizSettings, setBizSettings] = useState<BusinessSettings | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string; slug: string; icon: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; categoryId: string; cookTime: number; image: string }[]>([]);
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [activeOrders, setActiveOrders] = useState<ActiveOrderData[]>([]);
 
   // Bill editing states
   const [discount, setDiscount] = useState(0);
@@ -161,6 +103,139 @@ export default function App() {
   // Change calculator states
   const [cashReceived, setCashReceived] = useState('');
   const [showChangeCalculator, setShowChangeCalculator] = useState(false);
+
+  // Integratsiya states
+  const [showIntegrationHub, setShowIntegrationHub] = useState(false);
+  const [activeIntegrations, setActiveIntegrations] = useState(0);
+
+  // QR Skaner states
+  const [showQRScanner, setShowQRScanner] = useState(false);
+
+  // Kam qolgan mahsulotlar states
+  const [showLowStock, setShowLowStock] = useState(false);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+
+  // Category icons map
+  const categoryIcons: Record<string, string> = {
+    'osh': '🍛', 'salat': '🥗', 'shorva': '🍲', 'ichimlik': '🍵', 'shirinlik': '🍰',
+    'taom': '🍛', 'non': '🍞', 'pishiriq': '🥟', 'desert': '🍰', 'default': '🍽️',
+  };
+
+  // Fetch data from API
+  const fetchData = useCallback(async () => {
+    try {
+      // Fetch business settings
+      try {
+        const settings = await settingsService.get();
+        setBizSettings(settings);
+        // Faol integratsiyalar sonini hisoblash
+        const s = settings as any;
+        let count = 0;
+        if (s.nonborEnabled) count++;
+        if (s.paymeEnabled) count++;
+        if (s.clickEnabled) count++;
+        if (s.uzumEnabled) count++;
+        if (s.telegramEnabled) count++;
+        if (s.deliveryEnabled) count++;
+        if (s.crmEnabled) count++;
+        setActiveIntegrations(count);
+      } catch { /* settings optional */ }
+
+      // Fetch categories
+      const apiCategories = await categoryService.getAll();
+      setCategories(apiCategories.map((c: ApiCategory) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug || c.name.toLowerCase().replace(/\s+/g, '-'),
+        icon: categoryIcons[c.slug || ''] || categoryIcons['default'],
+      })));
+
+      // Fetch products
+      const apiProducts = await productService.getAll();
+      setProducts(apiProducts.map((p: ApiProduct) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        categoryId: p.categoryId,
+        cookTime: p.cookingTime || 0,
+        image: p.image || '',
+      })));
+
+      // Fetch tables
+      const apiTables = await tableService.getAll();
+      setTables(apiTables.map((t: ApiTable) => ({
+        id: t.id,
+        number: t.number,
+        capacity: t.capacity,
+        status: t.status === 'FREE' ? 'free' as const :
+               t.status === 'OCCUPIED' ? 'occupied' as const :
+               t.status === 'RESERVED' ? 'reserved' as const : 'free' as const,
+      })));
+
+      // Fetch low stock items
+      try {
+        const lowStock = await inventoryService.getLowStock();
+        setLowStockItems(lowStock);
+      } catch { /* optional */ }
+
+      // Fetch active orders
+      const apiOrders = await orderService.getAll({ status: 'active' });
+      const activeOrdersList: ActiveOrderData[] = [];
+      for (const order of apiOrders as ApiOrder[]) {
+        if (['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)) {
+          const isReady = order.status === 'READY';
+          activeOrdersList.push({
+            orderId: order.id,
+            tableId: order.tableId || '',
+            tableNumber: order.table?.number || 0,
+            items: order.items?.length || 0,
+            total: order.total,
+            time: new Date(order.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+            status: order.status,
+            awaitingPayment: isReady,
+            orderItems: (order.items || []).map((item) => ({
+              productId: item.productId,
+              name: item.product?.name || 'Noma\'lum',
+              price: item.price,
+              quantity: item.quantity,
+            })),
+          });
+        }
+      }
+      setActiveOrders(activeOrdersList);
+    } catch (err) {
+      console.error('[POS] Ma\'lumotlarni yuklashda xatolik:', err);
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    if (isAuthenticated && currentShift) {
+      fetchData();
+
+      // Socket.IO ulanish
+      socketService.connect();
+
+      const unsubNew = socketService.onNewOrder(() => fetchData());
+      const unsubStatus = socketService.onOrderStatus(() => fetchData());
+      const unsubTable = socketService.onTableStatus(() => fetchData());
+      const unsubItem = socketService.onItemStatus(() => fetchData());
+      const unsubUpdated = socketService.onOrderUpdated(() => fetchData());
+
+      // Polling har 20 sekundda
+      const interval = setInterval(fetchData, 20000);
+
+      return () => {
+        unsubNew();
+        unsubStatus();
+        unsubTable();
+        unsubItem();
+        unsubUpdated();
+        clearInterval(interval);
+        socketService.disconnect();
+      };
+    }
+  }, [isAuthenticated, currentShift, fetchData]);
 
   const {
     items,
@@ -223,6 +298,17 @@ export default function App() {
     addItem(product as any);
   };
 
+  const handleQRProductFound = (product: ApiProduct2) => {
+    handleAddProduct({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      categoryId: product.categoryId,
+      cookTime: product.cookingTime || 0,
+      image: product.image || '',
+    });
+  };
+
   const handleSelectOrderType = (type: OrderType, table?: TableData) => {
     setOrderType(type);
     if (table) setSelectedTable(table);
@@ -234,20 +320,37 @@ export default function App() {
     setCurrentStep('payment');
   };
 
-  const handlePlaceOrder = () => {
-    // Buyurtmani to'lovsiz tasdiqlab, oshxonaga yuborish
-    console.log('📝 Buyurtma qo\'shildi:', {
-      orderType,
-      table: selectedTable,
-      items,
-      total: getTotal(),
-    });
-    // Bu yerda backend ga POST so'rov yuboriladi (yangi buyurtma qo'shish)
-    alert('✅ Buyurtma oshxonaga yuborildi!');
+  const handlePlaceOrder = async () => {
+    if (items.length === 0) return;
 
-    // Savat tozalanMAYDI - eski buyurtmalar saqlanadi
-    // Faqat products sahifasiga qaytadi (yangi mahsulot qo'shish uchun)
-    // clearCart() - ISHLATILMAYDI
+    try {
+      const orderPayload = {
+        type: (orderType === 'dine-in' ? 'DINE_IN' : 'TAKEAWAY') as 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY',
+        tableId: selectedTable?.id,
+        items: items.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+        })),
+        discount: discountType === 'fixed' ? discount : undefined,
+        discountPercent: discountType === 'percent' ? discount : undefined,
+      };
+
+      if (currentApiOrderId) {
+        // Mavjud buyurtmaga qo'shish
+        await orderService.addItems(currentApiOrderId, orderPayload.items);
+      } else {
+        // Yangi buyurtma yaratish
+        const created = await orderService.create(orderPayload);
+        setCurrentApiOrderId(created.id);
+      }
+
+      clearCart();
+      await fetchData();
+      alert('Buyurtma oshxonaga yuborildi!');
+    } catch (err) {
+      console.error('[POS] Buyurtma yaratishda xatolik:', err);
+      alert('Xatolik! Buyurtma yuborilmadi.');
+    }
   };
 
   const handlePaymentSelect = (method: PaymentMethod) => {
@@ -268,8 +371,21 @@ export default function App() {
     setCurrentStep('receipt');
   };
 
-  const handlePrintAndClose = () => {
+  const handlePrintAndClose = async () => {
+    // Buyurtma statusini COMPLETED ga ketma-ket o'tkazish (status zanjiri)
+    if (currentApiOrderId) {
+      const statusChain = ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED'];
+      for (const status of statusChain) {
+        try {
+          await orderService.updateStatus(currentApiOrderId, status);
+        } catch {
+          // Allaqachon shu statusda bo'lsa, keyingisiga o'tish
+        }
+      }
+    }
+
     window.print();
+
     // Reset everything
     clearCart();
     setCurrentStep('order-type');
@@ -278,6 +394,8 @@ export default function App() {
     setPaymentMethod(null);
     setShowQR(false);
     setQrConfirmed(false);
+    setCurrentApiOrderId(null);
+    await fetchData();
   };
 
   const handleBack = () => {
@@ -286,6 +404,7 @@ export default function App() {
       setOrderType(null);
       setSelectedTable(null);
       setCurrentOrder(null);
+      setCurrentApiOrderId(null);
       clearCart();
     } else if (currentStep === 'products') {
       if (currentOrder) {
@@ -296,6 +415,7 @@ export default function App() {
         setCurrentStep('order-type');
         setOrderType(null);
         setSelectedTable(null);
+        setCurrentApiOrderId(null);
       }
     } else if (currentStep === 'payment') {
       setCurrentStep('products');
@@ -468,7 +588,7 @@ export default function App() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold">Oshxona POS</span>
+            <span className="text-xl font-bold">{bizSettings?.name || 'Oshxona POS'}</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-slate-400">
@@ -483,6 +603,36 @@ export default function App() {
             </div>
             {currentStep === 'order-type' && (
               <>
+                {/* Kam qolgan mahsulotlar ogohlantirishlari */}
+                {lowStockItems.length > 0 && (
+                  <button
+                    onClick={() => setShowLowStock(true)}
+                    className="flex items-center gap-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-sm font-medium text-yellow-400 hover:bg-yellow-500/20 transition-colors animate-pulse"
+                    title="Kam qolgan mahsulotlar"
+                  >
+                    <AlertTriangle size={16} />
+                    Kam: {lowStockItems.length}
+                  </button>
+                )}
+                {/* Integratsiya markazi tugmasi */}
+                <button
+                  onClick={() => setShowIntegrationHub(true)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    activeIntegrations > 0
+                      ? 'bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20'
+                      : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white'
+                  )}
+                  title="Integratsiya markazi"
+                >
+                  <Store size={16} />
+                  Integratsiyalar
+                  {activeIntegrations > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-500 px-1 text-xs font-bold text-white">
+                      {activeIntegrations}
+                    </span>
+                  )}
+                </button>
                 <button
                   onClick={() => setCurrentStep('reports')}
                   className="flex items-center gap-2 rounded-lg bg-purple-500 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600 transition-colors"
@@ -580,6 +730,7 @@ export default function App() {
                                 setOrderType('dine-in');
                                 setSelectedTable(table);
                                 setCurrentOrder(order);
+                                setCurrentApiOrderId(order.orderId);
                                 clearCart();
                                 order.orderItems.forEach((item) => {
                                   const product = products.find((p) => p.id === item.productId);
@@ -646,6 +797,7 @@ export default function App() {
                                 setOrderType('dine-in');
                                 setSelectedTable(table);
                                 setCurrentOrder(order);
+                                setCurrentApiOrderId(order.orderId);
                                 clearCart();
                                 order.orderItems.forEach((item) => {
                                   const product = products.find((p) => p.id === item.productId);
@@ -1217,8 +1369,9 @@ export default function App() {
             {/* Receipt */}
             <div id="receipt-content" className="rounded-xl border border-slate-700 bg-white text-slate-900 p-6 shadow-xl">
               <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4">
-                <h2 className="text-xl font-bold">🍽️ OSHXONA</h2>
-                <p className="text-sm text-slate-500 mt-1">Restoran POS Tizimi</p>
+                <h2 className="text-xl font-bold">{bizSettings?.name || 'OSHXONA'}</h2>
+                {bizSettings?.address && <p className="text-xs text-slate-500 mt-1">{bizSettings.address}</p>}
+                {bizSettings?.phone && <p className="text-xs text-slate-500">{bizSettings.phone}</p>}
               </div>
 
               <div className="border-b border-dashed border-slate-300 pb-3 mb-3 space-y-1 text-sm">
@@ -1345,7 +1498,7 @@ export default function App() {
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="text-lg font-bold">Oshxona POS</span>
+              <span className="text-lg font-bold">{bizSettings?.name || 'Oshxona POS'}</span>
               <p className="text-xs text-slate-500">
                 {orderType === 'dine-in' && selectedTable && (
                   <span className="text-orange-400">Stol #{selectedTable.number}</span>
@@ -1354,7 +1507,7 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
@@ -1365,6 +1518,14 @@ export default function App() {
                 className="w-64 rounded-lg border border-slate-700 bg-slate-800 pl-10 pr-4 py-2 text-sm placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
               />
             </div>
+            <button
+              onClick={() => setShowQRScanner(true)}
+              className="flex items-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+              title="QR / Barcode skanerlash"
+            >
+              <ScanLine size={16} />
+              Skanerlash
+            </button>
           </div>
         </header>
 
@@ -1523,6 +1684,27 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Integratsiya markazi */}
+      <IntegrationHub
+        isOpen={showIntegrationHub}
+        onClose={() => setShowIntegrationHub(false)}
+        onStatusChange={() => fetchData()}
+      />
+
+      {/* QR Skaner */}
+      <QRScanner
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onProductFound={handleQRProductFound}
+      />
+
+      {/* Kam qolgan mahsulotlar */}
+      <LowStockAlert
+        isOpen={showLowStock}
+        onClose={() => setShowLowStock(false)}
+        items={lowStockItems}
+      />
     </div>
   );
 }

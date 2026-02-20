@@ -2,12 +2,20 @@ import { z } from 'zod';
 
 export const loginSchema = z.object({
   email: z
-    .string({ required_error: 'Email kiritilishi shart' })
-    .email('Yaroqli email kiriting'),
+    .string()
+    .email('Yaroqli email kiriting')
+    .optional(),
+  phone: z
+    .string()
+    .regex(/^\+998\d{9}$/, 'Telefon raqam +998XXXXXXXXX formatida bo\'lishi kerak')
+    .optional(),
   password: z
     .string({ required_error: 'Parol kiritilishi shart' })
     .min(6, 'Parol kamida 6 ta belgidan iborat bo\'lishi kerak'),
-});
+}).refine(
+  (data) => data.email || data.phone,
+  { message: 'Email yoki telefon raqam kiritilishi shart', path: ['email'] }
+);
 
 export const registerSchema = z.object({
   email: z
@@ -33,6 +41,29 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string({ required_error: 'Refresh token kiritilishi shart' }),
 });
 
+// PIN login
+export const pinLoginSchema = z.object({
+  pin: z
+    .string({ required_error: 'PIN kiritilishi shart' })
+    .min(4, 'PIN kamida 4 ta raqamdan iborat bo\'lishi kerak')
+    .max(8, 'PIN ko\'pi bilan 8 ta raqamdan iborat bo\'lishi kerak')
+    .regex(/^\d+$/, 'PIN faqat raqamlardan iborat bo\'lishi kerak'),
+  tenantId: z
+    .string({ required_error: 'Tenant ID kiritilishi shart' })
+    .uuid('Yaroqli tenant ID kiriting'),
+});
+
+// PIN o'rnatish
+export const setPinSchema = z.object({
+  pin: z
+    .string({ required_error: 'PIN kiritilishi shart' })
+    .min(4, 'PIN kamida 4 ta raqamdan iborat bo\'lishi kerak')
+    .max(8, 'PIN ko\'pi bilan 8 ta raqamdan iborat bo\'lishi kerak')
+    .regex(/^\d+$/, 'PIN faqat raqamlardan iborat bo\'lishi kerak'),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type PinLoginInput = z.infer<typeof pinLoginSchema>;
+export type SetPinInput = z.infer<typeof setPinSchema>;

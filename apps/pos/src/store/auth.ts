@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import api from '../services/api';
 
 export interface User {
   id: string;
+  firstName: string;
+  lastName: string;
   name: string;
-  email: string;
-  role: 'cashier' | 'admin';
-  pin?: string;
+  email?: string;
+  phone?: string;
+  role: string;
+  avatar?: string;
 }
 
 export interface Shift {
@@ -27,6 +31,8 @@ export interface Shift {
 
 interface AuthState {
   user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   currentShift: Shift | null;
   isAuthenticated: boolean;
 
@@ -39,61 +45,77 @@ interface AuthState {
   updateShiftStats: (stats: Partial<Shift>) => void;
 }
 
-// Mock users - haqiqiy loyihada backend dan keladi
-const MOCK_USERS: User[] = [
-  {
-    id: '1',
-    name: 'Sardor Kassirov',
-    email: 'kassir@oshxona.uz',
-    role: 'cashier',
-    pin: '1234',
-  },
-  {
-    id: '2',
-    name: 'Admin User',
-    email: 'admin@oshxona.uz',
-    role: 'admin',
-    pin: '0000',
-  },
-];
-
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      accessToken: null,
+      refreshToken: null,
       currentShift: null,
       isAuthenticated: false,
 
-      login: async (email: string, password: string) => {
-        // Mock login - haqiqiy loyihada backend API ga so'rov
-        await new Promise((resolve) => setTimeout(resolve, 500));
+      login: async (emailOrPhone: string, password: string) => {
+        try {
+          // Determine if input is email or phone
+          const isEmail = emailOrPhone.includes('@');
+          const payload = isEmail
+            ? { email: emailOrPhone, password }
+            : { phone: emailOrPhone, password };
 
-        const user = MOCK_USERS.find((u) => u.email === email);
+          const { data: response } = await api.post('/auth/login', payload);
+          const { user: apiUser, accessToken, refreshToken } = response.data;
 
-        if (user && password === 'password') {
-          set({ user, isAuthenticated: true });
+          const user: User = {
+            id: apiUser.id,
+            firstName: apiUser.firstName || '',
+            lastName: apiUser.lastName || '',
+            name: `${apiUser.firstName || ''} ${apiUser.lastName || ''}`.trim(),
+            email: apiUser.email,
+            phone: apiUser.phone,
+            role: apiUser.role?.toLowerCase() || 'cashier',
+            avatar: apiUser.avatar,
+          };
+
+          set({ user, accessToken, refreshToken, isAuthenticated: true });
           return true;
+        } catch (error) {
+          console.error('[POS] Login xatoligi:', error);
+          return false;
         }
-
-        return false;
       },
 
       loginWithPin: async (pin: string) => {
-        // Mock PIN login
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        try {
+          const tenantId = import.meta.env.VITE_TENANT_ID;
+          if (!tenantId) {
+            console.error('[POS] VITE_TENANT_ID sozlanmagan');
+            return false;
+          }
 
-        const user = MOCK_USERS.find((u) => u.pin === pin);
+          const { data: response } = await api.post('/auth/login-pin', { pin, tenantId });
+          const { user: apiUser, accessToken, refreshToken } = response.data;
 
-        if (user) {
-          set({ user, isAuthenticated: true });
+          const user: User = {
+            id: apiUser.id,
+            firstName: apiUser.firstName || '',
+            lastName: apiUser.lastName || '',
+            name: `${apiUser.firstName || ''} ${apiUser.lastName || ''}`.trim(),
+            email: apiUser.email,
+            phone: apiUser.phone,
+            role: apiUser.role?.toLowerCase() || 'cashier',
+            avatar: apiUser.avatar,
+          };
+
+          set({ user, accessToken, refreshToken, isAuthenticated: true });
           return true;
+        } catch (error) {
+          console.error('[POS] PIN login xatoligi:', error);
+          return false;
         }
-
-        return false;
       },
 
       logout: () => {
-        const { currentShift } = get();
+        const { currentShift, refreshToken: rt } = get();
 
         // Agar shift ochiq bo'lsa, yopish talab qilinadi
         if (currentShift && !currentShift.endTime) {
@@ -102,10 +124,17 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
+        // Backend logout
+        if (rt) {
+          api.post('/auth/logout', { refreshToken: rt }).catch(() => {});
+        }
+
         set({
           user: null,
+          accessToken: null,
+          refreshToken: null,
           isAuthenticated: false,
-          currentShift: null
+          currentShift: null,
         });
       },
 
@@ -143,8 +172,6 @@ export const useAuthStore = create<AuthState>()(
         };
 
         set({ currentShift: updatedShift });
-
-        // Bu yerda backend ga shift ma'lumotlarini yuborish kerak
         console.log('Shift yopildi:', updatedShift);
       },
 
@@ -156,15 +183,17 @@ export const useAuthStore = create<AuthState>()(
         set({
           currentShift: {
             ...currentShift,
-            ...stats
-          }
+            ...stats,
+          },
         });
       },
     }),
     {
-      name: 'auth-storage',
+      name: 'pos-auth',
       partialize: (state) => ({
         user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
         currentShift: state.currentShift,
       }),

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   User,
   Store,
@@ -18,8 +18,20 @@ import {
   Clock,
   CheckCircle,
   Download,
+  Loader2,
+  Eye,
+  EyeOff,
+  Zap,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  integrationService,
+  INTEGRATION_CONFIG_FIELDS,
+  EVENT_OPTIONS,
+} from '@/services/integration.service';
+import type { IntegrationStatus } from '@/services/integration.service';
 
 const settingsSections = [
   { id: 'profile', name: 'Profil', icon: User, description: 'Shaxsiy ma\'lumotlar' },
@@ -56,7 +68,7 @@ export function SettingsPage() {
             'flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-all',
             saved
               ? 'bg-green-500'
-              : 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] hover:shadow-xl'
+              : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-xl'
           )}
         >
           {saved ? (
@@ -87,7 +99,7 @@ export function SettingsPage() {
                     className={cn(
                       'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all',
                       activeSection === section.id
-                        ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white'
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
                         : 'text-gray-600 hover:bg-gray-50'
                     )}
                   >
@@ -111,7 +123,7 @@ export function SettingsPage() {
               <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-6">
                   <div className="relative">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-3xl font-bold text-white">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-3xl font-bold text-white">
                       AK
                     </div>
                     <button className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 hover:bg-gray-50">
@@ -135,7 +147,7 @@ export function SettingsPage() {
                     <input
                       type="text"
                       defaultValue="Abdulloh"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -143,7 +155,7 @@ export function SettingsPage() {
                     <input
                       type="text"
                       defaultValue="Karimov"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -153,7 +165,7 @@ export function SettingsPage() {
                       <input
                         type="email"
                         defaultValue="admin@oshxona.uz"
-                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -164,7 +176,7 @@ export function SettingsPage() {
                       <input
                         type="tel"
                         defaultValue="+998 90 123 45 67"
-                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -183,7 +195,7 @@ export function SettingsPage() {
                     <input
                       type="text"
                       defaultValue="Oshxona Restaurant"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -193,7 +205,7 @@ export function SettingsPage() {
                       <textarea
                         defaultValue="Toshkent sh., Chilonzor tumani, 12-mavze, 45-uy"
                         rows={2}
-                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none resize-none"
+                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none resize-none"
                       />
                     </div>
                   </div>
@@ -204,7 +216,7 @@ export function SettingsPage() {
                       <input
                         type="time"
                         defaultValue="09:00"
-                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -215,7 +227,7 @@ export function SettingsPage() {
                       <input
                         type="time"
                         defaultValue="23:00"
-                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 pl-10 pr-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -227,7 +239,7 @@ export function SettingsPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Valyuta</label>
-                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none">
+                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none">
                       <option>UZS - O'zbek so'mi</option>
                       <option>USD - AQSH dollari</option>
                     </select>
@@ -237,7 +249,7 @@ export function SettingsPage() {
                     <input
                       type="number"
                       defaultValue="12"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -264,7 +276,7 @@ export function SettingsPage() {
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input type="checkbox" defaultChecked={index < 4} className="peer sr-only" />
-                      <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                      <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-orange-500 peer-checked:to-orange-500 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
                     </label>
                   </div>
                 ))}
@@ -281,24 +293,24 @@ export function SettingsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Joriy parol</label>
                     <input
                       type="password"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Yangi parol</label>
                     <input
                       type="password"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Yangi parolni tasdiqlash</label>
                     <input
                       type="password"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none"
                     />
                   </div>
-                  <button className="rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2 text-sm font-medium text-white">
+                  <button className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-medium text-white">
                     Parolni yangilash
                   </button>
                 </div>
@@ -307,7 +319,7 @@ export function SettingsPage() {
               <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Ikki bosqichli autentifikatsiya</h3>
                 <p className="text-sm text-gray-500 mb-4">Hisobingizni qo'shimcha himoya qiling</p>
-                <button className="rounded-lg border border-[#FF5722] px-4 py-2 text-sm font-medium text-[#FF5722] hover:bg-orange-50">
+                <button className="rounded-lg border border-orange-500 px-4 py-2 text-sm font-medium text-orange-500 hover:bg-orange-50">
                   2FA ni yoqish
                 </button>
               </div>
@@ -330,7 +342,7 @@ export function SettingsPage() {
                         key={theme.id}
                         className={cn(
                           'flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all',
-                          theme.id === 'light' ? 'border-[#FF5722]' : 'border-gray-200 hover:border-gray-300'
+                          theme.id === 'light' ? 'border-orange-500' : 'border-gray-200 hover:border-gray-300'
                         )}
                       >
                         <div className={cn('h-12 w-20 rounded-lg border border-gray-200', theme.color)} />
@@ -342,7 +354,7 @@ export function SettingsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Til</label>
-                  <select className="w-full max-w-xs rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none">
+                  <select className="w-full max-w-xs rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none">
                     <option>O'zbekcha</option>
                     <option>Русский</option>
                     <option>English</option>
@@ -371,7 +383,7 @@ export function SettingsPage() {
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input type="checkbox" defaultChecked className="peer sr-only" />
-                        <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                        <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-orange-500 peer-checked:to-orange-500 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
                       </label>
                     </div>
                   ))}
@@ -405,7 +417,7 @@ export function SettingsPage() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-4 flex items-center gap-2 rounded-lg border border-[#FF5722] px-4 py-2 text-sm font-medium text-[#FF5722] hover:bg-orange-50">
+                <button className="mt-4 flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-medium text-orange-500 hover:bg-orange-50">
                   <Printer size={16} />
                   Yangi printer qo'shish
                 </button>
@@ -416,14 +428,14 @@ export function SettingsPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Chek kengligi</label>
-                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none">
+                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none">
                       <option>80mm</option>
                       <option>58mm</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Shrift o'lchami</label>
-                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-[#FF5722] focus:outline-none">
+                    <select className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none">
                       <option>Kichik</option>
                       <option>O'rta</option>
                       <option>Katta</option>
@@ -443,7 +455,7 @@ export function SettingsPage() {
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input type="checkbox" defaultChecked className="peer sr-only" />
-                        <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                        <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-orange-500 peer-checked:to-orange-500 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
                       </label>
                     </div>
                   ))}
@@ -453,35 +465,7 @@ export function SettingsPage() {
           )}
 
           {activeSection === 'integrations' && (
-            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Tashqi integratsiyalar</h3>
-              <div className="space-y-3">
-                {[
-                  { name: 'Telegram Bot', description: 'Buyurtma bildirishnomalari', status: true },
-                  { name: 'SMS xabar', description: 'Eskertish va tasdiq SMS', status: false },
-                  { name: 'Yetkazib berish', description: 'Tashqi yetkazib berish xizmati', status: false },
-                  { name: 'Buxgalteriya', description: '1C yoki boshqa tizim bilan sinxronlash', status: false },
-                ].map((item, index) => (
-                  <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
-                    <div>
-                      <p className="font-medium text-gray-800">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.description}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        item.status ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      )}>
-                        {item.status ? 'Faol' : 'O\'chirilgan'}
-                      </span>
-                      <button className="text-sm font-medium text-[#FF5722] hover:text-[#E91E63]">
-                        Sozlash
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <IntegrationsSection />
           )}
 
           {activeSection === 'backup' && (
@@ -508,12 +492,12 @@ export function SettingsPage() {
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input type="checkbox" defaultChecked className="peer sr-only" />
-                      <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-[#FF5722] peer-checked:to-[#E91E63] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
+                      <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-gradient-to-r peer-checked:from-orange-500 peer-checked:to-orange-500 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full"></div>
                     </label>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-3">
-                  <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-2 text-sm font-medium text-white hover:brightness-110">
+                  <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-medium text-white hover:brightness-110">
                     <Database size={16} />
                     Hozir zaxiralash
                   </button>
@@ -525,6 +509,383 @@ export function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== INTEGRATIONS SECTION ====================
+
+const CATEGORY_LABELS: Record<string, string> = {
+  marketplace: 'Marketplace',
+  payment: 'To\'lov',
+  notification: 'Bildirishnoma',
+  delivery: 'Yetkazish',
+  crm: 'CRM',
+};
+
+function IntegrationsSection() {
+  const [integrations, setIntegrations] = useState<IntegrationStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const fetchIntegrations = useCallback(async () => {
+    try {
+      const data = await integrationService.getAll();
+      setIntegrations(data);
+    } catch {
+      // silently handle
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIntegrations();
+  }, [fetchIntegrations]);
+
+  const handleToggle = async (id: string, enabled: boolean) => {
+    try {
+      await integrationService.toggle(id, !enabled);
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, enabled: !enabled } : i))
+      );
+    } catch {
+      // silently handle
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="animate-spin text-orange-500" size={32} />
+      </div>
+    );
+  }
+
+  // Edit mode
+  if (editingId) {
+    const integration = integrations.find((i) => i.id === editingId);
+    if (!integration) return null;
+    return (
+      <IntegrationConfigForm
+        integration={integration}
+        onBack={() => {
+          setEditingId(null);
+          fetchIntegrations();
+        }}
+      />
+    );
+  }
+
+  // List mode
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Tashqi integratsiyalar</h3>
+          <span className="text-sm text-gray-500">
+            {integrations.filter((i) => i.enabled).length} ta faol
+          </span>
+        </div>
+        <div className="space-y-3">
+          {integrations.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between rounded-lg bg-gray-50 p-4 hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-lg',
+                    item.enabled ? 'bg-orange-100' : 'bg-gray-200'
+                  )}
+                >
+                  <Wifi
+                    size={18}
+                    className={item.enabled ? 'text-orange-600' : 'text-gray-400'}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800">{item.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {item.description}{' '}
+                    <span className="text-gray-400">
+                      &middot; {CATEGORY_LABELS[item.category] || item.category}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {item.configured && (
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
+                    Sozlangan
+                  </span>
+                )}
+                <label className="relative inline-flex cursor-pointer items-center">
+                  <input
+                    type="checkbox"
+                    checked={item.enabled}
+                    onChange={() => handleToggle(item.id, item.enabled)}
+                    className="peer sr-only"
+                  />
+                  <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-orange-500 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
+                </label>
+                <button
+                  onClick={() => setEditingId(item.id)}
+                  className="text-sm font-medium text-orange-500 hover:text-orange-600"
+                >
+                  Sozlash
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== INTEGRATION CONFIG FORM ====================
+
+function IntegrationConfigForm({
+  integration,
+  onBack,
+}: {
+  integration: IntegrationStatus;
+  onBack: () => void;
+}) {
+  const [config, setConfig] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  const fields = INTEGRATION_CONFIG_FIELDS[integration.id] || [];
+
+  useEffect(() => {
+    integrationService
+      .getConfig(integration.id)
+      .then(setConfig)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [integration.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setTestResult(null);
+    try {
+      await integrationService.updateConfig(integration.id, config);
+      setTestResult({ success: true, message: 'Muvaffaqiyatli saqlandi' });
+    } catch {
+      setTestResult({ success: false, message: 'Saqlashda xatolik' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await integrationService.test(integration.id);
+      setTestResult(result);
+    } catch {
+      setTestResult({ success: false, message: 'Test amalga oshmadi' });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="animate-spin text-orange-500" size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={onBack}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-gray-800">
+              {integration.name}
+            </h3>
+            <p className="text-sm text-gray-500">{integration.description}</p>
+          </div>
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
+              integration.enabled
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 text-gray-500'
+            )}
+          >
+            {integration.enabled ? 'Faol' : 'O\'chirilgan'}
+          </span>
+        </div>
+
+        {/* Config fields */}
+        <div className="space-y-4">
+          {fields.map((field) => {
+            if (field.type === 'boolean') {
+              return (
+                <div
+                  key={field.key}
+                  className="flex items-center justify-between py-2"
+                >
+                  <label className="text-sm font-medium text-gray-700">
+                    {field.label}
+                  </label>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={!!config[field.key]}
+                      onChange={(e) =>
+                        setConfig({ ...config, [field.key]: e.target.checked })
+                      }
+                      className="peer sr-only"
+                    />
+                    <div className="h-6 w-11 rounded-full bg-gray-200 peer-checked:bg-orange-500 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
+                  </label>
+                </div>
+              );
+            }
+
+            if (field.type === 'events') {
+              const selected: string[] = config[field.key] || [];
+              return (
+                <div key={field.key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {field.label}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {EVENT_OPTIONS.map((opt) => {
+                      const isActive = selected.includes(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            const next = isActive
+                              ? selected.filter((v) => v !== opt.value)
+                              : [...selected, opt.value];
+                            setConfig({ ...config, [field.key]: next });
+                          }}
+                          className={cn(
+                            'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium border transition-colors',
+                            isActive
+                              ? 'bg-orange-50 border-orange-300 text-orange-700'
+                              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                          )}
+                        >
+                          {isActive && <CheckCircle size={12} className="mr-1" />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
+            // text / password
+            const isPassword = field.type === 'password';
+            const isVisible = showPasswords[field.key];
+            return (
+              <div key={field.key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {field.label}
+                </label>
+                <div className="relative">
+                  <input
+                    type={isPassword && !isVisible ? 'password' : 'text'}
+                    value={config[field.key] || ''}
+                    onChange={(e) =>
+                      setConfig({ ...config, [field.key]: e.target.value })
+                    }
+                    placeholder={field.placeholder}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-gray-800 focus:border-orange-500 focus:outline-none pr-10"
+                  />
+                  {isPassword && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords({
+                          ...showPasswords,
+                          [field.key]: !isVisible,
+                        })
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Test result */}
+        {testResult && (
+          <div
+            className={cn(
+              'mt-4 flex items-center gap-2 rounded-lg px-4 py-3 text-sm',
+              testResult.success
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            )}
+          >
+            {testResult.success ? (
+              <CheckCircle size={16} />
+            ) : (
+              <X size={16} />
+            )}
+            {testResult.message}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="mt-6 flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            Saqlash
+          </button>
+          <button
+            onClick={handleTest}
+            disabled={testing}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {testing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Zap size={16} />
+            )}
+            Test qilish
+          </button>
         </div>
       </div>
     </div>

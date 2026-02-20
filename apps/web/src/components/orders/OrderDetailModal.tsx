@@ -165,10 +165,10 @@ export function OrderDetailModal({
     <Modal isOpen={isOpen} onClose={onClose} size="xl">
       <div className="flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-700 pb-4 mb-4">
+        <div className="flex items-start justify-between border-b border-gray-200 pb-4 mb-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-xl font-bold text-white">{order.orderNumber}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{order.orderNumber}</h2>
               <Badge
                 style={{
                   backgroundColor: `${statusInfo.color}20`,
@@ -181,7 +181,7 @@ export function OrderDetailModal({
                 {typeInfo.icon} {typeInfo.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-4 text-sm text-slate-400">
+            <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Clock size={14} />
                 {formatDate(order.createdAt)} {formatTime(order.createdAt)}
@@ -192,7 +192,7 @@ export function OrderDetailModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <X size={20} />
           </button>
@@ -203,23 +203,23 @@ export function OrderDetailModal({
           {/* Mijoz ma'lumotlari */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Mijoz */}
-            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-3">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-3">
                 <User size={16} />
                 Mijoz ma'lumotlari
               </h3>
               <div className="space-y-2">
                 {order.customerName && (
-                  <p className="text-white font-medium">{order.customerName}</p>
+                  <p className="text-gray-900 font-medium">{order.customerName}</p>
                 )}
                 {order.customerPhone && (
-                  <p className="flex items-center gap-2 text-slate-300">
-                    <Phone size={14} className="text-slate-500" />
+                  <p className="flex items-center gap-2 text-gray-700">
+                    <Phone size={14} className="text-gray-400" />
                     {order.customerPhone}
                   </p>
                 )}
                 {order.type === 'dine-in' && order.tableNumber && (
-                  <p className="text-slate-300">
+                  <p className="text-gray-700">
                     🪑 {order.tableNumber}-stol
                   </p>
                 )}
@@ -228,14 +228,14 @@ export function OrderDetailModal({
 
             {/* Yetkazish manzili */}
             {order.type === 'delivery' && order.deliveryAddress && (
-              <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-3">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-3">
                   <MapPin size={16} />
                   Yetkazish manzili
                 </h3>
-                <p className="text-white">{order.deliveryAddress}</p>
+                <p className="text-gray-900">{order.deliveryAddress}</p>
                 {order.deliveryNotes && (
-                  <p className="text-sm text-slate-400 mt-2">
+                  <p className="text-sm text-gray-500 mt-2">
                     📝 {order.deliveryNotes}
                   </p>
                 )}
@@ -244,26 +244,26 @@ export function OrderDetailModal({
 
             {/* To'lov */}
             <div className={cn(
-              "rounded-xl border border-slate-700 bg-slate-800/50 p-4",
+              "rounded-xl border border-gray-200 bg-gray-50 p-4",
               order.type !== 'delivery' && 'md:col-span-1'
             )}>
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-3">
                 <CreditCard size={16} />
                 To'lov ma'lumotlari
               </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Usul:</span>
-                  <span className="text-white">{getPaymentMethodText(order.paymentMethod)}</span>
+                  <span className="text-gray-500">Usul:</span>
+                  <span className="text-gray-900">{getPaymentMethodText(order.paymentMethod)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Holat:</span>
+                  <span className="text-gray-500">Holat:</span>
                   {getPaymentStatusBadge()}
                 </div>
                 {order.paidAt && (
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">To'langan:</span>
-                    <span className="text-slate-300">{formatTime(order.paidAt)}</span>
+                    <span className="text-gray-500">To'langan:</span>
+                    <span className="text-gray-700">{formatTime(order.paidAt)}</span>
                   </div>
                 )}
               </div>
@@ -271,8 +271,8 @@ export function OrderDetailModal({
           </div>
 
           {/* Buyurtma elementlari */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-4">
               <Package size={16} />
               Buyurtma tarkibi ({order.items.length} ta)
             </h3>
@@ -280,22 +280,22 @@ export function OrderDetailModal({
               {order.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0"
+                  className="flex items-center justify-between py-2 border-b border-gray-200/50 last:border-0"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-700 text-sm font-bold text-white">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-200 text-sm font-bold text-gray-900">
                       {item.quantity}x
                     </span>
                     <div>
-                      <p className="font-medium text-white">{item.name}</p>
-                      <p className="text-sm text-slate-400">
+                      <p className="font-medium text-gray-900">{item.name}</p>
+                      <p className="text-sm text-gray-500">
                         {formatPrice(item.price)} / dona
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     {getItemStatusBadge(item.status)}
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-gray-900">
                       {formatPrice(item.total)}
                     </span>
                   </div>
@@ -305,35 +305,35 @@ export function OrderDetailModal({
           </div>
 
           {/* Hisob-kitob */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-3">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-3">
               <FileText size={16} />
               Hisob-kitob
             </h3>
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-slate-300">
+              <div className="flex items-center justify-between text-gray-700">
                 <span>Jami:</span>
                 <span>{formatPrice(order.subtotal)}</span>
               </div>
               {order.deliveryFee > 0 && (
-                <div className="flex items-center justify-between text-slate-300">
+                <div className="flex items-center justify-between text-gray-700">
                   <span>Yetkazish:</span>
                   <span>{formatPrice(order.deliveryFee)}</span>
                 </div>
               )}
               {order.discount > 0 && (
-                <div className="flex items-center justify-between text-green-400">
+                <div className="flex items-center justify-between text-green-600">
                   <span>Chegirma {order.discountPercent && `(${order.discountPercent}%)`}:</span>
                   <span>-{formatPrice(order.discount)}</span>
                 </div>
               )}
               {order.tax > 0 && (
-                <div className="flex items-center justify-between text-slate-300">
+                <div className="flex items-center justify-between text-gray-700">
                   <span>Soliq:</span>
                   <span>{formatPrice(order.tax)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-700 text-lg font-bold text-white">
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200 text-lg font-bold text-gray-900">
                 <span>Umumiy:</span>
                 <span className="text-orange-400">{formatPrice(order.total)}</span>
               </div>
@@ -341,8 +341,8 @@ export function OrderDetailModal({
           </div>
 
           {/* Vaqt liniyasi */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-4">
               <Clock size={16} />
               Vaqt liniyasi
             </h3>
@@ -409,24 +409,24 @@ export function OrderDetailModal({
 
           {/* Izohlar */}
           {order.notes && (
-            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-400 mb-2">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-500 mb-2">
                 <MessageSquare size={16} />
                 Izohlar
               </h3>
-              <p className="text-white">{order.notes}</p>
+              <p className="text-gray-900">{order.notes}</p>
             </div>
           )}
         </div>
 
         {/* Footer - Actions */}
-        <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-700">
+        <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-gray-200">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onPrint?.(order)}
-              className="border-slate-700 text-slate-400 hover:text-white"
+              className="border-gray-200 text-gray-500 hover:text-gray-900"
             >
               <Printer size={16} className="mr-2" />
               Chop etish
@@ -443,7 +443,7 @@ export function OrderDetailModal({
                     const reason = prompt('Bekor qilish sababi:');
                     if (reason) onCancel?.(order.id, reason);
                   }}
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  className="border-red-500/30 text-red-600 hover:bg-red-500/10"
                 >
                   <Ban size={16} className="mr-2" />
                   Bekor qilish
@@ -452,7 +452,7 @@ export function OrderDetailModal({
                 {nextStatus && (
                   <Button
                     onClick={() => onStatusChange?.(order.id, nextStatus)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    className="bg-orange-500 hover:bg-orange-600 text-gray-900"
                   >
                     {nextStatus === 'preparing' && <ChefHat size={16} className="mr-2" />}
                     {nextStatus === 'ready' && <Check size={16} className="mr-2" />}
@@ -500,10 +500,10 @@ function TimelineItem({
           className={cn(
             'flex h-7 w-7 items-center justify-center rounded-full',
             isError
-              ? 'bg-red-500/20 text-red-400'
+              ? 'bg-red-500/20 text-red-600'
               : active
               ? 'bg-orange-500/20 text-orange-400'
-              : 'bg-slate-700 text-slate-500'
+              : 'bg-gray-200 text-gray-400'
           )}
         >
           {icon}
@@ -512,14 +512,14 @@ function TimelineItem({
           <div
             className={cn(
               'absolute left-1/2 top-7 h-6 w-0.5 -translate-x-1/2',
-              active ? 'bg-orange-500/30' : 'bg-slate-700'
+              active ? 'bg-orange-500/30' : 'bg-gray-200'
             )}
           />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={cn('text-sm', isError ? 'text-red-400' : 'text-white')}>{label}</p>
-        <p className="text-xs text-slate-500">{formatTime(time)}</p>
+        <p className={cn('text-sm', isError ? 'text-red-600' : 'text-gray-900')}>{label}</p>
+        <p className="text-xs text-gray-400">{formatTime(time)}</p>
       </div>
     </div>
   );

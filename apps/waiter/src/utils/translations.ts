@@ -205,6 +205,35 @@ export const translations = {
     },
   },
 
+  // Orders Page
+  orders: {
+    title: {
+      uz: 'Faol Buyurtmalar',
+      ru: 'Активные заказы',
+      en: 'Active Orders',
+    },
+    count: {
+      uz: 'ta buyurtma',
+      ru: 'заказов',
+      en: 'orders',
+    },
+    empty: {
+      uz: 'Hozircha buyurtmalar yo\'q',
+      ru: 'Пока нет заказов',
+      en: 'No orders yet',
+    },
+    product: {
+      uz: 'Mahsulot',
+      ru: 'Продукт',
+      en: 'Product',
+    },
+    served: {
+      uz: 'Berildi',
+      ru: 'Подано',
+      en: 'Served',
+    },
+  },
+
   // Order Status
   orderStatus: {
     NEW: {

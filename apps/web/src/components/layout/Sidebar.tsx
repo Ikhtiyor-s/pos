@@ -7,8 +7,6 @@ import {
   FolderTree,
   ClipboardList,
   Armchair,
-  Package,
-  BarChart3,
   Settings,
   LogOut,
   ChevronRight,
@@ -16,6 +14,10 @@ import {
   Plus,
   Bell,
   Users,
+  Send,
+  CreditCard,
+  Building2,
+  GitBranch,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 
@@ -28,11 +30,31 @@ const menuItems = [
     icon: LayoutDashboard,
   },
   {
+    id: 'tenants',
+    path: '/tenants',
+    label: 'Tenantlar',
+    icon: Building2,
+    superAdminOnly: true,
+  },
+  {
+    id: 'branches',
+    path: '/branches',
+    label: 'Filliallar',
+    icon: GitBranch,
+    managerOnly: true,
+  },
+  {
     id: 'products',
     path: '/products',
-    label: 'Mahsulotlar',
+    label: 'Product',
     icon: UtensilsCrossed,
-    count: 156,
+  },
+  {
+    id: 'orders',
+    path: '/orders',
+    label: 'Pending Order',
+    icon: ClipboardList,
+    badge: '12',
   },
   {
     id: 'categories',
@@ -41,40 +63,39 @@ const menuItems = [
     icon: FolderTree,
   },
   {
-    id: 'orders',
-    path: '/orders',
-    label: 'Buyurtmalar',
-    icon: ClipboardList,
-    badge: '12',
-  },
-  {
     id: 'tables',
     path: '/tables',
     label: 'Stollar',
     icon: Armchair,
   },
   {
-    id: 'employees',
-    path: '/employees',
-    label: 'Xodimlar',
+    id: 'customers',
+    path: '/customers',
+    label: 'Customers',
     icon: Users,
   },
   {
-    id: 'inventory',
-    path: '/inventory',
-    label: 'Ombor',
-    icon: Package,
+    id: 'notifications',
+    path: '/notifications',
+    label: 'Notification',
+    icon: Bell,
   },
   {
-    id: 'reports',
-    path: '/reports',
-    label: 'Hisobotlar',
-    icon: BarChart3,
+    id: 'messages',
+    path: '/messages',
+    label: 'Messages',
+    icon: Send,
+  },
+  {
+    id: 'billing',
+    path: '/billing',
+    label: 'Billing',
+    icon: CreditCard,
   },
   {
     id: 'settings',
     path: '/settings',
-    label: 'Sozlamalar',
+    label: 'Setting',
     icon: Settings,
   },
 ];
@@ -98,38 +119,52 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-[#1B2537] transition-all duration-300',
+        'fixed left-0 top-0 z-40 h-screen bg-white border-r border-gray-200 transition-all duration-300 shadow-sm',
         collapsed ? 'w-[70px]' : 'w-[260px]'
       )}
     >
       <div className="flex h-full flex-col">
         {/* Logo Area */}
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between px-4 border-b border-gray-100">
           <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-[#FF5722] to-[#E91E63] shadow-lg">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
             {!collapsed && (
               <div className="flex flex-col">
-                <span className="text-lg font-bold text-white">DreamsPOS</span>
-                <span className="text-[10px] font-medium text-gray-500">Restaurant System</span>
+                <span className="text-lg font-bold text-gray-900">DreamsPOS</span>
+                <span className="text-[10px] font-medium text-gray-400">Restaurant System</span>
               </div>
             )}
           </Link>
-          <button
-            onClick={onToggle}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-[#2A3547] hover:text-white"
-          >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
+          {!collapsed && (
+            <button
+              onClick={onToggle}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
         </div>
+
+        {/* Collapsed toggle */}
+        {collapsed && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={onToggle}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
 
         {/* Quick Action Button */}
         {!collapsed && (
           <div className="px-4 py-3">
             <button
               onClick={onNewOrder}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#FF5722] to-[#E91E63] px-4 py-3 font-medium text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-3 font-medium text-white shadow-md transition-all hover:bg-orange-600 hover:shadow-lg"
             >
               <Plus size={20} />
               <span>Yangi buyurtma</span>
@@ -137,16 +172,32 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
           </div>
         )}
 
+        {collapsed && (
+          <div className="flex justify-center px-2 py-2">
+            <button
+              onClick={onNewOrder}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 text-white shadow-md transition-all hover:bg-orange-600"
+              title="Yangi buyurtma"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+        )}
+
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-2">
           {!collapsed && (
-            <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
               Asosiy menyu
             </p>
           )}
 
           <div className="space-y-1">
-            {menuItems.map((item) => {
+            {menuItems.filter(item => {
+              if (item.superAdminOnly) return user?.role === 'SUPER_ADMIN';
+              if (item.managerOnly) return user?.role === 'MANAGER' || user?.role === 'SUPER_ADMIN';
+              return true;
+            }).map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               const isHovered = hoveredItem === item.id;
@@ -160,23 +211,31 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
                   className={cn(
                     'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200',
                     isActive
-                      ? 'bg-gradient-to-r from-[#FF5722] to-[#E91E63] text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-[#2A3547] hover:text-white'
+                      ? 'bg-orange-50 text-orange-700 font-semibold'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   )}
                 >
+                  {/* Active indicator */}
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-orange-500" />
+                  )}
+
                   {/* Icon */}
-                  <div className="flex h-8 w-8 items-center justify-center">
+                  <div className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                    isActive ? 'bg-orange-100' : isHovered ? 'bg-gray-100' : ''
+                  )}>
                     <Icon
                       size={20}
                       className={cn(
-                        isActive ? 'text-white' : isHovered ? 'text-white' : 'text-gray-400'
+                        isActive ? 'text-orange-600' : 'text-gray-500'
                       )}
                     />
                   </div>
 
                   {/* Label */}
                   {!collapsed && (
-                    <span className="flex-1 text-sm font-medium">{item.label}</span>
+                    <span className="flex-1 text-sm">{item.label}</span>
                   )}
 
                   {/* Badge */}
@@ -185,8 +244,8 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
                       className={cn(
                         'rounded-full px-2 py-0.5 text-xs font-bold',
                         isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-[#FF5722]/20 text-[#FF5722]'
+                          ? 'bg-orange-200 text-orange-800'
+                          : 'bg-orange-100 text-orange-700'
                       )}
                     >
                       {item.badge}
@@ -195,9 +254,9 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
 
                   {/* Tooltip for collapsed mode */}
                   {collapsed && (
-                    <div className="absolute left-full ml-3 hidden rounded-lg bg-[#2A3547] px-3 py-2 text-sm text-white shadow-xl group-hover:block z-50">
+                    <div className="absolute left-full ml-3 hidden rounded-lg bg-gray-800 px-3 py-2 text-sm text-white shadow-xl group-hover:block z-50">
                       <div className="font-medium">{item.label}</div>
-                      <div className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 bg-[#2A3547]"></div>
+                      <div className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 bg-gray-800"></div>
                     </div>
                   )}
                 </Link>
@@ -208,46 +267,46 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
 
         {/* Notifications */}
         {!collapsed && (
-          <div className="mx-3 mb-3 rounded-lg bg-[#2A3547] p-3">
+          <div className="mx-3 mb-3 rounded-lg bg-orange-50 border border-orange-100 p-3">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FF5722]/20">
-                  <Bell size={20} className="text-[#FF5722]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100">
+                  <Bell size={20} className="text-orange-600" />
                 </div>
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#E91E63] text-[10px] font-bold text-white">
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                   3
                 </span>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-white">Bildirishnomalar</p>
+                <p className="text-sm font-medium text-gray-900">Bildirishnomalar</p>
                 <p className="text-xs text-gray-500">3 ta yangi xabar</p>
               </div>
-              <ChevronRight size={16} className="text-gray-500" />
+              <ChevronRight size={16} className="text-gray-400" />
             </div>
           </div>
         )}
 
         {/* User Profile */}
-        <div className="border-t border-[#2A3547] p-3">
+        <div className="border-t border-gray-200 p-3">
           <div
             className={cn(
-              'flex items-center gap-3 rounded-lg p-2 transition-all hover:bg-[#2A3547]',
+              'flex items-center gap-3 rounded-lg p-2 transition-all hover:bg-gray-50',
               collapsed && 'justify-center'
             )}
           >
             {/* Avatar */}
             <div className="relative">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-[#FF5722] to-[#E91E63] font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-orange-600 font-bold text-white text-sm">
                 {user?.firstName?.charAt(0)}
                 {user?.lastName?.charAt(0)}
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#1B2537] bg-green-500"></span>
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-green-500"></span>
             </div>
 
             {!collapsed && (
               <>
                 <div className="flex-1 overflow-hidden">
-                  <p className="truncate text-sm font-medium text-white">
+                  <p className="truncate text-sm font-medium text-gray-900">
                     {user?.firstName} {user?.lastName}
                   </p>
                   <p className="truncate text-xs text-gray-500">
@@ -260,7 +319,7 @@ export function Sidebar({ collapsed, onToggle, onNewOrder }: SidebarProps) {
 
                 <button
                   onClick={handleLogout}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-red-500/20 hover:text-red-500"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-red-50 hover:text-red-500"
                   title="Chiqish"
                 >
                   <LogOut size={18} />

@@ -61,9 +61,9 @@ export function OrderStats({ stats, className }: OrderStatsProps) {
       title: 'Bugungi daromad',
       value: formatPrice(stats.totalRevenue) + ' so\'m',
       icon: DollarSign,
-      bgColor: 'bg-emerald-500/10',
-      iconColor: 'text-emerald-400',
-      borderColor: 'border-emerald-500/20',
+      bgColor: 'bg-orange-500/10',
+      iconColor: 'text-orange-400',
+      borderColor: 'border-orange-500/20',
       isPrice: true,
     },
     {
@@ -114,7 +114,7 @@ export function OrderStats({ stats, className }: OrderStatsProps) {
                 <Icon size={20} className={stat.iconColor} />
               </div>
               <div>
-                <p className="text-xs text-slate-400">{stat.title}</p>
+                <p className="text-xs text-gray-500">{stat.title}</p>
                 <p className={cn('text-xl font-bold', stat.iconColor)}>
                   {stat.isPrice ? stat.value : stat.value}
                 </p>

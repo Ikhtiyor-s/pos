@@ -82,7 +82,7 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       {/* Buyurtma turi */}
       <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Buyurtma turi</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Buyurtma turi</h3>
         <div className="grid grid-cols-2 gap-4">
           {orderTypes.map((type) => {
             const Icon = type.icon;
@@ -98,7 +98,7 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
                     ? type.color === 'orange'
                       ? 'border-orange-500 bg-orange-500/10'
                       : 'border-blue-500 bg-blue-500/10'
-                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
                 )}
               >
                 {/* Icon */}
@@ -109,7 +109,7 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
                       ? type.color === 'orange'
                         ? 'bg-orange-500/20'
                         : 'bg-blue-500/20'
-                      : 'bg-slate-700'
+                      : 'bg-gray-200'
                   )}
                 >
                   <Icon
@@ -119,7 +119,7 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
                         ? type.color === 'orange'
                           ? 'text-orange-400'
                           : 'text-blue-400'
-                        : 'text-slate-400'
+                        : 'text-gray-500'
                     )}
                   />
                 </div>
@@ -129,12 +129,12 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
                   <p
                     className={cn(
                       'text-lg font-semibold',
-                      isSelected ? 'text-white' : 'text-slate-300'
+                      isSelected ? 'text-gray-900' : 'text-gray-700'
                     )}
                   >
                     {type.label}
                   </p>
-                  <p className="text-sm text-slate-500">{type.description}</p>
+                  <p className="text-sm text-gray-400">{type.description}</p>
                 </div>
 
                 {/* Selected indicator */}
@@ -158,19 +158,19 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
       {selectedType === 'dine-in' && (
         <div className="animate-in fade-in-0 slide-in-from-top-4 duration-300">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Stol tanlang</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Stol tanlang</h3>
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-green-500"></span>
-                <span className="text-slate-400">Bo'sh ({freeTables.length})</span>
+                <span className="text-gray-500">Bo'sh ({freeTables.length})</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-red-500"></span>
-                <span className="text-slate-400">Band</span>
+                <span className="text-gray-500">Band</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-yellow-500"></span>
-                <span className="text-slate-400">Bron</span>
+                <span className="text-gray-500">Bron</span>
               </div>
             </div>
           </div>
@@ -190,7 +190,7 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
                     isFree
                       ? isSelected
                         ? 'border-orange-500 bg-orange-500/20'
-                        : 'border-slate-700 bg-slate-800 hover:border-green-500/50 hover:bg-green-500/10'
+                        : 'border-gray-200 bg-white hover:border-green-500/50 hover:bg-green-500/10'
                       : table.status === 'occupied'
                       ? 'border-red-500/30 bg-red-500/10 cursor-not-allowed'
                       : 'border-yellow-500/30 bg-yellow-500/10 cursor-not-allowed'
@@ -214,13 +214,13 @@ export function QuickOrderTypeStep({ onSelectType }: QuickOrderTypeStepProps) {
                       isFree
                         ? isSelected
                           ? 'text-orange-400'
-                          : 'text-white'
-                        : 'text-slate-500'
+                          : 'text-gray-900'
+                        : 'text-gray-400'
                     )}
                   >
                     #{table.number}
                   </span>
-                  <span className="text-xs text-slate-500 flex items-center gap-0.5">
+                  <span className="text-xs text-gray-400 flex items-center gap-0.5">
                     <Users size={10} />
                     {table.capacity}
                   </span>

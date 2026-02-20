@@ -20,7 +20,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  console.error('Error:', err);
+  console.error('Error:', err.message || err);
 
   // Zod validation error
   if (err instanceof ZodError) {

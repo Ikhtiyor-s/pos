@@ -113,8 +113,8 @@ export default function LoginPage() {
       </div>
 
       {/* Login Form */}
-      <div className="bg-white dark:bg-card rounded-t-3xl px-6 py-8 shadow-2xl">
-        <h2 className="text-xl font-bold text-gray-800 dark:text-foreground mb-6 text-center">
+      <div className="bg-card rounded-t-3xl px-6 py-8 shadow-2xl">
+        <h2 className="text-xl font-bold text-foreground mb-6 text-center">
           {t('login.title')}
         </h2>
 
@@ -127,39 +127,39 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Phone Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               {t('login.phone')}
             </label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input
                 type="tel"
                 value={phone}
                 onChange={handlePhoneChange}
                 placeholder={t('login.phonePlaceholder')}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 dark:border-border dark:bg-background dark:text-foreground focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-900/50 outline-none transition-all"
+                className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               />
             </div>
           </div>
 
           {/* Password Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-foreground mb-1.5">
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               {t('login.password')}
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('login.passwordPlaceholder')}
-                className="w-full pl-11 pr-11 py-3 rounded-xl border border-gray-200 dark:border-border dark:bg-background dark:text-foreground focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-900/50 outline-none transition-all"
+                className="w-full pl-11 pr-11 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -170,7 +170,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading || !phone || !password}
-            className="w-full py-3.5 mt-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg shadow-orange-200 dark:shadow-orange-900/30 hover:shadow-xl hover:shadow-orange-300 dark:hover:shadow-orange-900/50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3.5 mt-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-xl hover:shadow-orange-500/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (
               <>
@@ -183,7 +183,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-gray-400 dark:text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           {t('login.hint')}
         </p>
       </div>

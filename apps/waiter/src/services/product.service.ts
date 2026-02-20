@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '/api',
-});
+import api from './api';
 
 export interface Product {
   id: string;
@@ -35,22 +31,30 @@ interface CategoriesResponse {
   data: Category[];
 }
 
+// Prisma returns Decimal fields as strings — convert to number
+const normalizeProduct = (p: Product): Product => ({
+  ...p,
+  price: Number(p.price) || 0,
+});
+
 export const productService = {
   getAll: async (categoryId?: string): Promise<ProductsResponse> => {
     const params = categoryId ? { categoryId } : {};
-    const { data } = await api.get('/products', { params });
-    return data;
+    const { data: response } = await api.get('/products', { params });
+    // API returns { success, data: [...products] } with price as string (Decimal)
+    return { data: (response.data || []).map(normalizeProduct) };
   },
 
   getById: async (id: string): Promise<{ data: Product }> => {
-    const { data } = await api.get(`/products/${id}`);
-    return data;
+    const { data: response } = await api.get(`/products/${id}`);
+    return { data: normalizeProduct(response.data) };
   },
 };
 
 export const categoryService = {
   getAll: async (): Promise<CategoriesResponse> => {
-    const { data } = await api.get('/categories');
-    return data;
+    const { data: response } = await api.get('/categories');
+    // API returns { success, data: [...categories] }
+    return { data: response.data || [] };
   },
 };
