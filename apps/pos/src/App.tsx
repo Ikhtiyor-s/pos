@@ -24,6 +24,7 @@ import {
   CheckCircle,
   ArrowLeft,
   Lock,
+  LogOut,
   DollarSign,
   Percent,
   X,
@@ -32,7 +33,9 @@ import {
   AlertTriangle,
   Calculator,
   Store,
-  ScanLine,
+  ChefHat,
+  Play,
+  Timer,
 } from 'lucide-react';
 import { productService, categoryService, type Product as ApiProduct, type Category as ApiCategory } from './services/product.service';
 import { tableService, type Table as ApiTable } from './services/table.service';
@@ -40,10 +43,9 @@ import { orderService, type Order as ApiOrder } from './services/order.service';
 import { socketService } from './services/socket.service';
 import { settingsService, type BusinessSettings } from './services/settings.service';
 import { IntegrationHub } from './components/IntegrationHub';
-import { QRScanner } from './components/QRScanner';
+// QR Scanner — faqat admin panelda ishlatiladi
 import { LowStockAlert } from './components/LowStockAlert';
 import { inventoryService, type LowStockItem } from './services/inventory.service';
-import type { Product as ApiProduct2 } from './services/product.service';
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
@@ -68,12 +70,28 @@ interface ActiveOrderData {
   orderItems: { productId: string; name: string; price: number; quantity: number }[];
 }
 
+// Role helpers
+function isAdminRole(role?: string) {
+  const r = role?.toLowerCase() || '';
+  return ['super_admin', 'admin', 'manager', 'owner'].includes(r);
+}
+
+function isCashierRole(role?: string) {
+  const r = role?.toLowerCase() || '';
+  return r === 'cashier' || r === 'kassir';
+}
+
+function isChefRole(role?: string) {
+  const r = role?.toLowerCase() || '';
+  return ['chef', 'oshpaz', 'cook', 'kitchen'].includes(r);
+}
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat('uz-UZ').format(price) + " so'm";
 }
 
 export default function App() {
-  const { isAuthenticated, currentShift } = useAuthStore();
+  const { isAuthenticated, currentShift, user, logout } = useAuthStore();
   const [currentStep, setCurrentStep] = useState<Step>('order-type');
   const [orderType, setOrderType] = useState<OrderType | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
@@ -108,8 +126,7 @@ export default function App() {
   const [showIntegrationHub, setShowIntegrationHub] = useState(false);
   const [activeIntegrations, setActiveIntegrations] = useState(0);
 
-  // QR Skaner states
-  const [showQRScanner, setShowQRScanner] = useState(false);
+  // QR Skaner — POS dan olib tashlandi
 
   // Kam qolgan mahsulotlar states
   const [showLowStock, setShowLowStock] = useState(false);
@@ -178,8 +195,8 @@ export default function App() {
         setLowStockItems(lowStock);
       } catch { /* optional */ }
 
-      // Fetch active orders
-      const apiOrders = await orderService.getAll({ status: 'active' });
+      // Fetch active orders (status filtrsiz — client-side filter qilamiz)
+      const apiOrders = await orderService.getAll();
       const activeOrdersList: ActiveOrderData[] = [];
       for (const order of apiOrders as ApiOrder[]) {
         if (['NEW', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)) {
@@ -298,17 +315,6 @@ export default function App() {
     addItem(product as any);
   };
 
-  const handleQRProductFound = (product: ApiProduct2) => {
-    handleAddProduct({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      categoryId: product.categoryId,
-      cookTime: product.cookingTime || 0,
-      image: product.image || '',
-    });
-  };
-
   const handleSelectOrderType = (type: OrderType, table?: TableData) => {
     setOrderType(type);
     if (table) setSelectedTable(table);
@@ -345,8 +351,9 @@ export default function App() {
       }
 
       clearCart();
-      await fetchData();
       alert('Buyurtma oshxonaga yuborildi!');
+      // fetchData alohida try/catch ichida — xato bo'lsa ham buyurtma yuborilgan
+      try { await fetchData(); } catch { /* ignore refresh errors */ }
     } catch (err) {
       console.error('[POS] Buyurtma yaratishda xatolik:', err);
       alert('Xatolik! Buyurtma yuborilmadi.');
@@ -395,7 +402,7 @@ export default function App() {
     setShowQR(false);
     setQrConfirmed(false);
     setCurrentApiOrderId(null);
-    await fetchData();
+    try { await fetchData(); } catch { /* ignore refresh errors */ }
   };
 
   const handleBack = () => {
@@ -427,12 +434,174 @@ export default function App() {
 
   const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
 
+  const userRole = user?.role?.toLowerCase();
+
   // Login check
   if (!isAuthenticated || !currentShift) {
     return <Login onLoginSuccess={() => {}} />;
   }
 
-  // Reports page
+  // Chef/Kitchen View - dedicated view for kitchen staff
+  if (isChefRole(userRole)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-green-50">
+        {/* Kitchen Header */}
+        <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 shadow-md">
+              <ChefHat className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <span className="text-xl font-bold text-gray-800">Oshxona</span>
+              <p className="text-xs text-gray-500">Buyurtmalar paneli</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Clock size={16} />
+              <span className="text-sm">
+                {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-1.5">
+              <span className="text-xs font-medium text-gray-600">{user?.name}</span>
+              <span className="text-[10px] text-gray-400 capitalize">Oshpaz</span>
+              <button
+                onClick={() => { logout(); localStorage.removeItem('pos-auth'); }}
+                className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                title="Chiqish"
+              >
+                <LogOut size={12} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-6">
+          <div className="mx-auto max-w-6xl">
+            {activeOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white/40 backdrop-blur-xl border border-white/60 shadow-lg mb-4">
+                  <ChefHat className="h-12 w-12 text-gray-400" />
+                </div>
+                <p className="text-lg font-medium text-gray-600">Hozircha buyurtma yo'q</p>
+                <p className="text-sm text-gray-400">Yangi buyurtmalar bu yerda ko'rinadi</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeOrders.map((order) => (
+                  <div
+                    key={order.orderId}
+                    className={cn(
+                      'rounded-2xl border backdrop-blur-xl p-5 shadow-lg transition-all',
+                      order.status === 'NEW'
+                        ? 'bg-orange-50/60 border-orange-200/60'
+                        : order.status === 'CONFIRMED'
+                        ? 'bg-blue-50/60 border-blue-200/60'
+                        : order.status === 'PREPARING'
+                        ? 'bg-yellow-50/60 border-yellow-200/60'
+                        : 'bg-green-50/60 border-green-200/60'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        {order.tableNumber > 0 ? (
+                          <span className="text-lg font-bold text-gray-800">Stol #{order.tableNumber}</span>
+                        ) : (
+                          <span className="text-lg font-bold text-gray-800">Olib ketish</span>
+                        )}
+                      </div>
+                      <div className={cn(
+                        'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
+                        order.status === 'NEW' ? 'bg-orange-500/10 text-orange-600' :
+                        order.status === 'CONFIRMED' ? 'bg-blue-500/10 text-blue-600' :
+                        order.status === 'PREPARING' ? 'bg-yellow-500/10 text-yellow-700' :
+                        'bg-green-500/10 text-green-600'
+                      )}>
+                        {order.status === 'NEW' && 'Yangi'}
+                        {order.status === 'CONFIRMED' && 'Tasdiqlangan'}
+                        {order.status === 'PREPARING' && 'Tayyorlanmoqda'}
+                        {order.status === 'READY' && 'Tayyor'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                      <Timer size={12} />
+                      <span>{order.time}</span>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      {order.orderItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2">
+                          <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-gray-200/80 px-2 text-xs font-bold text-gray-700">
+                            x{item.quantity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {order.status === 'NEW' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await orderService.updateStatus(order.orderId, 'CONFIRMED');
+                              await fetchData();
+                            } catch { /* ignore */ }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                        >
+                          <Check size={16} />
+                          Qabul qilish
+                        </button>
+                      )}
+                      {order.status === 'CONFIRMED' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await orderService.updateStatus(order.orderId, 'PREPARING');
+                              await fetchData();
+                            } catch { /* ignore */ }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                        >
+                          <Play size={16} />
+                          Tayyorlash
+                        </button>
+                      )}
+                      {order.status === 'PREPARING' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await orderService.updateStatus(order.orderId, 'READY');
+                              await fetchData();
+                            } catch { /* ignore */ }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                        >
+                          <CheckCircle size={16} />
+                          Tayyor!
+                        </button>
+                      )}
+                      {order.status === 'READY' && (
+                        <div className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-green-100/60 border border-green-200/60 py-2.5 text-sm font-medium text-green-600">
+                          <CheckCircle size={16} />
+                          Tayyor - Kassir kutilmoqda
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Reports page (only for admin/manager)
   if (currentStep === 'reports') {
     return <Reports onBack={() => setCurrentStep('order-type')} />;
   }
@@ -444,7 +613,7 @@ export default function App() {
       {!isLocked && (
         <button
           onClick={() => setIsLocked(true)}
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/80 border border-slate-600/50 text-slate-400 hover:text-white hover:bg-slate-700 backdrop-blur-sm transition-all shadow-lg"
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/50 backdrop-blur-md border border-white/60 text-gray-400 hover:text-gray-700 hover:bg-white/70 transition-all shadow-lg"
         >
           <Lock size={18} />
         </button>
@@ -453,15 +622,15 @@ export default function App() {
       {/* Lock overlay - to'liq ekran */}
       {isLocked && (
         <div
-          className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center cursor-pointer select-none"
+          className="fixed inset-0 z-[100] bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col items-center justify-center cursor-pointer select-none"
           onClick={() => setIsLocked(false)}
         >
           <div className="flex flex-col items-center gap-6 animate-pulse">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-800 border-2 border-slate-600">
-              <Lock size={40} className="text-slate-400" />
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/60 backdrop-blur-xl border-2 border-white/80 shadow-xl">
+              <Lock size={40} className="text-gray-400" />
             </div>
-            <p className="text-slate-500 text-lg font-medium">Ekran bloklangan</p>
-            <p className="text-slate-600 text-sm">Ochish uchun bosing</p>
+            <p className="text-gray-500 text-lg font-medium">Ekran bloklangan</p>
+            <p className="text-gray-400 text-sm">Ochish uchun bosing</p>
           </div>
         </div>
       )}
@@ -471,26 +640,26 @@ export default function App() {
   // Order Detail Step - Faol stol buyurtmalarini ko'rsatish
   if (currentStep === 'order-detail' && currentOrder && selectedTable) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white">
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
         {lockElements}
         {/* Header */}
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+        <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={handleBack}
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm border border-white/60 text-gray-500 hover:text-gray-800 hover:bg-white/70 transition-colors"
             >
               <ArrowLeft size={18} />
             </button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="text-xl font-bold">Stol #{selectedTable.number}</span>
-              <p className="text-xs text-slate-400">{currentOrder.time} dan</p>
+              <span className="text-xl font-bold text-gray-800">Stol #{selectedTable.number}</span>
+              <p className="text-xs text-gray-500">{currentOrder.time} dan</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-slate-400">
+          <div className="flex items-center gap-2 text-gray-500">
             <Clock size={16} />
             <span className="text-sm">
               {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
@@ -501,12 +670,12 @@ export default function App() {
         <div className="p-8">
           <div className="mx-auto max-w-4xl space-y-6">
             {/* Buyurtma ma'lumotlari */}
-            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6">
+            <div className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/60 shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Buyurtma tafsilotlari</h2>
-                <div className="flex items-center gap-2 rounded-full bg-green-500/20 px-3 py-1">
-                  <CheckCircle size={16} className="text-green-400" />
-                  <span className="text-sm font-medium text-green-400">Faol</span>
+                <h2 className="text-xl font-bold text-gray-800">Buyurtma tafsilotlari</h2>
+                <div className="flex items-center gap-2 rounded-full bg-green-500/10 border border-green-200/50 px-3 py-1">
+                  <CheckCircle size={16} className="text-green-500" />
+                  <span className="text-sm font-medium text-green-600">Faol</span>
                 </div>
               </div>
 
@@ -515,18 +684,18 @@ export default function App() {
                 {items.map((item) => (
                   <div
                     key={item.product.id}
-                    className="flex items-center justify-between rounded-lg bg-slate-900/50 p-4"
+                    className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 p-4"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500/10">
-                        <Utensils className="h-6 w-6 text-orange-400" />
+                        <Utensils className="h-6 w-6 text-orange-500" />
                       </div>
                       <div>
-                        <p className="font-medium text-white">{item.product.name}</p>
-                        <p className="text-sm text-slate-400">{formatPrice(item.product.price)} × {item.quantity}</p>
+                        <p className="font-medium text-gray-800">{item.product.name}</p>
+                        <p className="text-sm text-gray-500">{formatPrice(item.product.price)} x {item.quantity}</p>
                       </div>
                     </div>
-                    <p className="text-lg font-bold text-orange-400">
+                    <p className="text-lg font-bold text-orange-500">
                       {formatPrice(item.product.price * item.quantity)}
                     </p>
                   </div>
@@ -534,14 +703,14 @@ export default function App() {
               </div>
 
               {/* Umumiy hisob */}
-              <div className="border-t border-slate-700 pt-4 space-y-2">
-                <div className="flex justify-between text-slate-400">
+              <div className="border-t border-gray-200/60 pt-4 space-y-2">
+                <div className="flex justify-between text-gray-500">
                   <span>Mahsulotlar soni:</span>
                   <span className="font-medium">{getItemCount()} ta</span>
                 </div>
-                <div className="flex justify-between text-2xl font-bold">
+                <div className="flex justify-between text-2xl font-bold text-gray-800">
                   <span>Jami summa:</span>
-                  <span className="text-orange-400">{formatPrice(getTotal())}</span>
+                  <span className="text-orange-500">{formatPrice(getTotal())}</span>
                 </div>
               </div>
             </div>
@@ -550,14 +719,14 @@ export default function App() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setCurrentStep('products')}
-                className="flex items-center justify-center gap-2 rounded-xl bg-blue-500 py-4 font-semibold text-white hover:bg-blue-600 transition-colors"
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
               >
                 <Plus size={18} />
                 Qo'shish
               </button>
               <button
                 onClick={handleGoToPayment}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-4 font-semibold text-white hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-4 font-semibold text-white shadow-md hover:shadow-lg hover:shadow-orange-500/20 transition-all"
               >
                 <Check size={18} />
                 Stolni yopish
@@ -572,81 +741,100 @@ export default function App() {
   // Order Type Step
   if (currentStep === 'order-type') {
     return (
-      <div className="min-h-screen bg-slate-950 text-white">
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
         {lockElements}
         {/* Header */}
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+        <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
           <div className="flex items-center gap-3">
             {currentStep !== 'order-type' && (
               <button
                 onClick={handleBack}
-                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm border border-white/60 text-gray-500 hover:text-gray-800 hover:bg-white/70 transition-colors"
               >
                 <ArrowLeft size={18} />
               </button>
             )}
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold">{bizSettings?.name || 'Oshxona POS'}</span>
+            <span className="text-xl font-bold text-gray-800">{bizSettings?.name || 'Oshxona POS'}</span>
+            <div className="ml-3 flex items-center gap-2 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-2.5 py-1">
+              <span className="text-xs font-medium text-gray-600">{user?.name}</span>
+              <span className="text-[10px] text-gray-400 capitalize">({user?.role?.replace('_', ' ')})</span>
+              <button
+                onClick={() => { logout(); localStorage.removeItem('pos-auth'); }}
+                className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                title="Chiqish"
+              >
+                <LogOut size={12} />
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-slate-400">
+            <div className="flex items-center gap-2 text-gray-500">
               <Clock size={16} />
               <span className="text-sm">
                 {new Date().toLocaleDateString('uz-UZ', {
                   weekday: 'short',
                   day: 'numeric',
                   month: 'short',
-                })} • {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                })} {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
             {currentStep === 'order-type' && (
               <>
-                {/* Kam qolgan mahsulotlar ogohlantirishlari */}
-                {lowStockItems.length > 0 && (
+                {/* Kam qolgan mahsulotlar - faqat admin uchun */}
+                {isAdminRole(userRole) && lowStockItems.length > 0 && (
                   <button
                     onClick={() => setShowLowStock(true)}
-                    className="flex items-center gap-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-sm font-medium text-yellow-400 hover:bg-yellow-500/20 transition-colors animate-pulse"
+                    className="flex items-center gap-2 rounded-xl bg-yellow-500/10 backdrop-blur-sm border border-yellow-300/40 px-3 py-2 text-sm font-medium text-yellow-600 hover:bg-yellow-500/20 transition-colors animate-pulse"
                     title="Kam qolgan mahsulotlar"
                   >
                     <AlertTriangle size={16} />
                     Kam: {lowStockItems.length}
                   </button>
                 )}
-                {/* Integratsiya markazi tugmasi */}
-                <button
-                  onClick={() => setShowIntegrationHub(true)}
-                  className={cn(
-                    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    activeIntegrations > 0
-                      ? 'bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20'
-                      : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white'
-                  )}
-                  title="Integratsiya markazi"
-                >
-                  <Store size={16} />
-                  Integratsiyalar
-                  {activeIntegrations > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-500 px-1 text-xs font-bold text-white">
-                      {activeIntegrations}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setCurrentStep('reports')}
-                  className="flex items-center gap-2 rounded-lg bg-purple-500 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600 transition-colors"
-                >
-                  <BarChart3 size={16} />
-                  Hisobotlar
-                </button>
-                <button
-                  onClick={() => setShowOrderTypeModal(true)}
-                  className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
-                >
-                  <Plus size={16} />
-                  Buyurtma berish
-                </button>
+                {/* Integratsiya markazi - faqat admin uchun */}
+                {isAdminRole(userRole) && (
+                  <button
+                    onClick={() => setShowIntegrationHub(true)}
+                    className={cn(
+                      'flex items-center gap-2 rounded-xl backdrop-blur-sm px-3 py-2 text-sm font-medium transition-colors',
+                      activeIntegrations > 0
+                        ? 'bg-green-500/10 border border-green-300/40 text-green-600 hover:bg-green-500/20'
+                        : 'bg-white/50 border border-white/60 text-gray-500 hover:bg-white/70 hover:text-gray-800'
+                    )}
+                    title="Integratsiya markazi"
+                  >
+                    <Store size={16} />
+                    Integratsiyalar
+                    {activeIntegrations > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-500 px-1 text-xs font-bold text-white">
+                        {activeIntegrations}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {/* Hisobotlar - faqat admin uchun */}
+                {isAdminRole(userRole) && (
+                  <button
+                    onClick={() => setCurrentStep('reports')}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                  >
+                    <BarChart3 size={16} />
+                    Hisobotlar
+                  </button>
+                )}
+                {/* Buyurtma berish - admin va kassir uchun */}
+                {(isAdminRole(userRole) || isCashierRole(userRole)) && (
+                  <button
+                    onClick={() => setShowOrderTypeModal(true)}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                  >
+                    <Plus size={16} />
+                    Buyurtma berish
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -654,23 +842,23 @@ export default function App() {
 
         {/* Order Type Modal */}
         {showOrderTypeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
-              <h3 className="mb-6 text-2xl font-bold text-white">Buyurtma turini tanlang</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 p-6 shadow-2xl">
+              <h3 className="mb-6 text-2xl font-bold text-gray-800">Buyurtma turini tanlang</h3>
               <div className="space-y-3">
                 <button
                   onClick={() => {
                     setShowOrderTypeModal(false);
                     handleSelectOrderType('takeaway');
                   }}
-                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-blue-500/30 bg-blue-500/10 p-4 transition-all hover:border-blue-500 hover:bg-blue-500/20"
+                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-blue-200/60 bg-blue-50/50 backdrop-blur-sm p-4 transition-all hover:border-blue-400 hover:bg-blue-100/50"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/20">
-                    <Package className="h-6 w-6 text-blue-400" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10">
+                    <Package className="h-6 w-6 text-blue-500" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-lg font-bold text-white">Olib ketish</p>
-                    <p className="text-sm text-slate-400">O'zi olib ketadi</p>
+                    <p className="text-lg font-bold text-gray-800">Olib ketish</p>
+                    <p className="text-sm text-gray-500">O'zi olib ketadi</p>
                   </div>
                 </button>
 
@@ -679,21 +867,21 @@ export default function App() {
                     setShowOrderTypeModal(false);
                     setOrderType('dine-in');
                   }}
-                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-orange-500/30 bg-orange-500/10 p-4 transition-all hover:border-orange-500 hover:bg-orange-500/20"
+                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-orange-200/60 bg-orange-50/50 backdrop-blur-sm p-4 transition-all hover:border-orange-400 hover:bg-orange-100/50"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/20">
-                    <Utensils className="h-6 w-6 text-orange-400" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
+                    <Utensils className="h-6 w-6 text-orange-500" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-lg font-bold text-white">Shu yerda</p>
-                    <p className="text-sm text-slate-400">Stolda ovqatlanish</p>
+                    <p className="text-lg font-bold text-gray-800">Shu yerda</p>
+                    <p className="text-sm text-gray-500">Stolda ovqatlanish</p>
                   </div>
                 </button>
               </div>
 
               <button
                 onClick={() => setShowOrderTypeModal(false)}
-                className="mt-6 w-full rounded-xl border border-slate-700 py-3 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                className="mt-6 w-full rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 py-3 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800"
               >
                 Bekor qilish
               </button>
@@ -711,8 +899,8 @@ export default function App() {
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-bold">To'lov kutayotgan stollar</h2>
-                        <span className="flex h-6 items-center gap-1 rounded-full bg-yellow-500/20 px-2 text-xs font-medium text-yellow-400 animate-pulse">
+                        <h2 className="text-xl font-bold text-gray-800">To'lov kutayotgan stollar</h2>
+                        <span className="flex h-6 items-center gap-1 rounded-full bg-yellow-500/10 border border-yellow-300/40 px-2 text-xs font-medium text-yellow-600 animate-pulse">
                           <AlertCircle size={12} />
                           {activeOrders.filter((o) => o.awaitingPayment).length}
                         </span>
@@ -743,18 +931,18 @@ export default function App() {
                                 setCurrentStep('order-detail');
                               }
                             }}
-                            className="group relative flex flex-col rounded-xl border-2 border-yellow-500/30 bg-yellow-500/10 p-4 transition-all hover:border-yellow-500 hover:bg-yellow-500/20"
+                            className="group relative flex flex-col rounded-2xl border-2 border-yellow-300/50 bg-yellow-50/40 backdrop-blur-xl p-4 transition-all hover:border-yellow-400 hover:bg-yellow-100/50 shadow-lg"
                           >
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/20">
-                                  <DollarSign className="h-5 w-5 text-yellow-400" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10">
+                                  <DollarSign className="h-5 w-5 text-yellow-600" />
                                 </div>
                                 <div className="text-left">
-                                  <p className="text-lg font-bold text-white">
+                                  <p className="text-lg font-bold text-gray-800">
                                     Stol #{order.tableNumber}
                                   </p>
-                                  <p className="text-xs text-slate-400">{order.time}</p>
+                                  <p className="text-xs text-gray-500">{order.time}</p>
                                 </div>
                               </div>
                               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 animate-pulse">
@@ -762,8 +950,8 @@ export default function App() {
                               </div>
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-slate-400">{order.items} ta mahsulot</span>
-                              <span className="text-lg font-bold text-yellow-400">
+                              <span className="text-gray-500">{order.items} ta mahsulot</span>
+                              <span className="text-lg font-bold text-yellow-600">
                                 {formatPrice(order.total)}
                               </span>
                             </div>
@@ -780,8 +968,8 @@ export default function App() {
                 {activeOrders.some((o) => !o.awaitingPayment) && (
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold">Ochiq stollar</h2>
-                      <span className="text-sm text-slate-400">
+                      <h2 className="text-xl font-bold text-gray-800">Ochiq stollar</h2>
+                      <span className="text-sm text-gray-500">
                         {activeOrders.filter((o) => !o.awaitingPayment).length} ta stol
                       </span>
                     </div>
@@ -810,18 +998,18 @@ export default function App() {
                                 setCurrentStep('order-detail');
                               }
                             }}
-                            className="group relative flex flex-col rounded-xl border-2 border-orange-500/30 bg-orange-500/5 p-4 transition-all hover:border-orange-500 hover:bg-orange-500/10"
+                            className="group relative flex flex-col rounded-2xl border-2 border-orange-200/50 bg-white/40 backdrop-blur-xl p-4 transition-all hover:border-orange-400 hover:bg-orange-50/50 shadow-lg"
                           >
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/20">
-                                  <Utensils className="h-5 w-5 text-orange-400" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
+                                  <Utensils className="h-5 w-5 text-orange-500" />
                                 </div>
                                 <div className="text-left">
-                                  <p className="text-lg font-bold text-white">
+                                  <p className="text-lg font-bold text-gray-800">
                                     Stol #{order.tableNumber}
                                   </p>
-                                  <p className="text-xs text-slate-400">{order.time}</p>
+                                  <p className="text-xs text-gray-500">{order.time}</p>
                                 </div>
                               </div>
                               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 animate-pulse">
@@ -829,8 +1017,8 @@ export default function App() {
                               </div>
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-slate-400">{order.items} ta mahsulot</span>
-                              <span className="text-lg font-bold text-orange-400">
+                              <span className="text-gray-500">{order.items} ta mahsulot</span>
+                              <span className="text-lg font-bold text-orange-500">
                                 {formatPrice(order.total)}
                               </span>
                             </div>
@@ -850,19 +1038,19 @@ export default function App() {
             {orderType === 'dine-in' && (
               <div className="animate-in fade-in-0 slide-in-from-top-4 duration-300">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold">Stol tanlang</h2>
+                  <h2 className="text-xl font-bold text-gray-800">Stol tanlang</h2>
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded-full bg-green-500"></span>
-                      <span className="text-slate-400">Bo'sh</span>
+                      <span className="text-gray-500">Bo'sh</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded-full bg-red-500"></span>
-                      <span className="text-slate-400">Band</span>
+                      <span className="text-gray-500">Band</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded-full bg-yellow-500"></span>
-                      <span className="text-slate-400">Bron</span>
+                      <span className="text-gray-500">Bron</span>
                     </div>
                   </div>
                 </div>
@@ -878,28 +1066,28 @@ export default function App() {
                         onClick={() => isFree && setSelectedTable(table)}
                         disabled={!isFree}
                         className={cn(
-                          'relative flex flex-col items-center justify-center rounded-xl border-2 p-6 transition-all',
+                          'relative flex flex-col items-center justify-center rounded-2xl border-2 p-6 transition-all backdrop-blur-xl shadow-md',
                           isFree
                             ? isSelected
-                              ? 'border-orange-500 bg-orange-500/20'
-                              : 'border-slate-700 bg-slate-800 hover:border-green-500/50'
+                              ? 'border-orange-400 bg-orange-50/50'
+                              : 'border-white/60 bg-white/40 hover:border-green-300'
                             : table.status === 'occupied'
-                            ? 'border-red-500/30 bg-red-500/10 cursor-not-allowed'
-                            : 'border-yellow-500/30 bg-yellow-500/10 cursor-not-allowed'
+                            ? 'border-red-200/60 bg-red-50/40 cursor-not-allowed'
+                            : 'border-yellow-200/60 bg-yellow-50/40 cursor-not-allowed'
                         )}
                       >
                         <span className={cn(
                           'text-3xl font-bold',
-                          isFree ? (isSelected ? 'text-orange-400' : 'text-white') : 'text-slate-500'
+                          isFree ? (isSelected ? 'text-orange-500' : 'text-gray-800') : 'text-gray-400'
                         )}>
                           #{table.number}
                         </span>
-                        <span className="text-sm text-slate-500 flex items-center gap-1 mt-1">
+                        <span className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                           <Users size={12} />
                           {table.capacity}
                         </span>
                         {isSelected && (
-                          <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500">
+                          <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 shadow-md">
                             <Check size={12} className="text-white" />
                           </div>
                         )}
@@ -912,7 +1100,7 @@ export default function App() {
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={() => handleSelectOrderType('dine-in', selectedTable)}
-                      className="flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-3 font-semibold text-white hover:bg-orange-600 transition-colors"
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-8 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
                     >
                       Davom etish
                       <Check size={18} />
@@ -931,46 +1119,46 @@ export default function App() {
   if (currentStep === 'payment') {
     if (showQR && paymentMethod && ['payme', 'click', 'uzum'].includes(paymentMethod)) {
       return (
-        <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col">
           {lockElements}
-          <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+          <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
                 <UtensilsCrossed className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold">QR To'lov</span>
+              <span className="text-xl font-bold text-gray-800">QR To'lov</span>
             </div>
           </header>
 
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="w-full max-w-md">
-              <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-8 text-center">
-                <h3 className="text-2xl font-bold mb-2">
+              <div className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/60 shadow-lg p-8 text-center">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">
                   {paymentMethod === 'payme' && "Payme orqali to'lash"}
                   {paymentMethod === 'click' && "Click orqali to'lash"}
                   {paymentMethod === 'uzum' && "Uzum orqali to'lash"}
                 </h3>
-                <p className="text-slate-400 mb-6">QR kodni skanerlang</p>
+                <p className="text-gray-500 mb-6">QR kodni skanerlang</p>
 
-                <div className="mb-6 p-4 rounded-xl bg-slate-900/50">
-                  <p className="text-sm text-slate-400">To'lov summasi</p>
-                  <p className="text-4xl font-bold text-orange-400 mt-1">{formatPrice(getTotal())}</p>
+                <div className="mb-6 p-4 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60">
+                  <p className="text-sm text-gray-500">To'lov summasi</p>
+                  <p className="text-4xl font-bold text-orange-500 mt-1">{formatPrice(getTotal())}</p>
                 </div>
 
                 <div className={cn(
-                  'mx-auto w-64 h-64 rounded-2xl flex items-center justify-center mb-6',
+                  'mx-auto w-64 h-64 rounded-2xl flex items-center justify-center mb-6 shadow-lg',
                   paymentMethod === 'payme' && 'bg-[#00CCCC]',
                   paymentMethod === 'click' && 'bg-[#00A4E6]',
                   paymentMethod === 'uzum' && 'bg-[#7C3AED]'
                 )}>
                   <div className="bg-white p-4 rounded-xl">
-                    <QrCode size={160} className="text-slate-900" />
+                    <QrCode size={160} className="text-gray-900" />
                   </div>
                 </div>
 
                 {qrConfirmed ? (
                   <div className="animate-in fade-in-0 duration-300">
-                    <div className="flex items-center justify-center gap-2 text-green-400 mb-4">
+                    <div className="flex items-center justify-center gap-2 text-green-500 mb-4">
                       <CheckCircle size={24} />
                       <span className="text-lg font-medium">To'lov tasdiqlandi!</span>
                     </div>
@@ -978,7 +1166,7 @@ export default function App() {
                 ) : (
                   <button
                     onClick={handleConfirmQR}
-                    className="w-full rounded-xl bg-green-500 py-4 font-semibold text-white hover:bg-green-600 transition-colors"
+                    className="w-full rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
                   >
                     <Check size={18} className="inline mr-2" />
                     To'lov qabul qilindi
@@ -989,7 +1177,7 @@ export default function App() {
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => { setShowQR(false); setPaymentMethod(null); setQrConfirmed(false); }}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-700 py-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 py-3 text-gray-500 hover:text-gray-800 hover:bg-white/70 transition-colors"
                 >
                   <ArrowLeft size={16} />
                   Orqaga
@@ -997,7 +1185,7 @@ export default function App() {
                 <button
                   onClick={handleProceedToReceipt}
                   disabled={!qrConfirmed}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 font-semibold text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Printer size={16} />
                   Chek chiqarish
@@ -1010,21 +1198,21 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col">
         {lockElements}
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+        <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold">To'lov</span>
+            <span className="text-xl font-bold text-gray-800">To'lov</span>
           </div>
-          <div className="text-slate-400">
+          <div className="text-gray-500">
             {orderType === 'dine-in' && selectedTable && (
-              <span className="text-orange-400 font-medium">Stol #{selectedTable.number}</span>
+              <span className="text-orange-500 font-medium">Stol #{selectedTable.number}</span>
             )}
             {orderType === 'takeaway' && (
-              <span className="text-blue-400 font-medium">Olib ketish</span>
+              <span className="text-blue-500 font-medium">Olib ketish</span>
             )}
           </div>
         </header>
@@ -1032,12 +1220,12 @@ export default function App() {
         <div className="flex-1 p-8">
           <div className="mx-auto max-w-3xl">
             {/* Order Summary */}
-            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-6 mb-6">
+            <div className="rounded-2xl bg-white/40 backdrop-blur-xl border border-white/60 shadow-lg p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold">Buyurtma xulosasi</h3>
+                <h3 className="text-lg font-bold text-gray-800">Buyurtma xulosasi</h3>
                 <button
                   onClick={() => setShowBillEditor(!showBillEditor)}
-                  className="flex items-center gap-2 rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:shadow-md transition-all"
                 >
                   <DollarSign size={14} />
                   {showBillEditor ? 'Berkitish' : 'Tahrirlash'}
@@ -1046,10 +1234,10 @@ export default function App() {
 
               {/* Bill Editor */}
               {showBillEditor && (
-                <div className="mb-4 space-y-3 rounded-lg bg-slate-900/50 p-4 border border-slate-700">
+                <div className="mb-4 space-y-3 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 p-4">
                   {/* Discount */}
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-300">
+                    <label className="mb-2 block text-sm font-medium text-gray-600">
                       Chegirma
                     </label>
                     <div className="flex gap-2">
@@ -1058,7 +1246,7 @@ export default function App() {
                         value={discount || ''}
                         onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                         placeholder="0"
-                        className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                        className="flex-1 rounded-lg border border-gray-200 bg-white/70 px-3 py-2 text-gray-800 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
                       />
                       <button
                         onClick={() =>
@@ -1066,8 +1254,8 @@ export default function App() {
                         }
                         className={`flex items-center gap-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                           discountType === 'percent'
-                            ? 'border-orange-500 bg-orange-500/10 text-orange-400'
-                            : 'border-slate-700 bg-slate-800 text-slate-400 hover:text-white'
+                            ? 'border-orange-400 bg-orange-50 text-orange-500'
+                            : 'border-gray-200 bg-white/70 text-gray-500 hover:text-gray-800'
                         }`}
                       >
                         {discountType === 'percent' ? (
@@ -1086,7 +1274,7 @@ export default function App() {
 
                   {/* Service Charge */}
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-300">
+                    <label className="mb-2 block text-sm font-medium text-gray-600">
                       Servis haq (%)
                     </label>
                     <div className="flex gap-2">
@@ -1096,9 +1284,9 @@ export default function App() {
                         onChange={(e) => setServiceCharge(parseFloat(e.target.value) || 0)}
                         placeholder="0"
                         max="100"
-                        className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                        className="flex-1 rounded-lg border border-gray-200 bg-white/70 px-3 py-2 text-gray-800 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none"
                       />
-                      <div className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-4 text-slate-400">
+                      <div className="flex items-center justify-center rounded-lg border border-gray-200 bg-white/70 px-4 text-gray-500">
                         %
                       </div>
                     </div>
@@ -1107,7 +1295,7 @@ export default function App() {
                   {/* Remove Item */}
                   {items.length > 0 && (
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-300">
+                      <label className="mb-2 block text-sm font-medium text-gray-600">
                         Mahsulotni o'chirish
                       </label>
                       <div className="space-y-2">
@@ -1115,14 +1303,14 @@ export default function App() {
                           <button
                             key={item.product.id}
                             onClick={() => removeItem(item.product.id)}
-                            className="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-2 text-sm hover:bg-red-500/10 hover:border-red-500/30 transition-colors group"
+                            className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white/70 p-2 text-sm hover:bg-red-50 hover:border-red-300 transition-colors group"
                           >
-                            <span className="text-white">{item.product.name}</span>
+                            <span className="text-gray-800">{item.product.name}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-slate-400">x{item.quantity}</span>
+                              <span className="text-gray-500">x{item.quantity}</span>
                               <X
                                 size={14}
-                                className="text-slate-500 group-hover:text-red-400"
+                                className="text-gray-400 group-hover:text-red-400"
                               />
                             </div>
                           </button>
@@ -1135,9 +1323,9 @@ export default function App() {
 
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {items.map((item) => (
-                  <div key={item.product.id} className="flex justify-between text-sm">
+                  <div key={item.product.id} className="flex justify-between text-sm text-gray-700">
                     <span>
-                      {item.product.name} <span className="text-slate-500">x{item.quantity}</span>
+                      {item.product.name} <span className="text-gray-400">x{item.quantity}</span>
                     </span>
                     <span>{formatPrice(item.product.price * item.quantity)}</span>
                   </div>
@@ -1145,14 +1333,14 @@ export default function App() {
               </div>
 
               {/* Bill Summary */}
-              <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
-                <div className="flex justify-between text-sm text-slate-400">
+              <div className="mt-4 pt-4 border-t border-gray-200/60 space-y-2">
+                <div className="flex justify-between text-sm text-gray-500">
                   <span>Mahsulotlar:</span>
                   <span>{formatPrice(getCartTotal())}</span>
                 </div>
 
                 {discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-400">
+                  <div className="flex justify-between text-sm text-green-500">
                     <span>
                       Chegirma ({discountType === 'percent' ? `${discount}%` : 'qat\'iy'}):
                     </span>
@@ -1161,21 +1349,21 @@ export default function App() {
                 )}
 
                 {serviceCharge > 0 && (
-                  <div className="flex justify-between text-sm text-blue-400">
+                  <div className="flex justify-between text-sm text-blue-500">
                     <span>Servis haq ({serviceCharge}%):</span>
                     <span>+{formatPrice(getServiceChargeAmount())}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-700">
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-200/60 text-gray-800">
                   <span>Jami:</span>
-                  <span className="text-orange-400">{formatPrice(getTotal())}</span>
+                  <span className="text-orange-500">{formatPrice(getTotal())}</span>
                 </div>
               </div>
             </div>
 
             {/* Payment Methods */}
-            <h3 className="text-lg font-bold mb-4">To'lov usulini tanlang</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">To'lov usulini tanlang</h3>
             <div className="grid grid-cols-3 gap-4">
               {[
                 { id: 'cash' as PaymentMethod, label: 'Naqd', icon: Banknote, color: 'green' },
@@ -1191,21 +1379,21 @@ export default function App() {
                     key={method.id}
                     onClick={() => setPaymentMethod(method.id)}
                     className={cn(
-                      'flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all',
+                      'flex flex-col items-center gap-3 rounded-2xl border-2 p-6 transition-all backdrop-blur-xl shadow-md',
                       isSelected
-                        ? `border-${method.color}-500 bg-${method.color}-500/10`
-                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                        ? `border-${method.color}-400 bg-${method.color}-50/50`
+                        : 'border-white/60 bg-white/40 hover:border-gray-300'
                     )}
                   >
                     <div className={cn(
                       'flex h-14 w-14 items-center justify-center rounded-full',
-                      isSelected ? `bg-${method.color}-500/20` : 'bg-slate-700'
+                      isSelected ? `bg-${method.color}-500/10` : 'bg-gray-100/80'
                     )}>
-                      <Icon size={28} className={isSelected ? `text-${method.color}-400` : 'text-slate-400'} />
+                      <Icon size={28} className={isSelected ? `text-${method.color}-500` : 'text-gray-400'} />
                     </div>
-                    <span className="font-semibold">{method.label}</span>
+                    <span className="font-semibold text-gray-800">{method.label}</span>
                     {isSelected && (
-                      <Check size={16} className={`text-${method.color}-400`} />
+                      <Check size={16} className={`text-${method.color}-500`} />
                     )}
                   </button>
                 );
@@ -1216,7 +1404,7 @@ export default function App() {
               {/* Orqaga tugmasi */}
               <button
                 onClick={handleBack}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-700 py-4 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 py-4 text-gray-500 hover:text-gray-800 hover:bg-white/70 transition-colors"
               >
                 <ArrowLeft size={16} />
                 Orqaga
@@ -1225,7 +1413,7 @@ export default function App() {
               {/* Buyurtma berish (to'lovsiz) */}
               <button
                 onClick={handlePlaceOrder}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-500 py-4 font-semibold text-white hover:bg-blue-600 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
               >
                 <Check size={18} />
                 Buyurtma berish
@@ -1244,7 +1432,7 @@ export default function App() {
                   }
                 }}
                 disabled={!paymentMethod}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-500 py-4 font-semibold text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {paymentMethod && ['payme', 'click', 'uzum'].includes(paymentMethod) ? (
                   <>
@@ -1262,26 +1450,26 @@ export default function App() {
 
             {/* Change Calculator Modal */}
             {showChangeCalculator && paymentMethod === 'cash' && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="w-full max-w-md rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 p-6 shadow-2xl">
                   <div className="mb-6 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
-                      <Calculator className="h-8 w-8 text-green-400" />
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+                      <Calculator className="h-8 w-8 text-green-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white">Naqd to'lov</h2>
-                    <p className="mt-2 text-slate-400">Olingan summani kiriting</p>
+                    <h2 className="text-2xl font-bold text-gray-800">Naqd to'lov</h2>
+                    <p className="mt-2 text-gray-500">Olingan summani kiriting</p>
                   </div>
 
                   <div className="mb-6 space-y-4">
                     {/* Total Amount */}
-                    <div className="rounded-lg bg-slate-800/50 p-4">
-                      <p className="text-sm text-slate-400">To'lov summasi</p>
-                      <p className="text-3xl font-bold text-orange-400">{formatPrice(getTotal())}</p>
+                    <div className="rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 p-4">
+                      <p className="text-sm text-gray-500">To'lov summasi</p>
+                      <p className="text-3xl font-bold text-orange-500">{formatPrice(getTotal())}</p>
                     </div>
 
                     {/* Cash Received */}
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-300">
+                      <label className="mb-2 block text-sm font-medium text-gray-600">
                         Olingan summa (so'm)
                       </label>
                       <input
@@ -1289,25 +1477,25 @@ export default function App() {
                         value={cashReceived}
                         onChange={(e) => setCashReceived(e.target.value)}
                         placeholder="0"
-                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white text-lg placeholder:text-slate-500 focus:border-green-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 bg-white/70 px-4 py-3 text-gray-800 text-lg placeholder:text-gray-400 focus:border-green-500 focus:outline-none"
                         autoFocus
                       />
                     </div>
 
                     {/* Change */}
                     {cashReceived && parseFloat(cashReceived) >= getTotal() && (
-                      <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-4 animate-in fade-in-0">
-                        <p className="text-sm text-green-400">Qaytim</p>
-                        <p className="text-3xl font-bold text-green-400">
+                      <div className="rounded-xl bg-green-50/60 border border-green-200/60 p-4 animate-in fade-in-0">
+                        <p className="text-sm text-green-600">Qaytim</p>
+                        <p className="text-3xl font-bold text-green-600">
                           {formatPrice(parseFloat(cashReceived) - getTotal())}
                         </p>
                       </div>
                     )}
 
                     {cashReceived && parseFloat(cashReceived) < getTotal() && (
-                      <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
-                        <p className="text-sm text-red-400">Yetarli emas</p>
-                        <p className="text-lg font-bold text-red-400">
+                      <div className="rounded-xl bg-red-50/60 border border-red-200/60 p-4">
+                        <p className="text-sm text-red-500">Yetarli emas</p>
+                        <p className="text-lg font-bold text-red-500">
                           Yana {formatPrice(getTotal() - parseFloat(cashReceived))} kerak
                         </p>
                       </div>
@@ -1320,7 +1508,7 @@ export default function App() {
                         setShowChangeCalculator(false);
                         setCashReceived('');
                       }}
-                      className="flex-1 rounded-xl border border-slate-700 py-3 font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                      className="flex-1 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 py-3 font-semibold text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800"
                     >
                       Bekor qilish
                     </button>
@@ -1336,7 +1524,7 @@ export default function App() {
                         }
                       }}
                       disabled={!cashReceived || parseFloat(cashReceived) < getTotal()}
-                      className="flex-1 rounded-xl bg-green-500 py-3 font-semibold text-white transition-all hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-3 font-semibold text-white shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Tasdiqlash
                     </button>
@@ -1353,21 +1541,21 @@ export default function App() {
   // Receipt Step
   if (currentStep === 'receipt') {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col">
         {lockElements}
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+        <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold">Chek</span>
+            <span className="text-xl font-bold text-gray-800">Chek</span>
           </div>
         </header>
 
         <div className="flex-1 p-8 flex items-center justify-center">
           <div className="w-full max-w-md">
             {/* Receipt */}
-            <div id="receipt-content" className="rounded-xl border border-slate-700 bg-white text-slate-900 p-6 shadow-xl">
+            <div id="receipt-content" className="rounded-2xl border border-white/60 bg-white text-gray-900 p-6 shadow-xl">
               <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4">
                 <h2 className="text-xl font-bold">{bizSettings?.name || 'OSHXONA'}</h2>
                 {bizSettings?.address && <p className="text-xs text-slate-500 mt-1">{bizSettings.address}</p>}
@@ -1445,14 +1633,14 @@ export default function App() {
             <div className="mt-6 flex gap-3">
               <button
                 onClick={handleBack}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-700 py-4 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 py-4 text-gray-500 hover:text-gray-800 hover:bg-white/70 transition-colors"
               >
                 <ArrowLeft size={16} />
                 Orqaga
               </button>
               <button
                 onClick={handlePrintAndClose}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-green-500 py-4 font-semibold text-white hover:bg-green-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
               >
                 <Check size={16} />
                 Tasdiqlash
@@ -1481,63 +1669,56 @@ export default function App() {
 
   // Products Step
   return (
-    <div className="flex h-screen bg-slate-950 text-white">
+    <div className="flex h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
       {lockElements}
       {/* Left side - Products */}
       <div className="flex flex-1 flex-col">
         {/* Header */}
-        <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-6">
+        <header className="flex h-16 items-center justify-between bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 shadow-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={handleBack}
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm border border-white/60 text-gray-500 hover:text-gray-800 hover:bg-white/70 transition-colors"
             >
               <ArrowLeft size={18} />
             </button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="text-lg font-bold">{bizSettings?.name || 'Oshxona POS'}</span>
-              <p className="text-xs text-slate-500">
+              <span className="text-lg font-bold text-gray-800">{bizSettings?.name || 'Oshxona POS'}</span>
+              <p className="text-xs text-gray-500">
                 {orderType === 'dine-in' && selectedTable && (
-                  <span className="text-orange-400">Stol #{selectedTable.number}</span>
+                  <span className="text-orange-500">Stol #{selectedTable.number}</span>
                 )}
-                {orderType === 'takeaway' && <span className="text-blue-400">Olib ketish</span>}
+                {orderType === 'takeaway' && <span className="text-blue-500">Olib ketish</span>}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Mahsulot qidirish..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 rounded-lg border border-slate-700 bg-slate-800 pl-10 pr-4 py-2 text-sm placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                className="w-64 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 pl-10 pr-4 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none"
               />
             </div>
-            <button
-              onClick={() => setShowQRScanner(true)}
-              className="flex items-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
-              title="QR / Barcode skanerlash"
-            >
-              <ScanLine size={16} />
-              Skanerlash
-            </button>
+            {/* QR Scanner — faqat admin panelda ishlatiladi, POS dan olib tashlandi */}
           </div>
         </header>
 
         {/* Categories */}
-        <div className="flex gap-2 overflow-x-auto border-b border-slate-800 bg-slate-900/50 p-3">
+        <div className="flex gap-2 overflow-x-auto bg-white/30 backdrop-blur-md border-b border-white/40 p-3">
           <button
             onClick={() => setSelectedCategory(null)}
             className={cn(
-              'flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+              'flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all',
               selectedCategory === null
-                ? 'bg-orange-500 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                : 'bg-white/50 backdrop-blur-sm border border-white/60 text-gray-600 hover:bg-white/70 hover:text-gray-800'
             )}
           >
             Barchasi
@@ -1547,10 +1728,10 @@ export default function App() {
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
               className={cn(
-                'flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all',
                 selectedCategory === cat.id
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md'
+                  : 'bg-white/50 backdrop-blur-sm border border-white/60 text-gray-600 hover:bg-white/70 hover:text-gray-800'
               )}
             >
               <span>{cat.icon}</span>
@@ -1566,17 +1747,28 @@ export default function App() {
               <button
                 key={product.id}
                 onClick={() => handleAddProduct(product)}
-                className="flex flex-col items-center rounded-xl border border-slate-700 bg-slate-800/50 p-3 text-center transition-all hover:border-orange-500 hover:bg-slate-800"
+                className="flex flex-col items-center rounded-2xl bg-white/30 backdrop-blur-md border border-white/50 p-3 text-center transition-all hover:bg-white/50 hover:shadow-md hover:border-orange-200 shadow-sm"
               >
-                <div className="mb-3 w-full aspect-square overflow-hidden rounded-lg bg-slate-700/50">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-full w-full object-cover"
-                  />
+                <div className="mb-3 w-full aspect-square overflow-hidden rounded-xl bg-gray-100/50 flex items-center justify-center">
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        // Rasm yuklanmasa, placeholder rasm qo'yish
+                        const img = e.target as HTMLImageElement;
+                        img.onerror = null;
+                        img.src = '';
+                        img.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Utensils className="h-10 w-10 text-gray-400" />
+                  )}
                 </div>
-                <span className="mb-1 font-medium text-sm">{product.name}</span>
-                <span className="text-sm text-orange-400 font-semibold">{formatPrice(product.price)}</span>
+                <span className="mb-1 font-medium text-sm text-gray-800">{product.name}</span>
+                <span className="text-sm text-orange-500 font-semibold">{formatPrice(product.price)}</span>
               </button>
             ))}
           </div>
@@ -1584,14 +1776,14 @@ export default function App() {
       </div>
 
       {/* Right side - Cart */}
-      <div className="flex w-96 flex-col border-l border-slate-800 bg-slate-900">
+      <div className="flex w-96 flex-col bg-white/50 backdrop-blur-xl border-l border-white/40">
         {/* Cart Header */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+        <div className="flex h-16 items-center justify-between border-b border-white/40 px-4">
           <div className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-orange-400" />
-            <span className="font-semibold">Savat</span>
+            <ShoppingCart className="h-5 w-5 text-orange-500" />
+            <span className="font-semibold text-gray-800">Savat</span>
             {getItemCount() > 0 && (
-              <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-medium">
+              <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-xs font-medium text-white">
                 {getItemCount()}
               </span>
             )}
@@ -1599,7 +1791,7 @@ export default function App() {
           {items.length > 0 && (
             <button
               onClick={clearCart}
-              className="text-sm text-slate-500 hover:text-red-400 transition-colors"
+              className="text-sm text-gray-400 hover:text-red-500 transition-colors"
             >
               Tozalash
             </button>
@@ -1609,7 +1801,7 @@ export default function App() {
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto p-4">
           {items.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center text-slate-500">
+            <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
               <ShoppingCart className="mb-2 h-12 w-12" />
               <p className="font-medium">Savat bo'sh</p>
               <p className="text-sm">Mahsulot qo'shish uchun bosing</p>
@@ -1619,29 +1811,29 @@ export default function App() {
               {items.map((item) => (
                 <div
                   key={item.product.id}
-                  className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/50 p-3"
+                  className="flex items-center gap-3 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 p-3"
                 >
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{item.product.name}</p>
-                    <p className="text-sm text-orange-400">{formatPrice(item.product.price)}</p>
+                    <p className="font-medium text-sm text-gray-800">{item.product.name}</p>
+                    <p className="text-sm text-orange-500">{formatPrice(item.product.price)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 hover:bg-slate-700 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60 border border-white/80 text-gray-600 hover:bg-white/80 transition-colors"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                    <span className="w-8 text-center font-medium text-gray-800">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-700 hover:bg-slate-700 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/60 border border-white/80 text-gray-600 hover:bg-white/80 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => removeItem(item.product.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-red-400 hover:bg-red-500/10 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-red-400 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1654,28 +1846,28 @@ export default function App() {
 
         {/* Cart Footer */}
         {items.length > 0 && (
-          <div className="border-t border-slate-800 p-4">
+          <div className="border-t border-white/40 p-4">
             <div className="mb-4 space-y-2">
-              <div className="flex justify-between text-sm text-slate-400">
+              <div className="flex justify-between text-sm text-gray-500">
                 <span>Mahsulotlar</span>
                 <span>{getItemCount()} ta</span>
               </div>
-              <div className="flex justify-between text-lg font-bold">
+              <div className="flex justify-between text-lg font-bold text-gray-800">
                 <span>Jami</span>
-                <span className="text-orange-400">{formatPrice(getTotal())}</span>
+                <span className="text-orange-500">{formatPrice(getTotal())}</span>
               </div>
             </div>
             <div className="space-y-2">
               <button
                 onClick={handlePlaceOrder}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-500 py-3 font-semibold text-white hover:bg-blue-600 transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
               >
                 <Plus size={18} />
                 Buyurtma qo'shish
               </button>
               <button
                 onClick={handleGoToPayment}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3 font-semibold text-white transition-all hover:shadow-lg hover:shadow-orange-500/20"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3 font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-orange-500/20"
               >
                 <Check size={18} />
                 Stolni yopish
@@ -1692,12 +1884,7 @@ export default function App() {
         onStatusChange={() => fetchData()}
       />
 
-      {/* QR Skaner */}
-      <QRScanner
-        isOpen={showQRScanner}
-        onClose={() => setShowQRScanner(false)}
-        onProductFound={handleQRProductFound}
-      />
+      {/* QR Skaner — POS dan olib tashlandi */}
 
       {/* Kam qolgan mahsulotlar */}
       <LowStockAlert

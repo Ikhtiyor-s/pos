@@ -11,7 +11,7 @@ export const loginSchema = z.object({
     .optional(),
   password: z
     .string({ required_error: 'Parol kiritilishi shart' })
-    .min(6, 'Parol kamida 6 ta belgidan iborat bo\'lishi kerak'),
+    .min(4, 'Parol kamida 4 ta belgidan iborat bo\'lishi kerak'),
 }).refine(
   (data) => data.email || data.phone,
   { message: 'Email yoki telefon raqam kiritilishi shart', path: ['email'] }
@@ -27,7 +27,7 @@ export const registerSchema = z.object({
     .optional(),
   password: z
     .string({ required_error: 'Parol kiritilishi shart' })
-    .min(6, 'Parol kamida 6 ta belgidan iborat bo\'lishi kerak'),
+    .min(4, 'Parol kamida 4 ta belgidan iborat bo\'lishi kerak'),
   firstName: z
     .string({ required_error: 'Ism kiritilishi shart' })
     .min(2, 'Ism kamida 2 ta belgidan iborat bo\'lishi kerak'),

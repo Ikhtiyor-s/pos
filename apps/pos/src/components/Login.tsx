@@ -3,10 +3,11 @@ import { useAuthStore } from '../store/auth';
 import {
   UtensilsCrossed,
   Loader2,
-  DollarSign,
-  LogIn,
   Delete,
   ArrowRight,
+  Shield,
+  ChefHat,
+  User,
 } from 'lucide-react';
 
 const MAX_PIN_LENGTH = 8;
@@ -52,7 +53,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
     try {
       const success = await loginWithPin(pin);
       if (success) {
-        setShowShiftModal(true);
+        startShift(0);
+        onLoginSuccess();
       } else {
         setError('PIN kod noto\'g\'ri');
         setPin('');
@@ -100,56 +102,15 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
   const canSubmit = pin.length >= MIN_PIN_LENGTH && !loading;
 
-  // Shift modal
-  if (showShiftModal && user) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-8 shadow-2xl">
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-red-500">
-              <DollarSign className="h-8 w-8 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-white">Xush kelibsiz, {user.name}!</h2>
-            <p className="mt-2 text-slate-400">Shiftni boshlash uchun kassadagi naqd pulni kiriting</p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                Boshlang'ich kassa (so'm)
-              </label>
-              <input
-                type="number"
-                value={startingCash}
-                onChange={(e) => setStartingCash(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-                autoFocus
-              />
-            </div>
-
-            <button
-              onClick={handleStartShift}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3 font-semibold text-white transition-all hover:shadow-lg hover:shadow-orange-500/20"
-            >
-              <LogIn size={18} />
-              Shiftni boshlash
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 select-none">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col items-center justify-center p-4 select-none">
       {/* Logo va sarlavha */}
       <div className="mb-8 text-center">
         <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-xl shadow-orange-500/20">
           <UtensilsCrossed className="h-10 w-10 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-white">Oshxona POS</h1>
-        <p className="mt-1 text-sm text-slate-500">PIN kodni kiriting</p>
+        <h1 className="text-3xl font-bold text-gray-800">Oshxona POS</h1>
+        <p className="mt-1 text-sm text-gray-500">PIN kodni kiriting</p>
       </div>
 
       {/* PIN indikator */}
@@ -161,8 +122,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
               pin.length > i
                 ? 'bg-orange-500 scale-110 shadow-md shadow-orange-500/40'
                 : i < MIN_PIN_LENGTH
-                  ? 'bg-slate-700 border border-slate-600'
-                  : 'bg-slate-800 border border-slate-700'
+                  ? 'bg-white/60 border border-gray-300 backdrop-blur-sm'
+                  : 'bg-white/40 border border-gray-200 backdrop-blur-sm'
             }`}
           />
         ))}
@@ -170,7 +131,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
       {/* Xato xabari */}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-2 text-sm text-red-400">
+        <div className="mb-4 rounded-lg bg-red-500/10 border border-red-300/40 px-4 py-2 text-sm text-red-500 backdrop-blur-sm">
           {error}
         </div>
       )}
@@ -184,7 +145,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               type="button"
               onClick={() => handlePinInput(num.toString())}
               disabled={loading}
-              className="h-16 rounded-xl bg-slate-800 border border-slate-700 text-2xl font-semibold text-white transition-all hover:bg-slate-700 hover:border-slate-600 active:scale-95 active:bg-slate-600 disabled:opacity-50"
+              className="h-16 rounded-xl bg-white/40 backdrop-blur-md border border-white/60 text-2xl font-semibold text-gray-800 transition-all hover:bg-white/60 hover:border-white/80 active:scale-95 active:bg-white/70 disabled:opacity-50 shadow-sm"
             >
               {num}
             </button>
@@ -199,7 +160,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               handlePinClear();
             }}
             disabled={loading || pin.length === 0}
-            className="h-16 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 transition-all hover:bg-slate-700 hover:text-white active:scale-95 disabled:opacity-30 flex items-center justify-center"
+            className="h-16 rounded-xl bg-white/40 backdrop-blur-md border border-white/60 text-gray-500 transition-all hover:bg-white/60 hover:text-gray-800 active:scale-95 disabled:opacity-30 flex items-center justify-center shadow-sm"
           >
             <Delete size={24} />
           </button>
@@ -209,7 +170,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             type="button"
             onClick={() => handlePinInput('0')}
             disabled={loading}
-            className="h-16 rounded-xl bg-slate-800 border border-slate-700 text-2xl font-semibold text-white transition-all hover:bg-slate-700 hover:border-slate-600 active:scale-95 active:bg-slate-600 disabled:opacity-50"
+            className="h-16 rounded-xl bg-white/40 backdrop-blur-md border border-white/60 text-2xl font-semibold text-gray-800 transition-all hover:bg-white/60 hover:border-white/80 active:scale-95 active:bg-white/70 disabled:opacity-50 shadow-sm"
           >
             0
           </button>
@@ -219,7 +180,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             type="button"
             onClick={handleLogin}
             disabled={!canSubmit}
-            className="h-16 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white transition-all hover:shadow-lg hover:shadow-orange-500/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
+            className="h-16 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white transition-all hover:shadow-lg hover:shadow-orange-500/30 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shadow-md"
           >
             {loading ? (
               <Loader2 size={24} className="animate-spin" />
@@ -230,10 +191,39 @@ export function Login({ onLoginSuccess }: LoginProps) {
         </div>
       </div>
 
-      {/* Qo'shimcha ma'lumot */}
-      <p className="mt-8 text-xs text-slate-600">
-        PIN kod administratordan olinadi
-      </p>
+      {/* Mavjud PIN kodlar */}
+      <div className="mt-8 w-full max-w-xs rounded-2xl border border-white/60 bg-white/40 backdrop-blur-xl p-4 shadow-lg">
+        <p className="mb-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Mavjud PIN kodlar</p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-500">
+                <Shield size={14} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Admin / Manager</span>
+            </div>
+            <span className="font-mono text-sm font-bold text-orange-500">1234</span>
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
+                <User size={14} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Kassir</span>
+            </div>
+            <span className="font-mono text-sm font-bold text-blue-500">5678</span>
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-500">
+                <ChefHat size={14} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Oshpaz</span>
+            </div>
+            <span className="font-mono text-sm font-bold text-green-500">9012</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
