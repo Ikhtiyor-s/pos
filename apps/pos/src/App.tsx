@@ -48,6 +48,11 @@ import {
   PanelLeftClose,
   PanelLeft,
   Boxes,
+  ScanLine,
+  Camera,
+  Info,
+  Tag,
+  Loader2,
 } from 'lucide-react';
 import api from './services/api';
 import { productService, categoryService, type Product as ApiProduct, type Category as ApiCategory } from './services/product.service';
@@ -161,8 +166,13 @@ export default function App() {
   const [adminProductSearch, setAdminProductSearch] = useState('');
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [productForm, setProductForm] = useState({ name: '', price: '', costPrice: '', categoryId: '', description: '' });
+  const [productForm, setProductForm] = useState({ name: '', price: '', costPrice: '', categoryId: '', description: '', barcode: '', mxikCode: '', stockQuantity: '', weight: '' });
   const [productSaving, setProductSaving] = useState(false);
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [mxikLoading, setMxikLoading] = useState(false);
+  const [barcodeResult, setBarcodeResult] = useState<any>(null);
+  const [mxikResult, setMxikResult] = useState<any>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [allOrders, setAllOrders] = useState<any[]>([]);
 
   // Fetch dashboard data
@@ -1005,6 +1015,10 @@ export default function App() {
             costPrice: productForm.costPrice ? parseFloat(productForm.costPrice) : undefined,
             categoryId: productForm.categoryId || undefined,
             description: productForm.description || undefined,
+            barcode: productForm.barcode || undefined,
+            mxikCode: productForm.mxikCode || undefined,
+            stockQuantity: productForm.stockQuantity ? parseInt(productForm.stockQuantity) : undefined,
+            weight: productForm.weight || undefined,
           };
           if (editingProduct) {
             await api.put(`/products/${editingProduct.id}`, payload);
@@ -1013,7 +1027,9 @@ export default function App() {
           }
           setShowProductModal(false);
           setEditingProduct(null);
-          setProductForm({ name: '', price: '', costPrice: '', categoryId: '', description: '' });
+          setProductForm({ name: '', price: '', costPrice: '', categoryId: '', description: '', barcode: '', mxikCode: '', stockQuantity: '', weight: '' });
+          setBarcodeResult(null);
+          setMxikResult(null);
           fetchAdminProducts();
           fetchData(); // refresh main products list too
         } catch (err) {
@@ -1044,19 +1060,29 @@ export default function App() {
           costPrice: String(product.costPrice || ''),
           categoryId: product.categoryId || '',
           description: product.description || '',
+          barcode: product.barcode || '',
+          mxikCode: product.mxikCode || '',
+          stockQuantity: String(product.stockQuantity || ''),
+          weight: String(product.weight || ''),
         });
+        setBarcodeResult(null);
+        setMxikResult(null);
         setShowProductModal(true);
       };
 
       const openNewProduct = () => {
         setEditingProduct(null);
-        setProductForm({ name: '', price: '', costPrice: '', categoryId: '', description: '' });
+        setProductForm({ name: '', price: '', costPrice: '', categoryId: '', description: '', barcode: '', mxikCode: '', stockQuantity: '', weight: '' });
+        setBarcodeResult(null);
+        setMxikResult(null);
         setShowProductModal(true);
       };
 
-      const filteredAdminProducts = adminProducts.filter((p: any) =>
-        adminProductSearch ? p.name?.toLowerCase().includes(adminProductSearch.toLowerCase()) : true
-      );
+      const filteredAdminProducts = adminProducts.filter((p: any) => {
+        const matchesSearch = adminProductSearch ? p.name?.toLowerCase().includes(adminProductSearch.toLowerCase()) : true;
+        const matchesCategory = selectedCategoryFilter === 'all' ? true : p.categoryId === selectedCategoryFilter;
+        return matchesSearch && matchesCategory;
+      });
 
       const statusBadge = (status: string) => {
         const map: Record<string, { bg: string; text: string; label: string }> = {
@@ -1373,172 +1399,426 @@ export default function App() {
 
               {/* ====== TAB 2: PRODUCTS ====== */}
               {adminTab === 'products' && (
-                <div className="space-y-4">
-                  {/* Toolbar */}
-                  <div className="flex items-center justify-between">
-                    <div className="relative">
-                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                      <input
-                        type="text"
-                        placeholder="Mahsulot qidirish..."
-                        value={adminProductSearch}
-                        onChange={(e) => setAdminProductSearch(e.target.value)}
-                        className="w-80 rounded-xl glass-strong border border-white/60 pl-10 pr-4 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-orange-400 focus:outline-none"
-                      />
+                <div className="space-y-5">
+                  {/* Top Bar: Search + Add Button + Count */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="relative flex-1 max-w-md">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Mahsulot qidirish..."
+                          value={adminProductSearch}
+                          onChange={(e) => setAdminProductSearch(e.target.value)}
+                          className="w-full rounded-xl bg-white/80 border border-gray-200 pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:outline-none transition-all"
+                        />
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 border border-orange-200 px-3 py-1.5 text-xs font-semibold text-orange-600">
+                        <Package size={13} />
+                        {filteredAdminProducts.length} ta
+                      </span>
                     </div>
                     <button
                       onClick={openNewProduct}
-                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-0.5 transition-all"
                     >
                       <Plus size={16} />
                       Yangi mahsulot
                     </button>
                   </div>
 
-                  {/* Products Table */}
-                  <div className="glass-card rounded-2xl border border-white/60 shadow-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-white/40 glass-strong">
-                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nomi</th>
-                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Narxi</th>
-                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tannarxi</th>
-                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Kategoriya</th>
-                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Holat</th>
-                            <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Amallar</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredAdminProducts.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="px-5 py-12 text-center text-gray-500">Mahsulot topilmadi</td>
-                            </tr>
-                          ) : (
-                            filteredAdminProducts.map((product: any) => {
-                              const cat = categories.find((c) => c.id === product.categoryId);
-                              return (
-                                <tr key={product.id} className="border-b border-white/30 hover:bg-white/30 transition-colors">
-                                  <td className="px-5 py-3">
-                                    <p className="font-medium text-gray-900">{product.name}</p>
-                                    {product.barcode && <p className="text-xs text-gray-500">{product.barcode}</p>}
-                                  </td>
-                                  <td className="px-5 py-3 text-sm font-semibold text-orange-500">{formatPrice(product.price)}</td>
-                                  <td className="px-5 py-3 text-sm text-gray-600">{product.costPrice ? formatPrice(product.costPrice) : '-'}</td>
-                                  <td className="px-5 py-3 text-sm text-gray-600">{cat?.name || '-'}</td>
-                                  <td className="px-5 py-3">
-                                    {product.isActive !== false ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600">
-                                        <Eye size={12} /> Faol
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-500">
-                                        <EyeOff size={12} /> Nofaol
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="px-5 py-3 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <button
-                                        onClick={() => openEditProduct(product)}
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors"
-                                        title="Tahrirlash"
-                                      >
-                                        <Edit3 size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleProductDelete(product.id)}
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                                        title="O'chirish"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })
+                  {/* Category Filter Cards */}
+                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    <button
+                      onClick={() => setSelectedCategoryFilter('all')}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium border-2 whitespace-nowrap transition-all shrink-0',
+                        selectedCategoryFilter === 'all'
+                          ? 'border-orange-400 bg-orange-50 text-orange-700 shadow-sm'
+                          : 'border-gray-200 bg-white/70 text-gray-600 hover:border-gray-300 hover:bg-white'
+                      )}
+                    >
+                      <div className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-lg',
+                        selectedCategoryFilter === 'all' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'
+                      )}>
+                        <Grid3X3 size={15} />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold text-xs">Barchasi</div>
+                        <div className="text-[10px] opacity-70">{adminProducts.length} ta</div>
+                      </div>
+                    </button>
+                    {categories.map((cat) => {
+                      const count = adminProducts.filter((p: any) => p.categoryId === cat.id).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => setSelectedCategoryFilter(cat.id)}
+                          className={cn(
+                            'flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium border-2 whitespace-nowrap transition-all shrink-0',
+                            selectedCategoryFilter === cat.id
+                              ? 'border-orange-400 bg-orange-50 text-orange-700 shadow-sm'
+                              : 'border-gray-200 bg-white/70 text-gray-600 hover:border-gray-300 hover:bg-white'
                           )}
-                        </tbody>
-                      </table>
-                    </div>
+                        >
+                          <div className={cn(
+                            'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold',
+                            selectedCategoryFilter === cat.id ? 'bg-orange-500 text-white' : 'bg-gradient-to-br from-blue-400 to-purple-500 text-white'
+                          )}>
+                            {cat.icon ? cat.icon : cat.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="text-left">
+                            <div className="font-semibold text-xs">{cat.name}</div>
+                            <div className="text-[10px] opacity-70">{count} ta</div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Product Modal */}
+                  {/* Product Cards Grid */}
+                  {filteredAdminProducts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                      <Package size={48} className="mb-3 opacity-40" />
+                      <p className="text-lg font-medium">Mahsulot topilmadi</p>
+                      <p className="text-sm mt-1">Qidiruv yoki kategoriya filtrini o'zgartiring</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {filteredAdminProducts.map((product: any) => {
+                        const cat = categories.find((c) => c.id === product.categoryId);
+                        return (
+                          <div
+                            key={product.id}
+                            className="group relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+                          >
+                            {/* Product Image / Placeholder */}
+                            <div className="relative h-36 bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 flex items-center justify-center overflow-hidden">
+                              {product.image ? (
+                                <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <UtensilsCrossed size={36} className="text-orange-300" />
+                              )}
+                              {/* Status Badge */}
+                              <div className="absolute top-2 right-2">
+                                {product.isActive !== false ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                                    <Eye size={10} /> Faol
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-400 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                                    <EyeOff size={10} /> Nofaol
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Body */}
+                            <div className="p-3.5">
+                              <h4 className="font-bold text-gray-900 text-sm leading-tight truncate">{product.name}</h4>
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">{cat?.name || 'Kategoriyasiz'}</p>
+
+                              <div className="flex items-baseline gap-2 mt-2">
+                                <span className="text-orange-500 font-bold text-sm">{formatPrice(product.price)}</span>
+                                {product.costPrice && (
+                                  <span className="text-gray-400 text-[11px] line-through">{formatPrice(product.costPrice)}</span>
+                                )}
+                              </div>
+
+                              {product.barcode && (
+                                <p className="text-[10px] text-gray-400 mt-1.5 font-mono bg-gray-50 rounded px-1.5 py-0.5 inline-block">{product.barcode}</p>
+                              )}
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                                <button
+                                  onClick={() => openEditProduct(product)}
+                                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-blue-50 text-blue-600 py-1.5 text-xs font-medium hover:bg-blue-100 transition-colors"
+                                  title="Tahrirlash"
+                                >
+                                  <Edit3 size={13} /> Tahrirlash
+                                </button>
+                                <button
+                                  onClick={() => handleProductDelete(product.id)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors shrink-0"
+                                  title="O'chirish"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ===== Product Add/Edit Modal ===== */}
                   {showProductModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                      <div className="w-full max-w-lg rounded-2xl glass-strong border border-white/60 p-6 shadow-2xl">
-                        <h3 className="mb-6 text-xl font-bold text-gray-900">
-                          {editingProduct ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot'}
-                        </h3>
-                        <div className="space-y-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowProductModal(false); setEditingProduct(null); }}>
+                      <div
+                        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white border border-gray-200 shadow-2xl mx-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Modal Header */}
+                        <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
+                          <h3 className="text-xl font-bold text-gray-900">
+                            {editingProduct ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot qo\'shish'}
+                          </h3>
+                          <button
+                            onClick={() => { setShowProductModal(false); setEditingProduct(null); }}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        <div className="p-6 space-y-5">
+                          {/* Barcode Section */}
+                          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                              <ScanLine size={16} className="text-orange-500" />
+                              Shtrix kod (Barcode)
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={productForm.barcode}
+                                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                                placeholder="Shtrix kodni kiriting yoki skanerlang..."
+                                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none font-mono"
+                              />
+                              <button
+                                onClick={async () => {
+                                  if (!productForm.barcode) return;
+                                  setBarcodeLoading(true);
+                                  setBarcodeResult(null);
+                                  try {
+                                    const { data } = await api.get('/mxik/scan/' + productForm.barcode);
+                                    setBarcodeResult(data.data || data);
+                                    if (data.data?.name || data.name) {
+                                      setProductForm((prev: any) => ({ ...prev, name: prev.name || data.data?.name || data.name || '' }));
+                                    }
+                                  } catch (err) {
+                                    setBarcodeResult({ error: true, message: 'Mahsulot topilmadi' });
+                                  } finally {
+                                    setBarcodeLoading(false);
+                                  }
+                                }}
+                                disabled={!productForm.barcode || barcodeLoading}
+                                className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                              >
+                                {barcodeLoading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                                Qidirish
+                              </button>
+                            </div>
+                            {/* Barcode Result */}
+                            {barcodeResult && !barcodeResult.error && (
+                              <div className="mt-3 flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-200 p-3">
+                                {barcodeResult.image && (
+                                  <img src={barcodeResult.image} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-blue-800">{barcodeResult.name || barcodeResult.product_name || 'Nomi topildi'}</p>
+                                  {barcodeResult.brand && <p className="text-xs text-blue-600 mt-0.5">Brend: {barcodeResult.brand}</p>}
+                                  {barcodeResult.description && <p className="text-xs text-blue-500 mt-0.5 truncate">{barcodeResult.description}</p>}
+                                </div>
+                                <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                              </div>
+                            )}
+                            {barcodeResult && barcodeResult.error && (
+                              <div className="mt-3 flex items-center gap-2 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-600">
+                                <AlertTriangle size={14} />
+                                {barcodeResult.message || 'Mahsulot topilmadi'}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Product Name */}
                           <div>
-                            <label className="mb-1.5 block text-sm font-medium text-gray-700">Nomi *</label>
+                            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Mahsulot nomi *</label>
                             <input
                               type="text"
                               value={productForm.name}
                               onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                              placeholder="Mahsulot nomi"
-                              className="w-full rounded-xl border border-gray-200 bg-white/70 px-4 py-2.5 text-gray-900 placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
+                              placeholder="Mahsulot nomini kiriting"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none"
                             />
                           </div>
+
+                          {/* Price & Cost Price */}
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="mb-1.5 block text-sm font-medium text-gray-700">Narxi (so'm) *</label>
+                              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Narxi (so'm) *</label>
                               <input
                                 type="number"
                                 value={productForm.price}
                                 onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
                                 placeholder="0"
-                                className="w-full rounded-xl border border-gray-200 bg-white/70 px-4 py-2.5 text-gray-900 placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none"
                               />
                             </div>
                             <div>
-                              <label className="mb-1.5 block text-sm font-medium text-gray-700">Tannarxi (so'm)</label>
+                              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Tannarxi (so'm)</label>
                               <input
                                 type="number"
                                 value={productForm.costPrice}
                                 onChange={(e) => setProductForm({ ...productForm, costPrice: e.target.value })}
                                 placeholder="0"
-                                className="w-full rounded-xl border border-gray-200 bg-white/70 px-4 py-2.5 text-gray-900 placeholder:text-gray-500 focus:border-orange-500 focus:outline-none"
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none"
                               />
                             </div>
                           </div>
+
+                          {/* Category */}
                           <div>
-                            <label className="mb-1.5 block text-sm font-medium text-gray-700">Kategoriya</label>
+                            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Kategoriya</label>
                             <select
                               value={productForm.categoryId}
                               onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
-                              className="w-full rounded-xl border border-gray-200 bg-white/70 px-4 py-2.5 text-gray-900 focus:border-orange-500 focus:outline-none"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none"
                             >
-                              <option value="">Tanlang...</option>
+                              <option value="">Kategoriyani tanlang...</option>
                               {categories.map((cat) => (
                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                               ))}
                             </select>
                           </div>
+
+                          {/* Description */}
                           <div>
-                            <label className="mb-1.5 block text-sm font-medium text-gray-700">Tavsif</label>
+                            <label className="mb-1.5 block text-sm font-semibold text-gray-700">Tavsif</label>
                             <textarea
                               value={productForm.description}
                               onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                              placeholder="Qisqacha tavsif..."
-                              rows={3}
-                              className="w-full rounded-xl border border-gray-200 bg-white/70 px-4 py-2.5 text-gray-900 placeholder:text-gray-500 focus:border-orange-500 focus:outline-none resize-none"
+                              placeholder="Qisqacha tavsif (ixtiyoriy)..."
+                              rows={2}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none resize-none"
                             />
                           </div>
+
+                          {/* MXIK Section */}
+                          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                              <Tag size={16} className="text-blue-500" />
+                              MXIK kodi (Soliq tasnifi)
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={productForm.mxikCode}
+                                onChange={(e) => setProductForm({ ...productForm, mxikCode: e.target.value })}
+                                placeholder="MXIK kodni kiriting..."
+                                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none font-mono"
+                              />
+                              <button
+                                onClick={async () => {
+                                  if (!productForm.mxikCode) return;
+                                  setMxikLoading(true);
+                                  setMxikResult(null);
+                                  try {
+                                    const { data } = await api.get('/mxik/lookup/' + productForm.mxikCode);
+                                    setMxikResult(data.data || data);
+                                  } catch (err) {
+                                    setMxikResult({ error: true, message: 'Tasnif soliq bazasida topilmadi' });
+                                  } finally {
+                                    setMxikLoading(false);
+                                  }
+                                }}
+                                disabled={!productForm.mxikCode || mxikLoading}
+                                className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                              >
+                                {mxikLoading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                                Tekshirish
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!productForm.name) return;
+                                  setMxikLoading(true);
+                                  setMxikResult(null);
+                                  try {
+                                    const { data } = await api.get('/mxik/search?q=' + encodeURIComponent(productForm.name));
+                                    setMxikResult(data.data || data);
+                                  } catch (err) {
+                                    setMxikResult({ error: true, message: 'Qidirishda xatolik' });
+                                  } finally {
+                                    setMxikLoading(false);
+                                  }
+                                }}
+                                disabled={!productForm.name || mxikLoading}
+                                className="flex items-center gap-1.5 rounded-xl bg-gray-600 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                              >
+                                <Search size={14} />
+                                Qidirish
+                              </button>
+                            </div>
+                            {/* MXIK Result */}
+                            {mxikResult && !mxikResult.error && (
+                              <div className="mt-3 flex items-center gap-3 rounded-lg bg-blue-50 border border-blue-200 p-3">
+                                <Info size={16} className="text-blue-500 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-mono text-blue-700">{mxikResult.code || mxikResult.mxikCode || productForm.mxikCode}</p>
+                                  <p className="text-sm font-medium text-blue-800 mt-0.5">{mxikResult.name || mxikResult.groupName || 'Tasnif topildi'}</p>
+                                </div>
+                              </div>
+                            )}
+                            {mxikResult && mxikResult.error && (
+                              <div className="mt-3 flex items-center gap-2 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-600">
+                                <AlertTriangle size={14} />
+                                {mxikResult.message || 'Tasnif soliq bazasida topilmadi'}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Stock & Weight */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Ombordagi miqdor</label>
+                              <input
+                                type="number"
+                                value={productForm.stockQuantity}
+                                onChange={(e) => setProductForm({ ...productForm, stockQuantity: e.target.value })}
+                                placeholder="0"
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Og'irlik / Hajm</label>
+                              <input
+                                type="text"
+                                value={productForm.weight}
+                                onChange={(e) => setProductForm({ ...productForm, weight: e.target.value })}
+                                placeholder="Masalan: 500g, 1L"
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Image Preview from barcode lookup */}
+                          {barcodeResult && !barcodeResult.error && barcodeResult.image && (
+                            <div className="flex items-center gap-4 rounded-xl bg-gray-50 border border-gray-200 p-4">
+                              <img src={barcodeResult.image} alt="Mahsulot rasmi" className="w-20 h-20 rounded-xl object-cover border border-gray-200" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">Barcode orqali topilgan rasm</p>
+                                <p className="text-xs text-gray-400 mt-0.5">Rasm avtomatik saqlangan</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="mt-6 flex gap-3">
+
+                        {/* Modal Footer */}
+                        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 rounded-b-2xl flex gap-3">
                           <button
                             onClick={() => { setShowProductModal(false); setEditingProduct(null); }}
-                            className="flex-1 rounded-xl glass-strong border border-white/60 py-3 text-gray-600 hover:text-gray-900 hover:bg-white/70 transition-colors"
+                            className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
                           >
                             Bekor qilish
                           </button>
                           <button
                             onClick={handleProductSave}
                             disabled={!productForm.name || !productForm.price || productSaving}
-                            className="flex-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {productSaving ? 'Saqlanmoqda...' : editingProduct ? 'Saqlash' : 'Qo\'shish'}
                           </button>
