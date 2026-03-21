@@ -26,6 +26,7 @@ import analyticsRoutes from '../modules/ai-analytics/analytics.routes.js';
 import printerRoutes from '../modules/printer/printer.routes.js';
 import syncRoutes from '../modules/sync/sync.routes.js';
 import tenantIsolationRoutes from '../modules/tenant-isolation/tenant-isolation.routes.js';
+import qrMenuRoutes from './qr-menu.routes.js';
 
 const router = Router();
 
@@ -57,6 +58,7 @@ router.use('/analytics', analyticsRoutes);
 router.use('/printer', printerRoutes);
 router.use('/sync', syncRoutes);
 router.use('/admin', tenantIsolationRoutes);
+router.use('/qr-menu', qrMenuRoutes);
 
 // API info
 router.get('/', (_req, res) => {
