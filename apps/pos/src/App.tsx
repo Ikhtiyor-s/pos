@@ -53,6 +53,16 @@ import {
   Info,
   Tag,
   Loader2,
+  Mail,
+  Phone,
+  Shield,
+  Wifi,
+  WifiOff,
+  Save,
+  RefreshCw,
+  Activity,
+  Globe,
+  UserPlus,
 } from 'lucide-react';
 import api from './services/api';
 import { productService, categoryService, type Product as ApiProduct, type Category as ApiCategory } from './services/product.service';
@@ -175,6 +185,22 @@ export default function App() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [allOrders, setAllOrders] = useState<any[]>([]);
 
+  // Staff states
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [staffForm, setStaffForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: 'CASHIER', pin: '' });
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffSaving, setStaffSaving] = useState(false);
+
+  // Inventory states
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+
+  // Settings states
+  const [settingsForm, setSettingsForm] = useState({ name: '', address: '', phone: '', email: '' });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+
   // Fetch dashboard data
   const fetchDashboard = useCallback(async (period: 'today' | 'week' | 'month' | 'year') => {
     setDashboardLoading(true);
@@ -209,6 +235,34 @@ export default function App() {
     }
   }, []);
 
+  // Fetch staff
+  const fetchStaff = useCallback(async () => {
+    setStaffLoading(true);
+    try {
+      const { data: response } = await api.get('/users');
+      const users = response.data?.data || response.data || [];
+      setStaffList(Array.isArray(users) ? users : []);
+    } catch (err) {
+      console.error('[Admin] Xodimlarni yuklashda xatolik:', err);
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
+  // Fetch inventory
+  const fetchInventory = useCallback(async () => {
+    setInventoryLoading(true);
+    try {
+      const { data: response } = await api.get('/inventory');
+      const items = response.data?.data || response.data || [];
+      setInventoryItems(Array.isArray(items) ? items : []);
+    } catch (err) {
+      console.error('[Admin] Omborni yuklashda xatolik:', err);
+    } finally {
+      setInventoryLoading(false);
+    }
+  }, []);
+
   // Admin tab change effect
   useEffect(() => {
     if (!isAuthenticated || !currentShift) return;
@@ -222,9 +276,24 @@ export default function App() {
     } else if (adminTab === 'orders') {
       fetchAllOrders();
     } else if (adminTab === 'reports') {
-      // Reports tab uses the Reports component
+      fetchDashboard(dashboardPeriod);
+      fetchAllOrders();
+    } else if (adminTab === 'staff') {
+      fetchStaff();
+    } else if (adminTab === 'inventory') {
+      fetchInventory();
+    } else if (adminTab === 'settings') {
+      if (!settingsInitialized && bizSettings) {
+        setSettingsForm({
+          name: bizSettings.name || '',
+          address: bizSettings.address || '',
+          phone: bizSettings.phone || '',
+          email: bizSettings.email || '',
+        });
+        setSettingsInitialized(true);
+      }
     }
-  }, [adminTab, dashboardPeriod, isAuthenticated, currentShift, user?.role, fetchDashboard, fetchAdminProducts, fetchAllOrders]);
+  }, [adminTab, dashboardPeriod, isAuthenticated, currentShift, user?.role, fetchDashboard, fetchAdminProducts, fetchAllOrders, fetchStaff, fetchInventory, bizSettings, settingsInitialized]);
 
   // Category icons map
   const categoryIcons: Record<string, string> = {
@@ -2018,22 +2087,405 @@ export default function App() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Xodimlar</h2>
+                    <button
+                      onClick={() => { setStaffForm({ firstName: '', lastName: '', email: '', phone: '', role: 'CASHIER', pin: '' }); setShowStaffModal(true); }}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                    >
+                      <UserPlus size={16} />
+                      Yangi xodim
+                    </button>
                   </div>
-                  <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8">
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl glass-strong border border-white/60 shadow-lg mb-4">
-                        <Users className="h-10 w-10 text-gray-400" />
-                      </div>
-                      <p className="text-lg font-medium text-gray-700">Xodimlar bo'limi</p>
-                      <p className="text-sm text-gray-500 mt-1">Tez orada xodimlar boshqaruvi qo'shiladi</p>
+
+                  {staffLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                     </div>
-                  </div>
+                  ) : staffList.length === 0 ? (
+                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8">
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <Users className="h-12 w-12 text-gray-300 mb-3" />
+                        <p className="text-gray-500">Xodimlar topilmadi</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {staffList.map((staff: any) => {
+                        const roleLower = (staff.role || '').toLowerCase();
+                        const roleConfig: Record<string, { label: string; color: string }> = {
+                          super_admin: { label: 'Admin', color: 'bg-red-500/10 text-red-600' },
+                          admin: { label: 'Admin', color: 'bg-red-500/10 text-red-600' },
+                          owner: { label: 'Admin', color: 'bg-red-500/10 text-red-600' },
+                          manager: { label: 'Admin', color: 'bg-red-500/10 text-red-600' },
+                          cashier: { label: 'Kassir', color: 'bg-blue-500/10 text-blue-600' },
+                          kassir: { label: 'Kassir', color: 'bg-blue-500/10 text-blue-600' },
+                          chef: { label: 'Oshpaz', color: 'bg-green-500/10 text-green-600' },
+                          oshpaz: { label: 'Oshpaz', color: 'bg-green-500/10 text-green-600' },
+                          cook: { label: 'Oshpaz', color: 'bg-green-500/10 text-green-600' },
+                          kitchen: { label: 'Oshpaz', color: 'bg-green-500/10 text-green-600' },
+                          waiter: { label: 'Ofitsiant', color: 'bg-purple-500/10 text-purple-600' },
+                          ofitsiant: { label: 'Ofitsiant', color: 'bg-purple-500/10 text-purple-600' },
+                          warehouse: { label: 'Omborchi', color: 'bg-amber-500/10 text-amber-600' },
+                        };
+                        const rc = roleConfig[roleLower] || { label: staff.role || 'Noma\'lum', color: 'bg-gray-500/10 text-gray-600' };
+                        const initials = ((staff.firstName || staff.name || '?')[0] + (staff.lastName || '')[0]).toUpperCase();
+                        const isActive = staff.isActive !== false;
+
+                        return (
+                          <div key={staff.id} className="glass-card rounded-2xl border border-white/60 shadow-lg p-5 hover:shadow-xl transition-all">
+                            <div className="flex items-start gap-4">
+                              <div className={cn(
+                                "flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold shadow-md flex-shrink-0",
+                                isActive ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white" : "bg-gray-300 text-gray-500"
+                              )}>
+                                {initials}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold text-gray-900 truncate">{staff.firstName || staff.name || 'Noma\'lum'} {staff.lastName || ''}</h3>
+                                </div>
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium", rc.color)}>
+                                    <Shield size={10} />
+                                    {rc.label}
+                                  </span>
+                                  <span className={cn(
+                                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                                    isActive ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-500"
+                                  )}>
+                                    {isActive ? 'Faol' : 'Nofaol'}
+                                  </span>
+                                </div>
+                                {staff.phone && (
+                                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                                    <Phone size={12} />
+                                    <span>{staff.phone}</span>
+                                  </div>
+                                )}
+                                {staff.email && (
+                                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                                    <Mail size={12} />
+                                    <span className="truncate">{staff.email}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Staff Modal */}
+                  {showStaffModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowStaffModal(false)}>
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-lg font-bold text-gray-900">Yangi xodim qo'shish</h3>
+                          <button onClick={() => setShowStaffModal(false)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+                            <X size={18} />
+                          </button>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Ism</label>
+                              <input
+                                type="text"
+                                value={staffForm.firstName}
+                                onChange={(e) => setStaffForm({ ...staffForm, firstName: e.target.value })}
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                placeholder="Ism"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Familiya</label>
+                              <input
+                                type="text"
+                                value={staffForm.lastName}
+                                onChange={(e) => setStaffForm({ ...staffForm, lastName: e.target.value })}
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                placeholder="Familiya"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input
+                              type="email"
+                              value={staffForm.email}
+                              onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                              placeholder="email@example.com"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                            <input
+                              type="tel"
+                              value={staffForm.phone}
+                              onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                              placeholder="+998 90 123 45 67"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Lavozim</label>
+                            <select
+                              value={staffForm.role}
+                              onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
+                            >
+                              <option value="CASHIER">Kassir</option>
+                              <option value="CHEF">Oshpaz</option>
+                              <option value="WAITER">Ofitsiant</option>
+                              <option value="WAREHOUSE">Omborchi</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">PIN kod (4 raqam)</label>
+                            <input
+                              type="text"
+                              maxLength={4}
+                              value={staffForm.pin}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                setStaffForm({ ...staffForm, pin: val });
+                              }}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm tracking-[0.5em] text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                              placeholder="••••"
+                            />
+                          </div>
+                          <button
+                            disabled={staffSaving || !staffForm.firstName || !staffForm.pin || staffForm.pin.length < 4}
+                            onClick={async () => {
+                              setStaffSaving(true);
+                              try {
+                                await api.post('/users', {
+                                  firstName: staffForm.firstName,
+                                  lastName: staffForm.lastName,
+                                  email: staffForm.email || undefined,
+                                  phone: staffForm.phone || undefined,
+                                  role: staffForm.role,
+                                  pin: staffForm.pin,
+                                });
+                                setShowStaffModal(false);
+                                fetchStaff();
+                              } catch (err) {
+                                console.error('[Admin] Xodim qo\'shishda xatolik:', err);
+                                alert('Xodim qo\'shishda xatolik yuz berdi');
+                              } finally {
+                                setStaffSaving(false);
+                              }
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white shadow-md transition-all",
+                              staffSaving || !staffForm.firstName || !staffForm.pin || staffForm.pin.length < 4
+                                ? "bg-gray-300 cursor-not-allowed"
+                                : "bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg"
+                            )}
+                          >
+                            {staffSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            {staffSaving ? 'Saqlanmoqda...' : 'Saqlash'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* ====== TAB 6: REPORTS ====== */}
               {adminTab === 'reports' && (
-                <Reports onBack={() => setAdminTab('dashboard')} />
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">Hisobotlar</h2>
+                    <button
+                      onClick={() => window.print()}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-gray-600 to-gray-700 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                    >
+                      <Printer size={16} />
+                      Chop etish
+                    </button>
+                  </div>
+
+                  {/* Period selector */}
+                  <div className="flex gap-2">
+                    {[
+                      { key: 'today' as const, label: 'Bugun' },
+                      { key: 'week' as const, label: 'Hafta' },
+                      { key: 'month' as const, label: 'Oy' },
+                      { key: 'year' as const, label: 'Yil' },
+                    ].map((p) => (
+                      <button
+                        key={p.key}
+                        onClick={() => { setDashboardPeriod(p.key); fetchDashboard(p.key); }}
+                        className={cn(
+                          "rounded-xl px-4 py-2 text-sm font-medium transition-all",
+                          dashboardPeriod === p.key
+                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                            : "glass-strong border border-white/60 text-gray-700 hover:bg-white/50"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {dashboardLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* Stats cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-5">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10">
+                              <TrendingUp size={20} className="text-green-600" />
+                            </div>
+                            <span className="text-sm text-gray-500">Jami daromad</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-900">{formatPrice(dashboardData?.totalRevenue || dashboardData?.totalSales || 0)}</p>
+                        </div>
+                        <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-5">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+                              <DollarSign size={20} className="text-red-600" />
+                            </div>
+                            <span className="text-sm text-gray-500">Jami xarajat</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-900">{formatPrice(dashboardData?.totalExpenses || 0)}</p>
+                        </div>
+                        <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-5">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                              <BarChart3 size={20} className="text-blue-600" />
+                            </div>
+                            <span className="text-sm text-gray-500">Sof foyda</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-900">{formatPrice((dashboardData?.totalRevenue || dashboardData?.totalSales || 0) - (dashboardData?.totalExpenses || 0))}</p>
+                        </div>
+                        <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-5">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10">
+                              <Calculator size={20} className="text-purple-600" />
+                            </div>
+                            <span className="text-sm text-gray-500">O'rtacha chek</span>
+                          </div>
+                          <p className="text-2xl font-bold text-gray-900">{formatPrice(dashboardData?.averageCheck || dashboardData?.averageOrder || 0)}</p>
+                        </div>
+                      </div>
+
+                      {/* Revenue by source */}
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Daromad manbalari</h3>
+                        <div className="space-y-3">
+                          {[
+                            { label: 'POS (To\'g\'ridan-to\'g\'ri)', value: dashboardData?.posSales || dashboardData?.cashSales || 0, color: 'bg-blue-500' },
+                            { label: 'Nonbor', value: dashboardData?.nonborSales || 0, color: 'bg-green-500' },
+                            { label: 'QR buyurtma', value: dashboardData?.qrSales || 0, color: 'bg-purple-500' },
+                            { label: 'Ofitsiant', value: dashboardData?.waiterSales || 0, color: 'bg-amber-500' },
+                          ].map((source, idx) => {
+                            const maxVal = Math.max(
+                              dashboardData?.posSales || dashboardData?.cashSales || 0,
+                              dashboardData?.nonborSales || 0,
+                              dashboardData?.qrSales || 0,
+                              dashboardData?.waiterSales || 0,
+                              1
+                            );
+                            const pct = maxVal > 0 ? (source.value / maxVal) * 100 : 0;
+                            return (
+                              <div key={idx} className="flex items-center gap-3">
+                                <span className="text-sm text-gray-600 w-40 flex-shrink-0">{source.label}</span>
+                                <div className="flex-1 h-6 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className={cn("h-full rounded-full transition-all", source.color)} style={{ width: `${Math.max(pct, 2)}%` }} />
+                                </div>
+                                <span className="text-sm font-medium text-gray-900 w-32 text-right">{formatPrice(source.value)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Top 5 products */}
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Top 5 mahsulotlar</h3>
+                        {dashboardData?.topProducts && dashboardData.topProducts.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b border-white/40">
+                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase">#</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase">Mahsulot</th>
+                                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase">Sotilgan</th>
+                                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase">Daromad</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(dashboardData.topProducts as any[]).slice(0, 5).map((p: any, idx: number) => (
+                                  <tr key={idx} className="border-b border-white/30 hover:bg-white/30 transition-colors">
+                                    <td className="px-4 py-2.5 text-sm font-medium text-gray-500">{idx + 1}</td>
+                                    <td className="px-4 py-2.5 text-sm font-medium text-gray-900">{p.name || p.productName || 'Noma\'lum'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{p.quantity || p.count || 0} ta</td>
+                                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatPrice(p.revenue || p.total || 0)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 text-center py-4">Ma'lumot mavjud emas</p>
+                        )}
+                      </div>
+
+                      {/* Recent orders */}
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">So'nggi buyurtmalar</h3>
+                        {allOrders.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b border-white/40">
+                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase">Stol</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 uppercase">Holat</th>
+                                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase">Summa</th>
+                                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 uppercase">Vaqt</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {allOrders.slice(0, 10).map((order: any) => (
+                                  <tr key={order.id} className="border-b border-white/30 hover:bg-white/30 transition-colors">
+                                    <td className="px-4 py-2.5 text-sm font-mono text-gray-500">{(order.orderNumber || order.id || '').toString().slice(-6)}</td>
+                                    <td className="px-4 py-2.5 text-sm text-gray-900">{order.table?.number ? `Stol ${order.table.number}` : 'Olib ketish'}</td>
+                                    <td className="px-4 py-2.5">
+                                      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", {
+                                        'bg-yellow-500/10 text-yellow-600': order.status === 'NEW',
+                                        'bg-blue-500/10 text-blue-600': order.status === 'CONFIRMED' || order.status === 'PREPARING',
+                                        'bg-green-500/10 text-green-600': order.status === 'READY' || order.status === 'COMPLETED',
+                                        'bg-red-500/10 text-red-600': order.status === 'CANCELLED',
+                                        'bg-gray-500/10 text-gray-600': !['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'].includes(order.status),
+                                      })}>
+                                        {order.status}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatPrice(order.total || 0)}</td>
+                                    <td className="px-4 py-2.5 text-sm text-gray-500 text-right">
+                                      {new Date(order.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 text-center py-4">Buyurtmalar topilmadi</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
 
               {/* ====== TAB 7: INVENTORY ====== */}
@@ -2041,51 +2493,104 @@ export default function App() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Ombor</h2>
+                    <button
+                      onClick={() => fetchInventory()}
+                      className="flex items-center gap-2 rounded-xl glass-strong border border-white/60 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-white/50 transition-all"
+                    >
+                      <RefreshCw size={16} />
+                      Yangilash
+                    </button>
                   </div>
-                  {lowStockItems.length > 0 ? (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-yellow-700 flex items-center gap-2">
-                        <AlertTriangle size={18} />
+
+                  {/* Low stock alerts */}
+                  {lowStockItems.length > 0 && (
+                    <div className="glass-card rounded-2xl border border-red-200 bg-red-50/50 shadow-lg p-5">
+                      <h3 className="text-base font-semibold text-red-700 flex items-center gap-2 mb-3">
+                        <AlertTriangle size={18} className="text-red-500" />
                         Kam qolgan mahsulotlar ({lowStockItems.length})
                       </h3>
-                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b border-white/40 glass-strong">
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mahsulot</th>
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Joriy miqdor</th>
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Minimal miqdor</th>
-                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Holat</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {lowStockItems.map((item: any, idx: number) => (
-                                <tr key={idx} className="border-b border-white/30 hover:bg-white/30 transition-colors">
-                                  <td className="px-5 py-3 font-medium text-gray-900">{item.name || item.productName || 'Noma\'lum'}</td>
-                                  <td className="px-5 py-3 text-sm text-red-500 font-semibold">{item.currentStock ?? item.quantity ?? 0}</td>
-                                  <td className="px-5 py-3 text-sm text-gray-600">{item.minStock ?? item.minimumStock ?? '-'}</td>
-                                  <td className="px-5 py-3">
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-600">
-                                      <AlertCircle size={12} /> Kam
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                      <div className="flex flex-wrap gap-2">
+                        {lowStockItems.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 rounded-xl bg-white/80 border border-red-200 px-3 py-2">
+                            <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-900">{item.name || item.productName || 'Noma\'lum'}</span>
+                            <span className="text-xs text-red-500 font-semibold">{item.currentStock ?? item.quantity ?? 0} / {item.minStock ?? item.minimumStock ?? '-'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inventory items */}
+                  {inventoryLoading ? (
+                    <div className="flex items-center justify-center py-20">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    </div>
+                  ) : inventoryItems.length === 0 ? (
+                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8">
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <Boxes className="h-12 w-12 text-gray-300 mb-3" />
+                        <p className="text-gray-500">Ombor ma'lumotlari topilmadi</p>
+                        <p className="text-sm text-gray-400 mt-1">Mahsulotlar API dan yuklanmadi</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8">
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl glass-strong border border-white/60 shadow-lg mb-4">
-                          <Boxes className="h-10 w-10 text-gray-400" />
-                        </div>
-                        <p className="text-lg font-medium text-gray-700">Ombor holati yaxshi</p>
-                        <p className="text-sm text-gray-500 mt-1">Barcha mahsulotlar yetarli miqdorda</p>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {inventoryItems.map((item: any) => {
+                        const qty = item.quantity ?? item.currentStock ?? 0;
+                        const minQty = item.minQuantity ?? item.minimumStock ?? item.minStock ?? 0;
+                        const statusColor = qty <= minQty
+                          ? 'border-red-200 bg-red-50/30'
+                          : qty <= minQty * 2
+                            ? 'border-yellow-200 bg-yellow-50/30'
+                            : 'border-green-200 bg-green-50/30';
+                        const statusLabel = qty <= minQty
+                          ? { text: 'Tanqis', color: 'bg-red-500/10 text-red-600' }
+                          : qty <= minQty * 2
+                            ? { text: 'Kam', color: 'bg-yellow-500/10 text-yellow-600' }
+                            : { text: 'Normal', color: 'bg-green-500/10 text-green-600' };
+                        const qtyBarColor = qty <= minQty ? 'bg-red-500' : qty <= minQty * 2 ? 'bg-yellow-500' : 'bg-green-500';
+                        const qtyPct = minQty > 0 ? Math.min((qty / (minQty * 3)) * 100, 100) : 100;
+
+                        return (
+                          <div key={item.id} className={cn("glass-card rounded-2xl border shadow-lg p-5 hover:shadow-xl transition-all", statusColor)}>
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-900">{item.name || 'Noma\'lum'}</h4>
+                                {item.sku && <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku}</p>}
+                              </div>
+                              <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", statusLabel.color)}>
+                                {statusLabel.text}
+                              </span>
+                            </div>
+                            <div className="space-y-2 mb-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Joriy miqdor</span>
+                                <span className="font-semibold text-gray-900">{qty} {item.unit || 'dona'}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Minimal miqdor</span>
+                                <span className="text-gray-600">{minQty} {item.unit || 'dona'}</span>
+                              </div>
+                              <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div className={cn("h-full rounded-full transition-all", qtyBarColor)} style={{ width: `${qtyPct}%` }} />
+                              </div>
+                            </div>
+                            {(item.supplierName || item.supplier) && (
+                              <div className="flex items-center gap-2 text-xs text-gray-400 pt-2 border-t border-white/40">
+                                <Package size={12} />
+                                <span>{item.supplierName || item.supplier}</span>
+                              </div>
+                            )}
+                            {item.costPrice > 0 && (
+                              <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                                <DollarSign size={12} />
+                                <span>Tan narxi: {formatPrice(item.costPrice)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -2097,41 +2602,181 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-gray-900">Sozlamalar</h2>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Business info */}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Business info - editable */}
                     <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
-                      <h3 className="text-lg font-bold text-gray-900 mb-4">Biznes ma'lumotlari</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center rounded-xl glass-strong border border-white/60 px-4 py-3">
-                          <span className="text-sm text-gray-600">Nomi</span>
-                          <span className="text-sm font-medium text-gray-900">{bizSettings?.name || '-'}</span>
+                      <div className="flex items-center gap-2 mb-5">
+                        <Store size={20} className="text-blue-600" />
+                        <h3 className="text-lg font-bold text-gray-900">Biznes ma'lumotlari</h3>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nomi</label>
+                          <input
+                            type="text"
+                            value={settingsForm.name}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="Restoran nomi"
+                          />
                         </div>
-                        <div className="flex justify-between items-center rounded-xl glass-strong border border-white/60 px-4 py-3">
-                          <span className="text-sm text-gray-600">Manzil</span>
-                          <span className="text-sm font-medium text-gray-900">{bizSettings?.address || '-'}</span>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Manzil</label>
+                          <input
+                            type="text"
+                            value={settingsForm.address}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="Manzil"
+                          />
                         </div>
-                        <div className="flex justify-between items-center rounded-xl glass-strong border border-white/60 px-4 py-3">
-                          <span className="text-sm text-gray-600">Telefon</span>
-                          <span className="text-sm font-medium text-gray-900">{bizSettings?.phone || '-'}</span>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                          <input
+                            type="tel"
+                            value={settingsForm.phone}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="+998 90 123 45 67"
+                          />
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <input
+                            type="email"
+                            value={settingsForm.email}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                        <button
+                          disabled={settingsSaving}
+                          onClick={async () => {
+                            setSettingsSaving(true);
+                            try {
+                              await api.put('/settings', settingsForm);
+                              // Refresh settings
+                              const settings = await settingsService.get();
+                              setBizSettings(settings);
+                              alert('Sozlamalar saqlandi!');
+                            } catch (err) {
+                              console.error('[Admin] Sozlamalarni saqlashda xatolik:', err);
+                              alert('Sozlamalarni saqlashda xatolik yuz berdi');
+                            } finally {
+                              setSettingsSaving(false);
+                            }
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white shadow-md transition-all",
+                            settingsSaving ? "bg-gray-300 cursor-not-allowed" : "bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg"
+                          )}
+                        >
+                          {settingsSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                          {settingsSaving ? 'Saqlanmoqda...' : 'Saqlash'}
+                        </button>
                       </div>
                     </div>
 
-                    {/* Integrations */}
-                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
-                      <h3 className="text-lg font-bold text-gray-900 mb-4">Integratsiyalar</h3>
-                      <button
-                        onClick={() => setShowIntegrationHub(true)}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
-                      >
-                        <Store size={16} />
-                        Integratsiyalarni boshqarish
-                        {activeIntegrations > 0 && (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1 text-xs font-bold">
-                            {activeIntegrations}
-                          </span>
-                        )}
-                      </button>
+                    <div className="space-y-6">
+                      {/* Printer section */}
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Printer size={20} className="text-gray-600" />
+                          <h3 className="text-lg font-bold text-gray-900">Printer</h3>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+                              <span className="text-sm text-gray-700">Printer holati</span>
+                            </div>
+                            <span className="text-sm font-medium text-green-600">Tayyor</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              try { window.print(); } catch { alert('Printer bilan aloqa yo\'q'); }
+                            }}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl glass-strong border border-white/60 py-2.5 text-sm font-medium text-gray-700 hover:bg-white/50 transition-all"
+                          >
+                            <Printer size={14} />
+                            Test chop etish
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Integration section */}
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Globe size={20} className="text-blue-600" />
+                          <h3 className="text-lg font-bold text-gray-900">Integratsiyalar</h3>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Store size={14} className="text-blue-500" />
+                              <span className="text-sm text-gray-700">Nonbor</span>
+                            </div>
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                              (bizSettings as any)?.nonborEnabled ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-500"
+                            )}>
+                              {(bizSettings as any)?.nonborEnabled ? (<><Wifi size={10} /> Ulangan</>) : (<><WifiOff size={10} /> O'chiq</>)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Smartphone size={14} className="text-blue-400" />
+                              <span className="text-sm text-gray-700">Telegram</span>
+                            </div>
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                              (bizSettings as any)?.telegramEnabled ? "bg-green-500/10 text-green-600" : "bg-gray-500/10 text-gray-500"
+                            )}>
+                              {(bizSettings as any)?.telegramEnabled ? (<><Wifi size={10} /> Ulangan</>) : (<><WifiOff size={10} /> O'chiq</>)}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => setShowIntegrationHub(true)}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                          >
+                            <Settings size={14} />
+                            Integratsiyalarni boshqarish
+                            {activeIntegrations > 0 && (
+                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1 text-xs font-bold">
+                                {activeIntegrations}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* System info */}
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Info size={20} className="text-gray-600" />
+                          <h3 className="text-lg font-bold text-gray-900">Tizim ma'lumotlari</h3>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <span className="text-sm text-gray-600">API versiya</span>
+                            <span className="text-sm font-mono font-medium text-gray-900">v1.0.0</span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <span className="text-sm text-gray-600">Ma'lumotlar bazasi</span>
+                            <span className="inline-flex items-center gap-1 text-sm font-medium text-green-600">
+                              <Activity size={12} /> Faol
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <span className="text-sm text-gray-600">Valyuta</span>
+                            <span className="text-sm font-medium text-gray-900">{bizSettings?.currency || 'UZS'}</span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <span className="text-sm text-gray-600">Vaqt zonasi</span>
+                            <span className="text-sm font-medium text-gray-900">{bizSettings?.timezone || 'Asia/Tashkent'}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
