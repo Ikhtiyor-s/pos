@@ -97,6 +97,19 @@ class ApiService {
     }
   }
 
+  Future<Product?> getProductByBarcode(String barcode) async {
+    try {
+      final response = await _dio.get('/products/barcode/$barcode');
+      final data = response.data is Map && response.data['data'] != null
+          ? response.data['data']
+          : response.data;
+      return Product.fromJson(data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw _handleError(e);
+    }
+  }
+
   // ---------- Categories ----------
 
   Future<List<Category>> getCategories() async {
