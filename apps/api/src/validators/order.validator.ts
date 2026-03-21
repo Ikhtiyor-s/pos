@@ -7,6 +7,7 @@ export const orderItemSchema = z.object({
 });
 
 export const createOrderSchema = z.object({
+  source: z.enum(['POS_ORDER', 'WAITER_ORDER', 'QR_ORDER', 'NONBOR_ORDER', 'TELEGRAM_ORDER', 'WEBSITE_ORDER', 'API_ORDER']).default('POS_ORDER'),
   type: z.enum(['DINE_IN', 'TAKEAWAY', 'DELIVERY']).default('DINE_IN'),
   tableId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),

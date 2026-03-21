@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { ProductService } from '../services/product.service.js';
 import { successResponse, paginatedResponse } from '../utils/response.js';
-import { createProductSchema, updateProductSchema } from '../validators/product.validator.js';
+import {
+  createProductSchema,
+  updateProductSchema,
+  updatePriceSchema,
+  bulkToggleSchema,
+  bulkPriceUpdateSchema,
+} from '../validators/product.validator.js';
 
 export class ProductController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
@@ -115,6 +121,107 @@ export class ProductController {
       const tenantId = req.user!.tenantId!;
       const product = await ProductService.generateBarcodeForExisting(tenantId, req.params.id);
       return successResponse(res, product, 'Barcode yaratildi');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // ADMIN: NARX YANGILASH
+  // ==========================================
+
+  static async updatePrice(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const { price, costPrice } = updatePriceSchema.parse(req.body);
+      const product = await ProductService.updatePrice(tenantId, req.params.id, price, costPrice);
+      return successResponse(res, product, 'Narx yangilandi');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // ADMIN: YOQISH/O'CHIRISH
+  // ==========================================
+
+  static async toggleActive(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const product = await ProductService.toggleActive(tenantId, req.params.id);
+      const msg = product.isActive ? 'Mahsulot yoqildi' : 'Mahsulot o\'chirildi';
+      return successResponse(res, product, msg);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // BULK OPERATIONS
+  // ==========================================
+
+  static async bulkToggle(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const { productIds, isActive } = bulkToggleSchema.parse(req.body);
+      const result = await ProductService.bulkToggle(tenantId, productIds, isActive);
+      return successResponse(res, result, `${result.updated} ta mahsulot yangilandi`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async bulkPriceUpdate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const { updates } = bulkPriceUpdateSchema.parse(req.body);
+      const results = await ProductService.bulkPriceUpdate(tenantId, updates);
+      return successResponse(res, results, `${results.length} ta narx yangilandi`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // QR MENYU / FEATURED
+  // ==========================================
+
+  static async getQRMenuProducts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const products = await ProductService.getQRMenuProducts(tenantId);
+      return successResponse(res, products);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getFeatured(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const products = await ProductService.getFeaturedProducts(tenantId);
+      return successResponse(res, products);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async searchByTag(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const tag = req.params.tag;
+      const products = await ProductService.searchByTag(tenantId, tag);
+      return successResponse(res, products);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getLowStock(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const products = await ProductService.getLowStockProducts(tenantId);
+      return successResponse(res, products);
     } catch (error) {
       next(error);
     }

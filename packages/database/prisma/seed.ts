@@ -95,6 +95,23 @@ async function main() {
   });
   console.log('✅ Chef created:', chef.email);
 
+  const waiter = await prisma.user.upsert({
+    where: { email_tenantId: { email: 'ofitsiant@oshxona.uz', tenantId: tenant.id } },
+    update: {},
+    create: {
+      email: 'ofitsiant@oshxona.uz',
+      phone: '+998901234570',
+      password: await bcrypt.hash('3456', 10),
+      pinCode: await bcrypt.hash('3456', 10),
+      firstName: 'Ofitsiant',
+      lastName: 'Xodim',
+      role: Role.WAITER,
+      isActive: true,
+      tenantId: tenant.id,
+    },
+  });
+  console.log('✅ Waiter created:', waiter.email);
+
   // 4. Kategoriyalar yaratish
   const t = tenant.id;
   const categories = await Promise.all([
@@ -169,9 +186,10 @@ async function main() {
 
   console.log('\n🎉 Database seeding completed!');
   console.log('\n📋 Login credentials:');
-  console.log('   Admin:  admin@oshxona.uz  / 1234');
-  console.log('   Kassir: kassir@oshxona.uz / 5678');
-  console.log('   Oshpaz: oshpaz@oshxona.uz / 9012');
+  console.log('   Admin:     admin@oshxona.uz     / 1234');
+  console.log('   Kassir:    kassir@oshxona.uz    / 5678');
+  console.log('   Oshpaz:    oshpaz@oshxona.uz    / 9012');
+  console.log('   Ofitsiant: ofitsiant@oshxona.uz / 3456');
 }
 
 main()

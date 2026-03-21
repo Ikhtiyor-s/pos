@@ -13,6 +13,11 @@ export function checkPlanLimit(feature: string) {
       const result = await BillingService.checkLimit(tenantId, feature);
 
       if (!result.allowed) {
+        // Development mode da limit tekshiruvini o'tkazib yuborish
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[PlanLimit] ${feature} limiti: ${result.message} — dev mode, o'tkazildi`);
+          return next();
+        }
         return res.status(403).json({
           success: false,
           message: result.message || 'Tarif rejasi limiti tugadi',

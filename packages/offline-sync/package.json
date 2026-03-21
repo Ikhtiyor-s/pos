@@ -1,0 +1,12 @@
+{
+  "name": "@oshxona/offline-sync",
+  "version": "1.0.0",
+  "description": "Offline-first sync engine for Oshxona POS",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {}
+}

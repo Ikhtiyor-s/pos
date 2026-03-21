@@ -86,28 +86,66 @@ export class ProductService {
       throw new AppError('Kategoriya topilmadi', 404);
     }
 
-    // Auto-generate barcode
-    const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
-    const barcode = `PROD-${randomHex}-${Date.now()}`;
+    // Auto-generate barcode if not provided
+    const barcode = data.barcode || (() => {
+      const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+      return `PROD-${randomHex}-${Date.now()}`;
+    })();
+
+    // Extract relations
+    const { ingredients, variants, modifiers, ...productData } = data;
 
     const product = await prisma.product.create({
       data: {
-        name: data.name,
-        nameRu: data.nameRu,
-        nameEn: data.nameEn,
-        description: data.description,
-        price: data.price,
-        costPrice: data.costPrice,
-        categoryId: data.categoryId,
-        cookingTime: data.cookingTime,
-        calories: data.calories,
-        isActive: data.isActive,
+        name: productData.name,
+        nameRu: productData.nameRu,
+        nameEn: productData.nameEn,
+        description: productData.description,
+        descriptionRu: productData.descriptionRu,
+        descriptionEn: productData.descriptionEn,
+        sku: productData.sku,
+        price: productData.price,
+        costPrice: productData.costPrice,
+        image: productData.image,
+        images: productData.images || [],
+        categoryId: productData.categoryId,
+        weight: productData.weight,
+        weightUnit: productData.weightUnit,
+        cookingTime: productData.cookingTime,
+        preparationTime: productData.preparationTime,
+        calories: productData.calories,
+        stockQuantity: productData.stockQuantity,
+        lowStockAlert: productData.lowStockAlert,
+        trackStock: productData.trackStock,
+        tags: productData.tags || [],
+        isActive: productData.isActive,
+        isFeatured: productData.isFeatured,
+        isAvailableOnline: productData.isAvailableOnline,
+        sortOrder: productData.sortOrder,
         barcode,
         tenantId,
+        // Inline relations
+        ...(ingredients && ingredients.length > 0 ? {
+          ingredients: {
+            create: ingredients.map(ing => ({
+              inventoryItemId: ing.inventoryItemId,
+              quantity: ing.quantity,
+            })),
+          },
+        } : {}),
+        ...(variants && variants.length > 0 ? {
+          variants: { create: variants },
+        } : {}),
+        ...(modifiers && modifiers.length > 0 ? {
+          modifiers: { create: modifiers },
+        } : {}),
       },
       include: {
-        category: {
-          select: { id: true, name: true, slug: true },
+        category: { select: { id: true, name: true, slug: true } },
+        variants: true,
+        modifiers: true,
+        ingredients: {
+          include: { inventoryItem: { select: { id: true, name: true, unit: true } } },
         },
       },
     });
@@ -128,17 +166,187 @@ export class ProductService {
       }
     }
 
+    // Extract relations
+    const { ingredients, variants, modifiers, ...productData } = data;
+
+    // Update ingredients if provided
+    if (ingredients) {
+      await prisma.productIngredient.deleteMany({ where: { productId: id } });
+      if (ingredients.length > 0) {
+        await prisma.productIngredient.createMany({
+          data: ingredients.map(ing => ({
+            productId: id,
+            inventoryItemId: ing.inventoryItemId,
+            quantity: ing.quantity,
+          })),
+        });
+      }
+    }
+
+    // Update variants if provided
+    if (variants) {
+      await prisma.productVariant.deleteMany({ where: { productId: id } });
+      if (variants.length > 0) {
+        await prisma.productVariant.createMany({
+          data: variants.map(v => ({ productId: id, ...v })),
+        });
+      }
+    }
+
+    // Update modifiers if provided
+    if (modifiers) {
+      await prisma.productModifier.deleteMany({ where: { productId: id } });
+      if (modifiers.length > 0) {
+        await prisma.productModifier.createMany({
+          data: modifiers.map(m => ({ productId: id, ...m })),
+        });
+      }
+    }
+
     const product = await prisma.product.update({
       where: { id },
-      data,
+      data: productData,
       include: {
-        category: {
-          select: { id: true, name: true, slug: true },
+        category: { select: { id: true, name: true, slug: true } },
+        variants: true,
+        modifiers: true,
+        ingredients: {
+          include: { inventoryItem: { select: { id: true, name: true, unit: true } } },
         },
       },
     });
 
     return product;
+  }
+
+  // ==========================================
+  // ADMIN: NARX YANGILASH (istalgan vaqtda)
+  // ==========================================
+
+  static async updatePrice(tenantId: string, id: string, price: number, costPrice?: number) {
+    await this.getById(tenantId, id);
+
+    return prisma.product.update({
+      where: { id },
+      data: {
+        price,
+        ...(costPrice !== undefined ? { costPrice } : {}),
+      },
+      include: { category: { select: { id: true, name: true, slug: true } } },
+    });
+  }
+
+  // ==========================================
+  // ADMIN: MAHSULOTNI YOQISH/O'CHIRISH
+  // ==========================================
+
+  static async toggleActive(tenantId: string, id: string) {
+    const product = await this.getById(tenantId, id);
+
+    return prisma.product.update({
+      where: { id },
+      data: { isActive: !product.isActive },
+      include: { category: { select: { id: true, name: true, slug: true } } },
+    });
+  }
+
+  // ==========================================
+  // BULK TOGGLE (ko'plab mahsulotni yoqish/o'chirish)
+  // ==========================================
+
+  static async bulkToggle(tenantId: string, productIds: string[], isActive: boolean) {
+    const result = await prisma.product.updateMany({
+      where: { id: { in: productIds }, tenantId },
+      data: { isActive },
+    });
+    return { updated: result.count };
+  }
+
+  // ==========================================
+  // BULK PRICE UPDATE
+  // ==========================================
+
+  static async bulkPriceUpdate(tenantId: string, updates: Array<{ productId: string; price: number; costPrice?: number }>) {
+    const results = [];
+    for (const update of updates) {
+      const product = await prisma.product.update({
+        where: { id: update.productId, tenantId },
+        data: {
+          price: update.price,
+          ...(update.costPrice !== undefined ? { costPrice: update.costPrice } : {}),
+        },
+      });
+      results.push({ id: product.id, name: product.name, price: Number(product.price) });
+    }
+    return results;
+  }
+
+  // ==========================================
+  // QR MENYU UCHUN — faqat online available mahsulotlar
+  // ==========================================
+
+  static async getQRMenuProducts(tenantId: string) {
+    return prisma.product.findMany({
+      where: { tenantId, isActive: true, isAvailableOnline: true },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        variants: { where: { isActive: true } },
+        modifiers: { where: { isActive: true } },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  // ==========================================
+  // FEATURED PRODUCTS — tanlangan mahsulotlar
+  // ==========================================
+
+  static async getFeaturedProducts(tenantId: string) {
+    return prisma.product.findMany({
+      where: { tenantId, isActive: true, isFeatured: true },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  // ==========================================
+  // SEARCH BY TAGS
+  // ==========================================
+
+  static async searchByTag(tenantId: string, tag: string) {
+    return prisma.product.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        tags: { has: tag },
+      },
+      include: { category: { select: { id: true, name: true, slug: true } } },
+    });
+  }
+
+  // ==========================================
+  // LOW STOCK PRODUCTS
+  // ==========================================
+
+  static async getLowStockProducts(tenantId: string) {
+    // stockQuantity bor va lowStockAlert dan past bo'lgan mahsulotlar
+    const products = await prisma.product.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        trackStock: true,
+        stockQuantity: { not: null },
+      },
+      include: { category: { select: { id: true, name: true } } },
+    });
+
+    return products.filter(p =>
+      p.stockQuantity !== null &&
+      p.lowStockAlert !== null &&
+      p.stockQuantity <= p.lowStockAlert
+    );
   }
 
   static async delete(tenantId: string, id: string) {

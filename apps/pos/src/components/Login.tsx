@@ -8,9 +8,10 @@ import {
   Shield,
   ChefHat,
   User,
+  Utensils,
 } from 'lucide-react';
 
-const MAX_PIN_LENGTH = 8;
+const MAX_PIN_LENGTH = 4;
 const MIN_PIN_LENGTH = 4;
 
 interface LoginProps {
@@ -109,8 +110,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
         <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-xl shadow-orange-500/20">
           <UtensilsCrossed className="h-10 w-10 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-gray-800">Oshxona POS</h1>
-        <p className="mt-1 text-sm text-gray-500">PIN kodni kiriting</p>
+        <h1 className="text-3xl font-bold text-gray-900">Oshxona POS</h1>
+        <p className="mt-1 text-sm font-semibold text-gray-600">PIN kodni kiriting</p>
       </div>
 
       {/* PIN indikator */}
@@ -122,7 +123,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               pin.length > i
                 ? 'bg-orange-500 scale-110 shadow-md shadow-orange-500/40'
                 : i < MIN_PIN_LENGTH
-                  ? 'bg-white/60 border border-gray-300 backdrop-blur-sm'
+                  ? 'glass border border-gray-300 backdrop-blur-sm'
                   : 'bg-white/40 border border-gray-200 backdrop-blur-sm'
             }`}
           />
@@ -145,7 +146,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               type="button"
               onClick={() => handlePinInput(num.toString())}
               disabled={loading}
-              className="h-16 rounded-xl bg-white/40 backdrop-blur-md border border-white/60 text-2xl font-semibold text-gray-800 transition-all hover:bg-white/60 hover:border-white/80 active:scale-95 active:bg-white/70 disabled:opacity-50 shadow-sm"
+              className="h-16 rounded-xl glass-card border border-white/60 text-2xl font-semibold text-gray-900 transition-all hover:bg-white/60 hover:border-white/80 active:scale-95 active:bg-white/70 disabled:opacity-50 shadow-sm"
             >
               {num}
             </button>
@@ -160,7 +161,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               handlePinClear();
             }}
             disabled={loading || pin.length === 0}
-            className="h-16 rounded-xl bg-white/40 backdrop-blur-md border border-white/60 text-gray-500 transition-all hover:bg-white/60 hover:text-gray-800 active:scale-95 disabled:opacity-30 flex items-center justify-center shadow-sm"
+            className="h-16 rounded-xl glass-card border border-white/60 text-gray-600 transition-all hover:bg-white/60 hover:text-gray-900 active:scale-95 disabled:opacity-30 flex items-center justify-center shadow-sm"
           >
             <Delete size={24} />
           </button>
@@ -170,7 +171,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             type="button"
             onClick={() => handlePinInput('0')}
             disabled={loading}
-            className="h-16 rounded-xl bg-white/40 backdrop-blur-md border border-white/60 text-2xl font-semibold text-gray-800 transition-all hover:bg-white/60 hover:border-white/80 active:scale-95 active:bg-white/70 disabled:opacity-50 shadow-sm"
+            className="h-16 rounded-xl glass-card border border-white/60 text-2xl font-semibold text-gray-900 transition-all hover:bg-white/60 hover:border-white/80 active:scale-95 active:bg-white/70 disabled:opacity-50 shadow-sm"
           >
             0
           </button>
@@ -192,35 +193,44 @@ export function Login({ onLoginSuccess }: LoginProps) {
       </div>
 
       {/* Mavjud PIN kodlar */}
-      <div className="mt-8 w-full max-w-xs rounded-2xl border border-white/60 bg-white/40 backdrop-blur-xl p-4 shadow-lg">
-        <p className="mb-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Mavjud PIN kodlar</p>
+      <div className="mt-8 w-full max-w-xs rounded-2xl border border-white/60 glass-card p-4 shadow-lg">
+        <p className="mb-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">Mavjud PIN kodlar</p>
         <div className="space-y-2">
-          <div className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-3 py-2.5">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-500">
                 <Shield size={14} className="text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-700">Admin / Manager</span>
+              <span className="text-sm font-medium text-gray-800">Admin / Manager</span>
             </div>
             <span className="font-mono text-sm font-bold text-orange-500">1234</span>
           </div>
-          <div className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-3 py-2.5">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
                 <User size={14} className="text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-700">Kassir</span>
+              <span className="text-sm font-medium text-gray-800">Kassir</span>
             </div>
             <span className="font-mono text-sm font-bold text-blue-500">5678</span>
           </div>
-          <div className="flex items-center justify-between rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-3 py-2.5">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-500">
                 <ChefHat size={14} className="text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-700">Oshpaz</span>
+              <span className="text-sm font-medium text-gray-800">Oshpaz</span>
             </div>
             <span className="font-mono text-sm font-bold text-green-500">9012</span>
+          </div>
+          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-violet-500">
+                <Utensils size={14} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-gray-800">Ofitsiant</span>
+            </div>
+            <span className="font-mono text-sm font-bold text-purple-500">3456</span>
           </div>
         </div>
       </div>

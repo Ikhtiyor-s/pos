@@ -149,7 +149,7 @@ export function LoginPage() {
             <p className="text-sm font-semibold text-gray-700 mb-2">Demo kirish:</p>
             <div className="space-y-1 text-sm text-gray-600">
               <p><span className="font-medium">Email:</span> admin@oshxona.uz</p>
-              <p><span className="font-medium">Parol:</span> admin123</p>
+              <p><span className="font-medium">Parol:</span> 1234</p>
             </div>
           </div>
         </div>

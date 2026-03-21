@@ -77,4 +77,56 @@ router.post(
   ProductController.generateBarcode
 );
 
+// ==========================================
+// ADMIN: NARX VA HOLAT BOSHQARISH
+// ==========================================
+
+// Narxni yangilash (istalgan vaqtda)
+router.patch(
+  '/:id/price',
+  authenticate,
+  authorize(Role.SUPER_ADMIN, Role.MANAGER),
+  ProductController.updatePrice
+);
+
+// Mahsulotni yoqish/o'chirish
+router.patch(
+  '/:id/toggle',
+  authenticate,
+  authorize(Role.SUPER_ADMIN, Role.MANAGER),
+  ProductController.toggleActive
+);
+
+// ==========================================
+// BULK OPERATIONS
+// ==========================================
+
+router.post(
+  '/bulk/toggle',
+  authenticate,
+  authorize(Role.SUPER_ADMIN, Role.MANAGER),
+  ProductController.bulkToggle
+);
+
+router.post(
+  '/bulk/price-update',
+  authenticate,
+  authorize(Role.SUPER_ADMIN, Role.MANAGER),
+  ProductController.bulkPriceUpdate
+);
+
+// ==========================================
+// QR MENYU / FEATURED / TAGS / LOW STOCK
+// ==========================================
+
+router.get('/qr-menu/list', authenticate, ProductController.getQRMenuProducts);
+router.get('/featured/list', authenticate, ProductController.getFeatured);
+router.get('/tag/:tag', authenticate, ProductController.searchByTag);
+router.get(
+  '/low-stock/list',
+  authenticate,
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.WAREHOUSE),
+  ProductController.getLowStock
+);
+
 export default router;

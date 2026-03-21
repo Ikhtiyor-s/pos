@@ -33,6 +33,7 @@ export class OrderService {
     limit?: number;
     status?: OrderStatus;
     type?: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+    source?: string;
     tableId?: string;
     userId?: string;
     startDate?: Date;
@@ -46,6 +47,7 @@ export class OrderService {
 
     if (options?.status) where.status = options.status;
     if (options?.type) where.type = options.type;
+    if (options?.source) where.source = options.source as any;
     if (options?.tableId) where.tableId = options.tableId;
     if (options?.userId) where.userId = options.userId;
 
@@ -214,6 +216,7 @@ export class OrderService {
       data: {
         tenantId,
         orderNumber,
+        source: data.source as any || 'POS_ORDER',
         type: data.type,
         status: OrderStatus.NEW,
         tableId: data.tableId,

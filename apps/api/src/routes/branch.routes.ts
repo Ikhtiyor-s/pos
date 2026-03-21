@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { BranchController } from '../controllers/branch.controller.js';
 import { authenticate, authorize, requireTenant } from '../middleware/auth.js';
 import { Role } from '@oshxona/database';
+import branchAnalyticsRoutes from '../modules/branch/branch-analytics.routes.js';
 
 const router = Router();
 
@@ -10,6 +11,10 @@ router.use(authenticate);
 router.use(requireTenant);
 router.use(authorize(Role.MANAGER));
 
+// Branch Analytics sub-routes
+router.use('/analytics', branchAnalyticsRoutes);
+
+// CRUD
 router.get('/', BranchController.getAll);
 router.post('/', BranchController.create);
 router.get('/:id', BranchController.getById);

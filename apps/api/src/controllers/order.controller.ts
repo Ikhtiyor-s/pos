@@ -4,6 +4,8 @@ import { OrderService } from '../services/order.service.js';
 import { PaymentService } from '../services/payment.service.js';
 import { nonborSyncService } from '../services/nonbor-sync.service.js';
 import { IntegrationService } from '../services/integration.service.js';
+import { PrinterService } from '../modules/printer/printer.service.js';
+import { OrderLifecycleService } from '../modules/order-lifecycle/order-lifecycle.service.js';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import {
   createOrderSchema,
@@ -23,13 +25,14 @@ export class OrderController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
       const tenantId = req.user!.tenantId!;
-      const { page, limit, status, type, tableId, userId, startDate, endDate } = req.query;
+      const { page, limit, status, type, source, tableId, userId, startDate, endDate } = req.query;
 
       const result = await OrderService.getAll(tenantId, {
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
         status: status as any,
         type: type as any,
+        source: source as string,
         tableId: tableId as string,
         userId: userId as string,
         startDate: startDate ? new Date(startDate as string) : undefined,
@@ -68,14 +71,10 @@ export class OrderController {
       const data = createOrderSchema.parse(req.body);
       const order = await OrderService.create(tenantId, data, req.user!.id);
 
-      // Emit socket event to all relevant rooms
-      const io = req.app.get('io') as Server;
-      io.to('kitchen').emit('order:new', order);
-      io.to('pos').emit('order:new', order);
-      io.to('admin').emit('order:new', order);
-      io.to('waiter').emit('order:new', order);
+      // Unified Order Lifecycle — auto-transitions + broadcast + print
+      OrderLifecycleService.onOrderCreated(tenantId, order).catch(console.error);
 
-      // Integration Hub — barcha integratsiyalarga event dispatch
+      // Integration Hub
       IntegrationService.dispatchEvent('order:new', order).catch(console.error);
 
       return successResponse(res, order, 'Buyurtma yaratildi', 201);
@@ -96,29 +95,34 @@ export class OrderController {
         });
       }
 
-      const order = await OrderService.updateStatus(tenantId, req.params.id, status);
+      // Unified Lifecycle Engine orqali transition
+      const result = await OrderLifecycleService.transitionStatus(
+        tenantId, req.params.id, status, req.user!.id
+      );
 
-      // Emit socket event
-      const io = req.app.get('io') as Server;
-      io.emit('order:status', { orderId: order.id, status: order.status });
+      if (!result.success) {
+        return res.status(400).json({ success: false, message: result.message });
+      }
 
-      // Nonbor buyurtma bo'lsa, statusni Nonborga sync qilish
+      const order = result.order;
+
+      // Nonbor sync (agar kerak bo'lsa)
       if ((order as any).isNonborOrder && (order as any).nonborOrderId) {
         nonborSyncService.syncStatusToNonbor({
           id: order.id,
           status: order.status,
           nonborOrderId: (order as any).nonborOrderId,
           isNonborOrder: true,
-        }).catch((err) => console.error('[Nonbor] Status sync xatolik:', err));
+        }).catch((err: any) => console.error('[Nonbor] Status sync xatolik:', err));
       }
 
-      // Integration Hub — barcha integratsiyalarga event dispatch
+      // Integration Hub
       const integrationEvent = status === 'CANCELLED' ? 'order:cancelled'
         : status === 'COMPLETED' ? 'order:completed'
         : 'order:status';
       IntegrationService.dispatchEvent(integrationEvent, { orderId: order.id, status: order.status, order }).catch(console.error);
 
-      return successResponse(res, order, 'Buyurtma holati yangilandi');
+      return successResponse(res, order, result.message);
     } catch (error) {
       next(error);
     }
@@ -128,22 +132,20 @@ export class OrderController {
     try {
       const tenantId = req.user!.tenantId!;
       const { status } = updateOrderItemStatusSchema.parse(req.body);
-      const item = await OrderService.updateItemStatus(
+
+      // Unified Lifecycle — item status + auto-advance to READY
+      const result = await OrderLifecycleService.onItemStatusChange(
         tenantId,
         req.params.orderId,
         req.params.itemId,
         status
       );
 
-      // Emit socket event
-      const io = req.app.get('io') as Server;
-      io.emit('order:item:status', {
-        orderId: req.params.orderId,
-        itemId: item.id,
-        status: item.status,
-      });
+      const msg = result.autoAdvanced
+        ? 'Element holati yangilandi, buyurtma TAYYOR'
+        : 'Element holati yangilandi';
 
-      return successResponse(res, item, 'Element holati yangilandi');
+      return successResponse(res, result.order, msg);
     } catch (error) {
       next(error);
     }
@@ -204,9 +206,8 @@ export class OrderController {
       // Yangilangan buyurtma qaytarish
       const order = await OrderService.getById(tenantId, orderId);
 
-      // Socket event
-      const io = req.app.get('io') as Server;
-      io.emit('order:payment', { orderId, method, amount });
+      // Unified Lifecycle — broadcast + auto-print receipt
+      OrderLifecycleService.onPaymentReceived(tenantId, orderId, { method, amount }).catch(console.error);
 
       return successResponse(res, order, 'To\'lov qabul qilindi');
     } catch (error) {

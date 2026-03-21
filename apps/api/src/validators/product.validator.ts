@@ -1,19 +1,84 @@
 import { z } from 'zod';
 
 export const createProductSchema = z.object({
-  name: z.string({ required_error: 'Mahsulot nomi kiritilishi shart' }).min(2),
+  // Majburiy fieldlar
+  name: z.string({ required_error: 'Mahsulot nomi kiritilishi shart' }).min(2, 'Nom kamida 2 ta belgidan iborat bo\'lishi kerak'),
+  price: z.number({ required_error: 'Narx kiritilishi shart' }).positive('Narx musbat bo\'lishi kerak'),
+  categoryId: z.string({ required_error: 'Kategoriya tanlanishi shart' }).uuid(),
+  // Tillar
   nameRu: z.string().optional(),
   nameEn: z.string().optional(),
   description: z.string().optional(),
-  price: z.number({ required_error: 'Narx kiritilishi shart' }).positive('Narx musbat bo\'lishi kerak'),
+  descriptionRu: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  // Narx
   costPrice: z.number().positive().optional(),
-  categoryId: z.string({ required_error: 'Kategoriya tanlanishi shart' }).uuid(),
+  // Rasmlar
+  image: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  // Xususiyatlar
+  weight: z.number().positive().optional(),
+  weightUnit: z.enum(['g', 'kg', 'ml', 'l', 'dona']).optional(),
   cookingTime: z.number().int().positive().optional(),
+  preparationTime: z.number().int().positive().optional(),
   calories: z.number().int().positive().optional(),
+  // Zaxira
+  stockQuantity: z.number().int().min(0).optional(),
+  lowStockAlert: z.number().int().min(0).optional(),
+  trackStock: z.boolean().optional(),
+  // Holat
   isActive: z.boolean().default(true),
+  isFeatured: z.boolean().optional(),
+  isAvailableOnline: z.boolean().default(true),
+  // Teglar va barcode
+  tags: z.array(z.string()).optional(),
+  barcode: z.string().optional(),
+  sku: z.string().optional(),
+  sortOrder: z.number().int().optional(),
+  // Ingredientlar (inline yaratish)
+  ingredients: z.array(z.object({
+    inventoryItemId: z.string().uuid(),
+    quantity: z.number().positive(),
+  })).optional(),
+  // Variantlar (inline yaratish)
+  variants: z.array(z.object({
+    name: z.string().min(1),
+    nameRu: z.string().optional(),
+    nameEn: z.string().optional(),
+    price: z.number().positive(),
+    isActive: z.boolean().default(true),
+  })).optional(),
+  // Modifierlar (inline yaratish)
+  modifiers: z.array(z.object({
+    name: z.string().min(1),
+    nameRu: z.string().optional(),
+    nameEn: z.string().optional(),
+    price: z.number().min(0),
+    isActive: z.boolean().default(true),
+  })).optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();
+
+// Narx yangilash uchun alohida schema
+export const updatePriceSchema = z.object({
+  price: z.number().positive('Narx musbat bo\'lishi kerak'),
+  costPrice: z.number().positive().optional(),
+});
+
+// Bulk operatsiyalar
+export const bulkToggleSchema = z.object({
+  productIds: z.array(z.string().uuid()).min(1),
+  isActive: z.boolean(),
+});
+
+export const bulkPriceUpdateSchema = z.object({
+  updates: z.array(z.object({
+    productId: z.string().uuid(),
+    price: z.number().positive(),
+    costPrice: z.number().positive().optional(),
+  })).min(1),
+});
 
 export const createCategorySchema = z.object({
   name: z.string({ required_error: 'Kategoriya nomi kiritilishi shart' }).min(2),
