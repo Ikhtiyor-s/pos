@@ -59,6 +59,19 @@ model Tenant {
   analyticsSnapshots    AnalyticsSnapshot[]
   forecasts             Forecast[]
 
+  // Yangi modullar v3.1
+  loyaltyProgram        LoyaltyProgram?
+  loyaltyAccounts       LoyaltyAccount[]
+  coupons               Coupon[]
+  reservations          Reservation[]
+  drivers               Driver[]
+  deliveries            Delivery[]
+  shifts                Shift[]
+  attendances           Attendance[]
+  payrolls              Payroll[]
+  telegramUsers         TelegramUser[]
+  smsLogs               SmsLog[]
+
   @@index([parentId])
   @@index([slug])
   @@index([isActive])
@@ -102,6 +115,9 @@ model User {
   cashRegisters         CashRegister[]
   purchaseOrders        PurchaseOrder[]
   notifications         Notification[]
+  shifts                Shift[]
+  attendances           Attendance[]
+  payrolls              Payroll[]
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -269,7 +285,8 @@ model Table {
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
-  orders Order[]
+  orders       Order[]
+  reservations Reservation[]
 
   @@unique([number, tenantId])
   @@unique([qrCode, tenantId])
@@ -333,6 +350,7 @@ model Order {
   items        OrderItem[]
   payments     Payment[]
   onlineOrder  OnlineOrder?
+  delivery     Delivery?
 
   @@unique([orderNumber, tenantId])
   @@unique([nonborOrderId, tenantId])
@@ -514,7 +532,10 @@ model Customer {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  orders Order[]
+  orders          Order[]
+  loyaltyAccount  LoyaltyAccount?
+  reservations    Reservation[]
+  telegramUsers   TelegramUser[]
 
   @@unique([phone, tenantId])
   @@index([tenantId])
@@ -1146,4 +1167,354 @@ model Forecast {
 
   @@unique([tenantId, type, targetDate])
   @@map("forecasts")
+}
+
+// ==========================================
+// LOYALTY & DISCOUNT TIZIMI
+// ==========================================
+
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model LoyaltyProgram {
+  id               String   @id @default(uuid())
+  pointsPerSpend   Decimal  @default(1) @map("points_per_spend") @db.Decimal(5, 2)
+  currency         Decimal  @default(1000) @db.Decimal(12, 2) // 1000 so'm = 1 point
+  silverThreshold  Int      @default(500) @map("silver_threshold")
+  goldThreshold    Int      @default(2000) @map("gold_threshold")
+  platinumThreshold Int     @default(5000) @map("platinum_threshold")
+  isActive         Boolean  @default(true) @map("is_active")
+  tenantId         String   @unique @map("tenant_id")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("loyalty_programs")
+}
+
+model LoyaltyAccount {
+  id           String      @id @default(uuid())
+  customerId   String      @unique @map("customer_id")
+  customer     Customer    @relation(fields: [customerId], references: [id])
+  points       Int         @default(0)
+  totalEarned  Int         @default(0) @map("total_earned")
+  totalSpent   Int         @default(0) @map("total_spent")
+  tier         LoyaltyTier @default(BRONZE)
+  tenantId     String      @map("tenant_id")
+  tenant       Tenant      @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  transactions LoyaltyTransaction[]
+
+  @@unique([customerId, tenantId])
+  @@map("loyalty_accounts")
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+  BONUS
+  EXPIRE
+  ADJUST
+}
+
+model LoyaltyTransaction {
+  id        String                 @id @default(uuid())
+  accountId String                 @map("account_id")
+  account   LoyaltyAccount         @relation(fields: [accountId], references: [id])
+  type      LoyaltyTransactionType
+  points    Int
+  orderId   String?                @map("order_id")
+  notes     String?
+  createdAt DateTime               @default(now()) @map("created_at")
+
+  @@map("loyalty_transactions")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+  FREE_ITEM
+}
+
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String
+  name          String
+  description   String?
+  discountType  DiscountType @map("discount_type")
+  discountValue Decimal      @map("discount_value") @db.Decimal(12, 2)
+  minOrderAmount Decimal?    @map("min_order_amount") @db.Decimal(12, 2)
+  maxDiscount   Decimal?     @map("max_discount") @db.Decimal(12, 2)
+  usageLimit    Int?         @map("usage_limit")
+  usageCount    Int          @default(0) @map("usage_count")
+  perUserLimit  Int          @default(1) @map("per_user_limit")
+  startDate     DateTime     @map("start_date")
+  endDate       DateTime     @map("end_date")
+  isActive      Boolean      @default(true) @map("is_active")
+  tenantId      String       @map("tenant_id")
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  usages CouponUsage[]
+
+  @@unique([code, tenantId])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id         String   @id @default(uuid())
+  couponId   String   @map("coupon_id")
+  coupon     Coupon   @relation(fields: [couponId], references: [id])
+  customerId String?  @map("customer_id")
+  orderId    String   @map("order_id")
+  discount   Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("coupon_usages")
+}
+
+// ==========================================
+// STOL BRON QILISH (RESERVATION)
+// ==========================================
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Reservation {
+  id             String            @id @default(uuid())
+  customerName   String            @map("customer_name")
+  customerPhone  String            @map("customer_phone")
+  customerId     String?           @map("customer_id")
+  customer       Customer?         @relation(fields: [customerId], references: [id])
+  tableId        String?           @map("table_id")
+  table          Table?            @relation(fields: [tableId], references: [id])
+  guestCount     Int               @map("guest_count")
+  reservationDate DateTime         @map("reservation_date")
+  startTime      DateTime          @map("start_time")
+  endTime        DateTime          @map("end_time")
+  status         ReservationStatus @default(PENDING)
+  notes          String?
+  source         String            @default("PHONE") // PHONE, WEBSITE, TELEGRAM, WALK_IN
+  confirmationCode String?         @unique @map("confirmation_code")
+  reminderSent   Boolean           @default(false) @map("reminder_sent")
+  tenantId       String            @map("tenant_id")
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  @@index([tenantId, reservationDate])
+  @@index([tenantId, status])
+  @@index([tableId, reservationDate])
+  @@map("reservations")
+}
+
+// ==========================================
+// YETKAZIB BERISH (DELIVERY TRACKING)
+// ==========================================
+
+enum DriverStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+model Driver {
+  id        String       @id @default(uuid())
+  name      String
+  phone     String
+  vehicle   String?
+  status    DriverStatus @default(AVAILABLE)
+  isActive  Boolean      @default(true) @map("is_active")
+  tenantId  String       @map("tenant_id")
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  deliveries Delivery[]
+
+  @@map("drivers")
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model Delivery {
+  id              String         @id @default(uuid())
+  orderId         String         @unique @map("order_id")
+  order           Order          @relation(fields: [orderId], references: [id])
+  driverId        String?        @map("driver_id")
+  driver          Driver?        @relation(fields: [driverId], references: [id])
+  status          DeliveryStatus @default(PENDING)
+  pickupAddress   String?        @map("pickup_address")
+  deliveryAddress String         @map("delivery_address")
+  customerPhone   String         @map("customer_phone")
+  estimatedTime   Int?           @map("estimated_time") // minutes
+  actualTime      Int?           @map("actual_time")
+  distance        Decimal?       @db.Decimal(8, 2) // km
+  deliveryFee     Decimal        @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  pickedUpAt      DateTime?      @map("picked_up_at")
+  deliveredAt     DateTime?      @map("delivered_at")
+  notes           String?
+  rating          Int?
+  tenantId        String         @map("tenant_id")
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([driverId, status])
+  @@map("deliveries")
+}
+
+// ==========================================
+// XODIMLAR JADVALI (STAFF SCHEDULING)
+// ==========================================
+
+enum ShiftStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  ABSENT
+  LATE
+}
+
+model Shift {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  user        User        @relation(fields: [userId], references: [id])
+  date        DateTime
+  startTime   DateTime    @map("start_time")
+  endTime     DateTime    @map("end_time")
+  actualStart DateTime?   @map("actual_start")
+  actualEnd   DateTime?   @map("actual_end")
+  status      ShiftStatus @default(SCHEDULED)
+  breakMinutes Int        @default(0) @map("break_minutes")
+  overtime    Int          @default(0) // minutes
+  notes       String?
+  tenantId    String      @map("tenant_id")
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([userId, date])
+  @@index([tenantId, date])
+  @@map("shifts")
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  clockIn   DateTime @map("clock_in")
+  clockOut  DateTime? @map("clock_out")
+  hours     Decimal? @db.Decimal(5, 2)
+  isLate    Boolean  @default(false) @map("is_late")
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, clockIn])
+  @@index([tenantId, clockIn])
+  @@map("attendance")
+}
+
+model Payroll {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id])
+  periodStart  DateTime @map("period_start")
+  periodEnd    DateTime @map("period_end")
+  baseSalary   Decimal  @map("base_salary") @db.Decimal(12, 2)
+  overtimePay  Decimal  @default(0) @map("overtime_pay") @db.Decimal(12, 2)
+  bonuses      Decimal  @default(0) @db.Decimal(12, 2)
+  deductions   Decimal  @default(0) @db.Decimal(12, 2)
+  totalPay     Decimal  @map("total_pay") @db.Decimal(12, 2)
+  isPaid       Boolean  @default(false) @map("is_paid")
+  paidAt       DateTime? @map("paid_at")
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, periodStart, periodEnd])
+  @@map("payroll")
+}
+
+// ==========================================
+// TELEGRAM BOT
+// ==========================================
+
+model TelegramUser {
+  id         String   @id @default(uuid())
+  chatId     String   @unique @map("chat_id")
+  username   String?
+  firstName  String?  @map("first_name")
+  phone      String?
+  customerId String?  @map("customer_id")
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  language   String   @default("uz")
+  isActive   Boolean  @default(true) @map("is_active")
+  tenantId   String   @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, chatId])
+  @@map("telegram_users")
+}
+
+// ==========================================
+// SMS XABARLAR
+// ==========================================
+
+enum SmsType {
+  OTP
+  ORDER_STATUS
+  RESERVATION
+  MARKETING
+  LOYALTY
+}
+
+enum SmsStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model SmsLog {
+  id        String    @id @default(uuid())
+  phone     String
+  type      SmsType
+  message   String
+  status    SmsStatus @default(PENDING)
+  provider  String    @default("eskiz") // eskiz, playmobile
+  externalId String?  @map("external_id")
+  cost      Decimal?  @db.Decimal(8, 2)
+  sentAt    DateTime? @map("sent_at")
+  tenantId  String    @map("tenant_id")
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId, type])
+  @@index([phone, tenantId])
+  @@map("sms_logs")
 }

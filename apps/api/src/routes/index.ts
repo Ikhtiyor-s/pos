@@ -28,6 +28,14 @@ import syncRoutes from '../modules/sync/sync.routes.js';
 import tenantIsolationRoutes from '../modules/tenant-isolation/tenant-isolation.routes.js';
 import qrMenuRoutes from './qr-menu.routes.js';
 
+// v3.1 modullar
+import loyaltyRoutes from '../modules/loyalty/loyalty.routes.js';
+import reservationRoutes from '../modules/reservation/reservation.routes.js';
+import deliveryRoutes from '../modules/delivery/delivery.routes.js';
+import staffRoutes from '../modules/staff-scheduling/staff.routes.js';
+import telegramBotRoutes from '../modules/telegram-bot/telegram-bot.routes.js';
+import smsRoutes from '../modules/sms/sms.routes.js';
+
 const router = Router();
 
 // API routes
@@ -59,6 +67,14 @@ router.use('/printer', printerRoutes);
 router.use('/sync', syncRoutes);
 router.use('/admin', tenantIsolationRoutes);
 router.use('/qr-menu', qrMenuRoutes);
+
+// v3.1 modullar
+router.use('/loyalty', loyaltyRoutes);
+router.use('/reservations', reservationRoutes);
+router.use('/delivery', deliveryRoutes);
+router.use('/staff', staffRoutes);
+router.use('/telegram', telegramBotRoutes);
+router.use('/sms', smsRoutes);
 
 // API info
 router.get('/', (_req, res) => {
