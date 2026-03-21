@@ -1473,10 +1473,13 @@ export default function App() {
                     <div className="glass-card rounded-2xl border border-white/60 p-5 shadow-lg">
                       <h3 className="text-lg font-bold text-gray-900 mb-4">Buyurtmalar holati</h3>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        {Object.entries(dashboardData.ordersByStatus).map(([status, count]: [string, any]) => (
-                          <div key={status} className="rounded-xl glass-strong border border-white/60 p-3 text-center">
-                            {statusBadge(status)}
-                            <p className="mt-2 text-2xl font-bold text-gray-900">{count}</p>
+                        {(Array.isArray(dashboardData.ordersByStatus)
+                          ? dashboardData.ordersByStatus
+                          : Object.entries(dashboardData.ordersByStatus).map(([s, c]) => ({ status: s, count: c }))
+                        ).map((item: any) => (
+                          <div key={item.status || item[0]} className="rounded-xl glass-strong border border-white/60 p-3 text-center">
+                            {statusBadge(String(item.status || item[0] || ''))}
+                            <p className="mt-2 text-2xl font-bold text-gray-900">{typeof item.count === 'number' ? item.count : (typeof item === 'number' ? item : 0)}</p>
                           </div>
                         ))}
                       </div>
