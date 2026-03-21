@@ -44,6 +44,10 @@ import {
   List,
   Eye,
   EyeOff,
+  Settings,
+  PanelLeftClose,
+  PanelLeft,
+  Boxes,
 } from 'lucide-react';
 import api from './services/api';
 import { productService, categoryService, type Product as ApiProduct, type Category as ApiCategory } from './services/product.service';
@@ -147,8 +151,9 @@ export default function App() {
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
 
   // Admin Dashboard states
-  type AdminTab = 'dashboard' | 'products' | 'orders' | 'tables';
+  type AdminTab = 'dashboard' | 'products' | 'orders' | 'tables' | 'staff' | 'reports' | 'inventory' | 'settings';
   const [adminTab, setAdminTab] = useState<AdminTab>('dashboard');
+  const [adminSidebarCollapsed, setAdminSidebarCollapsed] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardPeriod, setDashboardPeriod] = useState<'today' | 'week' | 'month' | 'year'>('today');
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -206,6 +211,8 @@ export default function App() {
       fetchAdminProducts();
     } else if (adminTab === 'orders') {
       fetchAllOrders();
+    } else if (adminTab === 'reports') {
+      // Reports tab uses the Reports component
     }
   }, [adminTab, dashboardPeriod, isAuthenticated, currentShift, user?.role, fetchDashboard, fetchAdminProducts, fetchAllOrders]);
 
@@ -978,10 +985,14 @@ export default function App() {
     // ============ ADMIN DASHBOARD ============
     if (isAdminRole(userRole)) {
       const adminTabs: { id: AdminTab; label: string; icon: any }[] = [
-        { id: 'dashboard', label: 'Bosh sahifa', icon: LayoutDashboard },
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'products', label: 'Mahsulotlar', icon: Package },
         { id: 'orders', label: 'Buyurtmalar', icon: ShoppingBag },
         { id: 'tables', label: 'Stollar', icon: Grid3X3 },
+        { id: 'staff', label: 'Xodimlar', icon: Users },
+        { id: 'reports', label: 'Hisobotlar', icon: BarChart3 },
+        { id: 'inventory', label: 'Ombor', icon: Boxes },
+        { id: 'settings', label: 'Sozlamalar', icon: Settings },
       ];
 
       const handleProductSave = async () => {
@@ -1061,111 +1072,147 @@ export default function App() {
       };
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
+        <div className="flex h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
           {lockElements}
-          {/* Admin Header */}
-          <header className="flex h-16 items-center justify-between glass-strong border-b border-white/40 px-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
-                <UtensilsCrossed className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <span className="text-xl font-bold text-gray-900">{bizSettings?.name || 'Oshxona POS'}</span>
-                <p className="text-xs text-gray-500">Admin panel</p>
-              </div>
-              <div className="ml-3 flex items-center gap-2 rounded-xl glass-strong border border-white/60 px-2.5 py-1">
-                <span className="text-xs font-medium text-gray-700">{user?.name}</span>
-                <span className="text-[10px] text-gray-500 capitalize">({user?.role?.replace('_', ' ')})</span>
-                <button
-                  onClick={() => { logout(); localStorage.removeItem('pos-auth'); }}
-                  className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                  title="Chiqish"
-                >
-                  <LogOut size={12} />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Clock size={16} />
-                <span className="text-sm">
-                  {new Date().toLocaleDateString('uz-UZ', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  })} {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              {lowStockItems.length > 0 && (
-                <button
-                  onClick={() => setShowLowStock(true)}
-                  className="flex items-center gap-2 rounded-xl bg-yellow-500/10 backdrop-blur-sm border border-yellow-300/40 px-3 py-2 text-sm font-medium text-yellow-600 hover:bg-yellow-500/20 transition-colors animate-pulse"
-                >
-                  <AlertTriangle size={16} />
-                  Kam: {lowStockItems.length}
-                </button>
-              )}
-              <button
-                onClick={() => setShowIntegrationHub(true)}
-                className={cn(
-                  'flex items-center gap-2 rounded-xl backdrop-blur-sm px-3 py-2 text-sm font-medium transition-colors',
-                  activeIntegrations > 0
-                    ? 'bg-green-500/10 border border-green-300/40 text-green-600 hover:bg-green-500/20'
-                    : 'bg-white/50 border border-white/60 text-gray-600 hover:bg-white/70 hover:text-gray-900'
-                )}
-              >
-                <Store size={16} />
-                Integratsiyalar
-                {activeIntegrations > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-500 px-1 text-xs font-bold text-white">
-                    {activeIntegrations}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setCurrentStep('reports')}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
-              >
-                <BarChart3 size={16} />
-                Hisobotlar
-              </button>
-              <button
-                onClick={() => setShowOrderTypeModal(true)}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
-              >
-                <Plus size={16} />
-                Buyurtma berish
-              </button>
-            </div>
-          </header>
 
-          {/* Tab Navigation */}
-          <div className="glass-card border-b border-white/40 px-6">
-            <div className="flex gap-1">
+          {/* ===== LEFT SIDEBAR ===== */}
+          <aside className={cn(
+            'flex flex-col bg-slate-900 text-white transition-all duration-300 shrink-0',
+            adminSidebarCollapsed ? 'w-[72px]' : 'w-[250px]'
+          )}>
+            {/* Sidebar Header */}
+            <div className="flex h-16 items-center gap-3 px-4 border-b border-white/10">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
+                <UtensilsCrossed className="h-4 w-4 text-white" />
+              </div>
+              {!adminSidebarCollapsed && (
+                <div className="min-w-0">
+                  <p className="text-sm font-bold truncate">{bizSettings?.name || 'Oshxona POS'}</p>
+                  <p className="text-[10px] text-slate-400">Admin Panel</p>
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar Navigation */}
+            <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
               {adminTabs.map((tab) => {
                 const Icon = tab.icon;
+                const isActive = adminTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setAdminTab(tab.id)}
+                    title={adminSidebarCollapsed ? tab.label : undefined}
                     className={cn(
-                      'flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all',
-                      adminTab === tab.id
-                        ? 'border-orange-500 text-orange-600 bg-orange-50/30'
-                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-white/40'
+                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                      isActive
+                        ? 'bg-orange-500/20 text-orange-400'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    <Icon size={16} />
-                    {tab.label}
+                    <Icon size={18} className="shrink-0" />
+                    {!adminSidebarCollapsed && <span className="truncate">{tab.label}</span>}
                   </button>
                 );
               })}
-            </div>
-          </div>
+            </nav>
 
-          {/* Tab Content */}
-          <div className="p-6">
-            <div className="mx-auto max-w-7xl">
+            {/* Sidebar Footer */}
+            <div className="border-t border-white/10 p-3 space-y-2">
+              {/* Low stock alert */}
+              {lowStockItems.length > 0 && !adminSidebarCollapsed && (
+                <button
+                  onClick={() => setShowLowStock(true)}
+                  className="flex w-full items-center gap-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-xs font-medium text-yellow-400 hover:bg-yellow-500/20 transition-colors"
+                >
+                  <AlertTriangle size={14} className="shrink-0" />
+                  <span className="truncate">Kam qoldi: {lowStockItems.length}</span>
+                </button>
+              )}
+              {lowStockItems.length > 0 && adminSidebarCollapsed && (
+                <button
+                  onClick={() => setShowLowStock(true)}
+                  title={`Kam qoldi: ${lowStockItems.length}`}
+                  className="flex w-full items-center justify-center rounded-xl bg-yellow-500/10 border border-yellow-500/20 p-2 text-yellow-400 hover:bg-yellow-500/20 transition-colors"
+                >
+                  <AlertTriangle size={16} />
+                </button>
+              )}
+
+              {/* Integration button */}
+              {!adminSidebarCollapsed && (
+                <button
+                  onClick={() => setShowIntegrationHub(true)}
+                  className="flex w-full items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-xs font-medium text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Store size={14} className="shrink-0" />
+                  <span className="truncate">Integratsiyalar</span>
+                  {activeIntegrations > 0 && (
+                    <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-green-500 px-1 text-[10px] font-bold text-white">
+                      {activeIntegrations}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* User info */}
+              <div className={cn(
+                'flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2',
+                adminSidebarCollapsed && 'justify-center px-2'
+              )}>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'A'}
+                </div>
+                {!adminSidebarCollapsed && (
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium truncate text-slate-300">{user?.name}</p>
+                    <p className="text-[10px] text-slate-500 capitalize">{user?.role?.replace('_', ' ')}</p>
+                  </div>
+                )}
+                <button
+                  onClick={() => { logout(); localStorage.removeItem('pos-auth'); }}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                  title="Chiqish"
+                >
+                  <LogOut size={13} />
+                </button>
+              </div>
+
+              {/* Collapse toggle */}
+              <button
+                onClick={() => setAdminSidebarCollapsed(!adminSidebarCollapsed)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-2 text-xs text-slate-500 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                {adminSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+                {!adminSidebarCollapsed && <span>Yopish</span>}
+              </button>
+            </div>
+          </aside>
+
+          {/* ===== MAIN CONTENT ===== */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Top bar */}
+            <header className="flex h-14 items-center justify-between glass-strong border-b border-white/40 px-6 shadow-sm shrink-0">
+              <h1 className="text-lg font-bold text-gray-900">
+                {adminTabs.find(t => t.id === adminTab)?.label || 'Dashboard'}
+              </h1>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                  <Clock size={14} />
+                  <span>
+                    {new Date().toLocaleDateString('uz-UZ', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })} {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            </header>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mx-auto max-w-7xl">
 
               {/* ====== TAB 1: DASHBOARD ====== */}
               {adminTab === 'dashboard' && (
@@ -1516,53 +1563,19 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Active orders (from main state) */}
+                  {/* Active orders (view only for admin) */}
                   {activeOrders.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-gray-800 mb-3">Faol buyurtmalar</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {activeOrders.map((order) => (
-                          <button
+                          <div
                             key={order.orderId}
-                            onClick={() => {
-                              const table = tables.find((t) => t.id === order.tableId);
-                              if (table) {
-                                setOrderType('dine-in');
-                                setSelectedTable(table);
-                                setCurrentOrder(order);
-                                setCurrentApiOrderId(order.orderId);
-                                clearCart();
-                                order.orderItems.forEach((item) => {
-                                  const product = products.find((p) => p.id === item.productId);
-                                  if (product) {
-                                    for (let i = 0; i < item.quantity; i++) {
-                                      addItem(product as any);
-                                    }
-                                  }
-                                });
-                                setCurrentStep('order-detail');
-                              } else if (!order.tableId) {
-                                // Olib ketish buyurtmasi
-                                setOrderType('takeaway');
-                                setCurrentOrder(order);
-                                setCurrentApiOrderId(order.orderId);
-                                clearCart();
-                                order.orderItems.forEach((item) => {
-                                  const product = products.find((p) => p.id === item.productId);
-                                  if (product) {
-                                    for (let i = 0; i < item.quantity; i++) {
-                                      addItem(product as any);
-                                    }
-                                  }
-                                });
-                                setCurrentStep('order-detail');
-                              }
-                            }}
                             className={cn(
-                              'group relative flex flex-col glass-card rounded-2xl border-2 p-4 transition-all shadow-lg text-left',
+                              'relative flex flex-col glass-card rounded-2xl border-2 p-4 shadow-lg',
                               order.awaitingPayment
-                                ? 'border-yellow-300/50 hover:border-yellow-400 hover:bg-yellow-50/50'
-                                : 'border-orange-200/50 hover:border-orange-400 hover:bg-orange-50/50'
+                                ? 'border-yellow-300/50'
+                                : 'border-orange-200/50'
                             )}
                           >
                             <div className="flex items-start justify-between mb-3">
@@ -1582,11 +1595,20 @@ export default function App() {
                               </div>
                               {statusBadge(order.status)}
                             </div>
-                            <div className="flex items-center justify-between text-sm">
+                            {/* Show order items */}
+                            <div className="space-y-1 mb-3">
+                              {order.orderItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs text-gray-600">
+                                  <span>{item.name}</span>
+                                  <span className="font-medium">x{item.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between text-sm border-t border-gray-200/60 pt-2">
                               <span className="text-gray-600">{order.items} ta mahsulot</span>
                               <span className="text-lg font-bold text-orange-500">{formatPrice(order.total)}</span>
                             </div>
-                          </button>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -1637,13 +1659,13 @@ export default function App() {
                         <ShoppingBag className="h-12 w-12 text-gray-500" />
                       </div>
                       <p className="text-lg font-medium text-gray-700">Buyurtmalar yo'q</p>
-                      <p className="text-sm text-gray-500">Yangi buyurtma berish uchun tugmani bosing</p>
+                      <p className="text-sm text-gray-500">Hozircha buyurtmalar yo'q</p>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* ====== TAB 4: TABLES ====== */}
+              {/* ====== TAB 4: TABLES (view only for admin) ====== */}
               {adminTab === 'tables' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
@@ -1671,34 +1693,12 @@ export default function App() {
                       return (
                         <div
                           key={table.id}
-                          onClick={() => {
-                            if (tableOrder) {
-                              setOrderType('dine-in');
-                              setSelectedTable(table);
-                              setCurrentOrder(tableOrder);
-                              setCurrentApiOrderId(tableOrder.orderId);
-                              clearCart();
-                              tableOrder.orderItems.forEach((item) => {
-                                const product = products.find((p) => p.id === item.productId);
-                                if (product) {
-                                  for (let i = 0; i < item.quantity; i++) {
-                                    addItem(product as any);
-                                  }
-                                }
-                              });
-                              setCurrentStep('order-detail');
-                            } else if (isFree) {
-                              setOrderType('dine-in');
-                              setSelectedTable(table);
-                              handleSelectOrderType('dine-in', table);
-                            }
-                          }}
                           className={cn(
-                            'glass-card relative flex flex-col items-center justify-center rounded-2xl border-2 p-6 transition-all cursor-pointer',
+                            'glass-card relative flex flex-col items-center justify-center rounded-2xl border-2 p-6 transition-all',
                             isFree
-                              ? 'border-green-200/60 bg-green-50/30 hover:border-green-400 hover:bg-green-50/50'
+                              ? 'border-green-200/60 bg-green-50/30'
                               : table.status === 'occupied'
-                              ? 'border-red-200/60 bg-red-50/30 hover:border-red-400'
+                              ? 'border-red-200/60 bg-red-50/30'
                               : 'border-yellow-200/60 bg-yellow-50/30'
                           )}
                         >
@@ -1733,55 +1733,147 @@ export default function App() {
                 </div>
               )}
 
+              {/* ====== TAB 5: STAFF ====== */}
+              {adminTab === 'staff' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">Xodimlar</h2>
+                  </div>
+                  <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8">
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-2xl glass-strong border border-white/60 shadow-lg mb-4">
+                        <Users className="h-10 w-10 text-gray-400" />
+                      </div>
+                      <p className="text-lg font-medium text-gray-700">Xodimlar bo'limi</p>
+                      <p className="text-sm text-gray-500 mt-1">Tez orada xodimlar boshqaruvi qo'shiladi</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ====== TAB 6: REPORTS ====== */}
+              {adminTab === 'reports' && (
+                <Reports onBack={() => setAdminTab('dashboard')} />
+              )}
+
+              {/* ====== TAB 7: INVENTORY ====== */}
+              {adminTab === 'inventory' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">Ombor</h2>
+                  </div>
+                  {lowStockItems.length > 0 ? (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-yellow-700 flex items-center gap-2">
+                        <AlertTriangle size={18} />
+                        Kam qolgan mahsulotlar ({lowStockItems.length})
+                      </h3>
+                      <div className="glass-card rounded-2xl border border-white/60 shadow-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-white/40 glass-strong">
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mahsulot</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Joriy miqdor</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Minimal miqdor</th>
+                                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Holat</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lowStockItems.map((item: any, idx: number) => (
+                                <tr key={idx} className="border-b border-white/30 hover:bg-white/30 transition-colors">
+                                  <td className="px-5 py-3 font-medium text-gray-900">{item.name || item.productName || 'Noma\'lum'}</td>
+                                  <td className="px-5 py-3 text-sm text-red-500 font-semibold">{item.currentStock ?? item.quantity ?? 0}</td>
+                                  <td className="px-5 py-3 text-sm text-gray-600">{item.minStock ?? item.minimumStock ?? '-'}</td>
+                                  <td className="px-5 py-3">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-600">
+                                      <AlertCircle size={12} /> Kam
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8">
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-2xl glass-strong border border-white/60 shadow-lg mb-4">
+                          <Boxes className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <p className="text-lg font-medium text-gray-700">Ombor holati yaxshi</p>
+                        <p className="text-sm text-gray-500 mt-1">Barcha mahsulotlar yetarli miqdorda</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ====== TAB 8: SETTINGS ====== */}
+              {adminTab === 'settings' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">Sozlamalar</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Business info */}
+                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4">Biznes ma'lumotlari</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center rounded-xl glass-strong border border-white/60 px-4 py-3">
+                          <span className="text-sm text-gray-600">Nomi</span>
+                          <span className="text-sm font-medium text-gray-900">{bizSettings?.name || '-'}</span>
+                        </div>
+                        <div className="flex justify-between items-center rounded-xl glass-strong border border-white/60 px-4 py-3">
+                          <span className="text-sm text-gray-600">Manzil</span>
+                          <span className="text-sm font-medium text-gray-900">{bizSettings?.address || '-'}</span>
+                        </div>
+                        <div className="flex justify-between items-center rounded-xl glass-strong border border-white/60 px-4 py-3">
+                          <span className="text-sm text-gray-600">Telefon</span>
+                          <span className="text-sm font-medium text-gray-900">{bizSettings?.phone || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Integrations */}
+                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4">Integratsiyalar</h3>
+                      <button
+                        onClick={() => setShowIntegrationHub(true)}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                      >
+                        <Store size={16} />
+                        Integratsiyalarni boshqarish
+                        {activeIntegrations > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1 text-xs font-bold">
+                            {activeIntegrations}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              </div>
             </div>
           </div>
 
-          {/* Order Type Modal for admin */}
-          {showOrderTypeModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-              <div className="w-full max-w-md rounded-2xl glass-strong border border-white/60 p-6 shadow-2xl">
-                <h3 className="mb-6 text-2xl font-bold text-gray-900">Buyurtma turini tanlang</h3>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => {
-                      setShowOrderTypeModal(false);
-                      handleSelectOrderType('takeaway');
-                    }}
-                    className="relative flex w-full items-center gap-4 rounded-xl border-2 border-blue-200/60 bg-blue-50/50 backdrop-blur-sm p-4 transition-all hover:border-blue-400 hover:bg-blue-100/50"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10">
-                      <Package className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-lg font-bold text-gray-900">Olib ketish</p>
-                      <p className="text-sm font-semibold text-gray-600">O'zi olib ketadi</p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowOrderTypeModal(false);
-                      setAdminTab('tables');
-                    }}
-                    className="relative flex w-full items-center gap-4 rounded-xl border-2 border-orange-200/60 bg-orange-50/50 backdrop-blur-sm p-4 transition-all hover:border-orange-400 hover:bg-orange-100/50"
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-                      <Utensils className="h-6 w-6 text-orange-500" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-lg font-bold text-gray-900">Shu yerda</p>
-                      <p className="text-sm font-semibold text-gray-600">Stolda ovqatlanish</p>
-                    </div>
-                  </button>
-                </div>
-                <button
-                  onClick={() => setShowOrderTypeModal(false)}
-                  className="mt-6 w-full rounded-xl glass-strong border border-white/60 py-3 text-gray-600 transition-colors hover:bg-white/70 hover:text-gray-900"
-                >
-                  Bekor qilish
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Integratsiya markazi */}
+          <IntegrationHub
+            isOpen={showIntegrationHub}
+            onClose={() => setShowIntegrationHub(false)}
+            onStatusChange={() => fetchData()}
+          />
+
+          {/* Kam qolgan mahsulotlar */}
+          <LowStockAlert
+            isOpen={showLowStock}
+            onClose={() => setShowLowStock(false)}
+            items={lowStockItems}
+          />
         </div>
       );
     }
