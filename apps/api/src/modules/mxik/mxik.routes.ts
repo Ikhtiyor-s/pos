@@ -18,6 +18,14 @@ router.get(
   MxikController.scanBarcode,
 );
 
+// Barcode → MXIK kod avtomatik topish (Soliq GTIN bazasi)
+router.get(
+  '/barcode-mxik/:barcode',
+  authenticate,
+  authorize('MANAGER', 'SUPER_ADMIN'),
+  MxikController.findMxikByBarcode,
+);
+
 // MXIK kod tekshirish (Soliq bazasi)
 // Admin MXIK kodni kiritganda avtomatik tekshiriladi
 router.get(

@@ -55,9 +55,9 @@ export class MxikService {
 
   static async lookupMxikCode(code: string): Promise<MxikResult> {
     try {
-      // Tasnif Soliq API
+      // Tasnif Soliq API — to'g'ri endpoint (flutter_billing_app dan olingan)
       const response = await fetch(
-        `https://tasnif.soliq.uz/api/cls-api/class/all/key/${encodeURIComponent(code)}`,
+        `https://tasnif.soliq.uz/api/cls-api/integration-mxik/get/history/${encodeURIComponent(code)}`,
         {
           headers: {
             'Accept': 'application/json',
@@ -70,37 +70,14 @@ export class MxikService {
         return { code, name: '', found: false };
       }
 
-      const data = await response.json() as any;
+      const json = await response.json() as any;
+      const data = json.data || json;
 
-      // Tasnif API format
-      if (data && Array.isArray(data) && data.length > 0) {
-        const item = data[0];
+      if (data && typeof data === 'object' && (data.mxikCode || data.name)) {
         return {
-          code: item.mxikCode || item.code || code,
-          name: item.groupName || item.name || '',
-          nameRu: item.groupNameRu || item.nameRu || '',
-          groupName: item.groupName || '',
-          groupCode: item.groupCode || '',
-          className: item.className || '',
-          classCode: item.classCode || '',
-          positionName: item.positionName || '',
-          subPositionName: item.subPositionName || '',
-          brandName: item.brandName || '',
-          attributeName: item.attributeName || '',
-          unitCode: item.unitCode || '',
-          unitName: item.unitName || '',
-          packageCode: item.packageCode || '',
-          packageName: item.packageName || '',
-          found: true,
-        };
-      }
-
-      // Agar massiv bo'lmasa, object sifatida
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
-        return {
-          code: data.mxikCode || data.code || code,
-          name: data.groupName || data.name || data.className || '',
-          nameRu: data.groupNameRu || data.nameRu || '',
+          code: data.mxikCode || code,
+          name: data.name || data.groupName || '',
+          nameRu: data.nameRu || '',
           groupName: data.groupName || '',
           groupCode: data.groupCode || '',
           className: data.className || '',
@@ -130,8 +107,9 @@ export class MxikService {
 
   static async searchMxik(query: string, limit: number = 20): Promise<MxikSearchResult> {
     try {
+      // Tasnif Soliq API — elasticsearch endpoint (flutter_billing_app dan olingan)
       const response = await fetch(
-        `https://tasnif.soliq.uz/api/cls-api/class/all/search?keyword=${encodeURIComponent(query)}&limit=${limit}`,
+        `https://tasnif.soliq.uz/api/cls-api/elasticsearch/search?search=${encodeURIComponent(query)}&size=${limit}&page=0&lang=uz`,
         {
           headers: {
             'Accept': 'application/json',
@@ -144,8 +122,8 @@ export class MxikService {
         return { total: 0, items: [] };
       }
 
-      const data = await response.json() as any;
-      const items = Array.isArray(data) ? data : (data.data || data.content || []);
+      const json = await response.json() as any;
+      const items = Array.isArray(json.data) ? json.data : (json.data?.content || json.content || []);
 
       return {
         total: items.length,
@@ -169,6 +147,52 @@ export class MxikService {
     } catch (error) {
       console.error('[MXIK] Search xatolik:', error);
       return { total: 0, items: [] };
+    }
+  }
+
+  // ==========================================
+  // BARCODE (GTIN) ORQALI MXIK KODNI TOPISH
+  // flutter_billing_app dagi searchByBarcode dan olingan
+  // ==========================================
+
+  static async findMxikByBarcode(barcode: string): Promise<MxikResult> {
+    try {
+      const response = await fetch(
+        `https://tasnif.soliq.uz/api/cls-api/mxik/search/by-params?gtin=${encodeURIComponent(barcode)}&size=1&page=0&lang=uz`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'OshxonaPOS/3.0',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return { code: '', name: '', found: false };
+      }
+
+      const json = await response.json() as any;
+      const content = json.data?.content;
+
+      if (Array.isArray(content) && content.length > 0) {
+        const item = content[0];
+        return {
+          code: item.mxikCode || '',
+          name: item.mxikName || item.name || '',
+          groupName: item.groupName || '',
+          groupCode: item.groupCode || '',
+          className: item.className || '',
+          classCode: item.classCode || '',
+          brandName: item.brandName || '',
+          unitName: item.unitName || item.unitsName || '',
+          found: true,
+        };
+      }
+
+      return { code: '', name: '', found: false };
+    } catch (error) {
+      console.error('[MXIK] Barcode→MXIK xatolik:', error);
+      return { code: '', name: '', found: false };
     }
   }
 
@@ -269,6 +293,7 @@ export class MxikService {
     barcode: string;
     existingProduct: any | null;
     barcodeInfo: BarcodeProductInfo;
+    mxikResult: MxikResult | null;
     suggestedData: {
       name: string;
       brand: string;
@@ -277,6 +302,8 @@ export class MxikService {
       image: string;
       description: string;
       country: string;
+      mxikCode: string;
+      mxikName: string;
     };
   }> {
     // 1. Avval bizning bazada bor-yo'qligini tekshirish
@@ -287,13 +314,17 @@ export class MxikService {
       },
     });
 
-    // 2. Tashqi bazadan ma'lumot olish
+    // 2. Tashqi bazadan ma'lumot olish (Open Food Facts + Open Beauty Facts)
     const barcodeInfo = await this.lookupBarcode(barcode);
+
+    // 3. Barcode orqali MXIK kodni avtomatik topish (Soliq bazasi)
+    const mxikResult = await this.findMxikByBarcode(barcode);
 
     return {
       barcode,
       existingProduct,
       barcodeInfo,
+      mxikResult: mxikResult.found ? mxikResult : null,
       suggestedData: {
         name: barcodeInfo.name || '',
         brand: barcodeInfo.brand || '',
@@ -302,6 +333,8 @@ export class MxikService {
         image: barcodeInfo.imageUrl || '',
         description: barcodeInfo.description || '',
         country: barcodeInfo.country || '',
+        mxikCode: mxikResult.found ? mxikResult.code : '',
+        mxikName: mxikResult.found ? mxikResult.name : '',
       },
     };
   }

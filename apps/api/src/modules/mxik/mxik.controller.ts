@@ -45,6 +45,27 @@ export class MxikController {
   }
 
   // ==========================================
+  // BARCODE → MXIK KOD AVTOMATIK TOPISH
+  // ==========================================
+
+  static async findMxikByBarcode(req: Request, res: Response) {
+    try {
+      const { barcode } = req.params;
+      const result = await MxikService.findMxikByBarcode(barcode);
+
+      res.json({
+        success: true,
+        message: result.found
+          ? `MXIK kod topildi: ${result.code}`
+          : 'Bu barcode uchun MXIK kod topilmadi',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message || 'Xatolik' });
+    }
+  }
+
+  // ==========================================
   // MXIK KOD TEKSHIRISH (Soliq bazasi)
   // ==========================================
 
