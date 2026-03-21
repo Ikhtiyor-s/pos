@@ -35,6 +35,7 @@ import deliveryRoutes from '../modules/delivery/delivery.routes.js';
 import staffRoutes from '../modules/staff-scheduling/staff.routes.js';
 import telegramBotRoutes from '../modules/telegram-bot/telegram-bot.routes.js';
 import smsRoutes from '../modules/sms/sms.routes.js';
+import mxikRoutes from '../modules/mxik/mxik.routes.js';
 
 const router = Router();
 
@@ -75,6 +76,7 @@ router.use('/delivery', deliveryRoutes);
 router.use('/staff', staffRoutes);
 router.use('/telegram', telegramBotRoutes);
 router.use('/sms', smsRoutes);
+router.use('/mxik', mxikRoutes);
 
 // API info
 router.get('/', (_req, res) => {
