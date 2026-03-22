@@ -66,4 +66,9 @@ export const orderService = {
   addItems: async (id: string, items: { productId: string; quantity: number; notes?: string }[]): Promise<void> => {
     await api.post(`/orders/${id}/items`, { items });
   },
+
+  addPayment: async (orderId: string, method: string, amount: number): Promise<any> => {
+    const { data: response } = await api.post(`/orders/${orderId}/payment`, { method, amount });
+    return response.data || response;
+  },
 };

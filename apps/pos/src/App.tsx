@@ -561,8 +561,17 @@ export default function App() {
   };
 
   const handlePrintAndClose = async () => {
-    // Buyurtma statusini COMPLETED ga ketma-ket o'tkazish (status zanjiri)
     if (currentApiOrderId) {
+      // 1. To'lovni API ga yuborish
+      try {
+        const methodMap: Record<string, string> = { cash: 'CASH', card: 'CARD', payme: 'PAYME', click: 'CLICK', uzum: 'UZUM' };
+        const apiMethod = methodMap[paymentMethod || 'cash'] || 'CASH';
+        await orderService.addPayment(currentApiOrderId, apiMethod, total);
+      } catch (err) {
+        console.error('[POS] To\'lov yuborishda xatolik:', err);
+      }
+
+      // 2. Buyurtma statusini COMPLETED ga o'tkazish
       const statusChain = ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED'];
       for (const status of statusChain) {
         try {
@@ -1367,7 +1376,7 @@ export default function App() {
                       </div>
                       <p className="text-sm text-gray-600">Daromad</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {dashboardData?.revenue != null ? formatPrice(dashboardData.revenue) : '--'}
+                        {formatPrice(dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0)}
                       </p>
                     </div>
 
@@ -1379,7 +1388,7 @@ export default function App() {
                       </div>
                       <p className="text-sm text-gray-600">Buyurtmalar soni</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {dashboardData?.orderCount ?? '--'}
+                        {dashboardData?.orders?.total ?? dashboardData?.orderCount ?? 0}
                       </p>
                     </div>
 
@@ -1391,7 +1400,7 @@ export default function App() {
                       </div>
                       <p className="text-sm text-gray-600">O'rtacha chek</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {dashboardData?.avgCheck != null ? formatPrice(dashboardData.avgCheck) : '--'}
+                        {formatPrice(dashboardData?.revenue?.averageCheck ?? dashboardData?.avgCheck ?? 0)}
                       </p>
                     </div>
 
@@ -1403,7 +1412,7 @@ export default function App() {
                       </div>
                       <p className="text-sm text-gray-600">Yakunlangan</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {dashboardData?.completedOrders ?? '--'}
+                        {dashboardData?.orders?.completed ?? dashboardData?.completedOrders ?? 0}
                       </p>
                     </div>
                   </div>
