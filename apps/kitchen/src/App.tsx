@@ -278,7 +278,9 @@ export default function App() {
       setIsLoadingOrders(true);
       const apiOrders = await kitchenService.getOrders();
       const mapped = apiOrders.map(mapApiOrderToOrder);
-      setOrders(mapped);
+      // Faqat faol buyurtmalar — COMPLETED va CANCELLED ni ko'rsatmaslik
+      const activeOrders = mapped.filter(o => o.status !== 'READY');
+      setOrders(activeOrders);
     } catch (err) {
       console.error('[Kitchen] Buyurtmalarni yuklashda xatolik:', err);
     } finally {
@@ -411,30 +413,32 @@ export default function App() {
   }, [orders, fetchOrders]);
 
   const handleMarkOrderReady = useCallback(async (orderId: string) => {
-    // Optimistic update
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: 'READY',
-              items: order.items.map((item) => ({ ...item, status: 'READY' as const })),
-            }
-          : order
-      )
-    );
+    // Tasdiqlash dialog
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const itemNames = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+    if (!confirm(`Buyurtma #${order.orderNumber} tayyor deb belgilansinmi?\n\n${itemNames}`)) return;
 
     // API calls - mark all items as READY
     try {
-      const order = orders.find((o) => o.id === orderId);
-      if (order) {
-        const nonReadyItems = order.items.filter((i) => i.status !== 'READY');
-        await Promise.all(
-          nonReadyItems.map((item) =>
-            kitchenService.updateItemStatus(orderId, item.id, 'READY')
-          )
-        );
-      }
+      const nonReadyItems = order.items.filter((i) => i.status !== 'READY');
+      await Promise.all(
+        nonReadyItems.map((item) =>
+          kitchenService.updateItemStatus(orderId, item.id, 'READY')
+        )
+      );
+      // READY bo'lgandan keyin 2 soniyada ro'yxatdan o'chirish
+      setTimeout(() => {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      }, 2000);
+      // Optimistic: darhol READY ga o'tkazish
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, status: 'READY' as const, items: o.items.map((item) => ({ ...item, status: 'READY' as const })) }
+            : o
+        )
+      );
     } catch (err) {
       console.error('[Kitchen] Buyurtmani tayyor qilishda xatolik:', err);
       fetchOrders();

@@ -200,6 +200,15 @@ export default function App() {
   // Inventory states
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [showInvModal, setShowInvModal] = useState(false);
+  const [editInv, setEditInv] = useState<any>(null);
+  const [invForm, setInvForm] = useState({ name: '', sku: '', quantity: '', minQuantity: '', unit: 'kg', costPrice: '' });
+  const [invSaving, setInvSaving] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [stockAction, setStockAction] = useState<'in' | 'out'>('in');
+  const [stockItem, setStockItem] = useState<any>(null);
+  const [stockAmount, setStockAmount] = useState('');
+  const [stockNote, setStockNote] = useState('');
 
   // Settings states
   const [settingsForm, setSettingsForm] = useState({ name: '', address: '', phone: '', email: '' });
@@ -3252,15 +3261,6 @@ export default function App() {
               {/* ====== TAB 7: INVENTORY ====== */}
               {adminTab === 'inventory' && (() => {
                 const invItem = (inventoryItems as any[]) || [];
-                const [showInvModal, setShowInvModal] = useState(false);
-                const [editInv, setEditInv] = useState<any>(null);
-                const [invForm, setInvForm] = useState({ name: '', sku: '', quantity: '', minQuantity: '', unit: 'kg', costPrice: '' });
-                const [invSaving, setInvSaving] = useState(false);
-                const [showStockModal, setShowStockModal] = useState(false);
-                const [stockAction, setStockAction] = useState<'in' | 'out'>('in');
-                const [stockItem, setStockItem] = useState<any>(null);
-                const [stockAmount, setStockAmount] = useState('');
-                const [stockNote, setStockNote] = useState('');
 
                 const openNewInv = () => { setEditInv(null); setInvForm({ name: '', sku: '', quantity: '', minQuantity: '5', unit: 'kg', costPrice: '' }); setShowInvModal(true); };
                 const openEditInv = (item: any) => {
