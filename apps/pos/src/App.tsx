@@ -2877,6 +2877,54 @@ export default function App() {
                                 )}
                               </div>
                             </div>
+                            {/* Tahrirlash va o'chirish tugmalari */}
+                            <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+                              <button
+                                onClick={() => {
+                                  setStaffForm({
+                                    firstName: staff.firstName || staff.name || '',
+                                    lastName: staff.lastName || '',
+                                    email: staff.email || '',
+                                    phone: staff.phone || '',
+                                    role: staff.role || 'CASHIER',
+                                    pin: '',
+                                    _id: staff.id,
+                                  } as any);
+                                  setShowStaffModal(true);
+                                }}
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 text-blue-600 py-2 text-xs font-medium hover:bg-blue-500/20 transition-colors"
+                              >
+                                <Edit3 size={13} />
+                                Tahrirlash
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`"${staff.firstName || staff.name}" ni o'chirishni tasdiqlaysizmi?`)) return;
+                                  try {
+                                    await api.delete(`/users/${staff.id}`);
+                                    fetchStaff();
+                                  } catch { alert("Xatolik!"); }
+                                }}
+                                className="flex items-center justify-center gap-1.5 rounded-lg bg-red-500/10 text-red-500 px-3 py-2 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api.patch(`/users/${staff.id}`, { isActive: !isActive });
+                                    fetchStaff();
+                                  } catch { alert("Xatolik!"); }
+                                }}
+                                className={cn(
+                                  "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                                  isActive ? "bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20" : "bg-green-500/10 text-green-600 hover:bg-green-500/20"
+                                )}
+                                title={isActive ? 'Bloklash' : 'Faollashtirish'}
+                              >
+                                {isActive ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -2888,7 +2936,7 @@ export default function App() {
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowStaffModal(false)}>
                       <div className="glass-card rounded-2xl border border-white/60 shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-lg font-bold text-gray-900">Yangi xodim qo'shish</h3>
+                          <h3 className="text-lg font-bold text-gray-900">{(staffForm as any)._id ? 'Xodimni tahrirlash' : 'Yangi xodim qo\'shish'}</h3>
                           <button onClick={() => setShowStaffModal(false)} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
                             <X size={18} />
                           </button>
@@ -2964,30 +3012,35 @@ export default function App() {
                             />
                           </div>
                           <button
-                            disabled={staffSaving || !staffForm.firstName || !staffForm.pin || staffForm.pin.length < 4}
+                            disabled={staffSaving || !staffForm.firstName || (!(staffForm as any)._id && (!staffForm.pin || staffForm.pin.length < 4))}
                             onClick={async () => {
                               setStaffSaving(true);
                               try {
-                                await api.post('/users', {
+                                const payload = {
                                   firstName: staffForm.firstName,
                                   lastName: staffForm.lastName,
                                   email: staffForm.email || undefined,
                                   phone: staffForm.phone || undefined,
                                   role: staffForm.role,
-                                  pin: staffForm.pin,
-                                });
+                                  ...(staffForm.pin ? { pin: staffForm.pin } : {}),
+                                };
+                                if ((staffForm as any)._id) {
+                                  await api.put(`/users/${(staffForm as any)._id}`, payload);
+                                } else {
+                                  await api.post('/users', { ...payload, pin: staffForm.pin });
+                                }
                                 setShowStaffModal(false);
                                 fetchStaff();
                               } catch (err) {
-                                console.error('[Admin] Xodim qo\'shishda xatolik:', err);
-                                alert('Xodim qo\'shishda xatolik yuz berdi');
+                                console.error('[Admin] Xodim saqlashda xatolik:', err);
+                                alert('Xodim saqlashda xatolik yuz berdi');
                               } finally {
                                 setStaffSaving(false);
                               }
                             }}
                             className={cn(
                               "w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white shadow-md transition-all",
-                              staffSaving || !staffForm.firstName || !staffForm.pin || staffForm.pin.length < 4
+                              staffSaving || !staffForm.firstName || (!(staffForm as any)._id && (!staffForm.pin || staffForm.pin.length < 4))
                                 ? "bg-gray-300 cursor-not-allowed"
                                 : "bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg"
                             )}
