@@ -297,6 +297,32 @@ export default function App() {
     return <LoginPage isDark={isDark} />;
   }
 
+  // Faqat oshpaz roli — boshqa rollarni chiqarish
+  const userRole = (user?.role || '').toLowerCase();
+  const isChef = ['chef', 'oshpaz', 'cook', 'kitchen'].includes(userRole);
+  if (!isChef) {
+    return (
+      <div className={cn('min-h-screen flex items-center justify-center', isDark ? 'bg-slate-950' : 'bg-gray-50')}>
+        <div className={cn('w-full max-w-sm rounded-2xl p-8 shadow-xl border text-center', isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200')}>
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 mx-auto mb-4">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className={cn('text-xl font-bold mb-2', isDark ? 'text-white' : 'text-gray-900')}>Ruxsat yo'q</h2>
+          <p className={cn('text-sm mb-6', isDark ? 'text-slate-400' : 'text-gray-500')}>
+            Bu sahifa faqat oshpazlar uchun. Sizning rolingiz: <strong>{user?.role}</strong>
+          </p>
+          <button
+            onClick={() => logout()}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-600 transition-colors"
+          >
+            <LogOut size={16} />
+            Chiqish va qayta kirish
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
     try {
