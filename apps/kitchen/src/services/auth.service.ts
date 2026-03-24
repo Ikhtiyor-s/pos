@@ -23,6 +23,11 @@ export const authService = {
     return response.data;
   },
 
+  loginWithPin: async (pin: string, tenantId: string): Promise<LoginResponse> => {
+    const { data: response } = await api.post('/auth/login-pin', { pin, tenantId });
+    return response.data;
+  },
+
   loginWithEmail: async (email: string, password: string): Promise<LoginResponse> => {
     const { data: response } = await api.post('/auth/login', { email, password });
     return response.data;

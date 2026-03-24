@@ -165,86 +165,111 @@ function useTheme() {
 // ============ LOGIN PAGE ============
 
 function LoginPage({ isDark }: { isDark: boolean }) {
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const { login, isLoading, error, clearError } = useAuthStore();
+  const [pin, setPin] = useState('');
+  const { loginWithPin, isLoading, error, clearError } = useAuthStore();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanPhone = phone.replace(/\D/g, '');
-    const fullPhone = cleanPhone.startsWith('998') ? `+${cleanPhone}` : `+998${cleanPhone}`;
-    await login(fullPhone, password);
+  const handlePinInput = (digit: string) => {
+    clearError();
+    if (pin.length < 4) {
+      const newPin = pin + digit;
+      setPin(newPin);
+      if (newPin.length === 4) {
+        loginWithPin(newPin);
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    setPin(pin.slice(0, -1));
+    clearError();
   };
 
   return (
     <div className={cn('min-h-screen flex items-center justify-center', isDark ? 'bg-slate-950' : 'bg-gray-50')}>
-      <div className={cn('w-full max-w-md rounded-2xl p-8 shadow-xl border', isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200')}>
+      <div className={cn('w-full max-w-sm rounded-2xl p-8 shadow-xl border', isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200')}>
         <div className="flex flex-col items-center mb-8">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 mb-4">
             <ChefHat className="h-8 w-8 text-white" />
           </div>
           <h1 className={cn('text-2xl font-bold', isDark ? 'text-white' : 'text-gray-900')}>Oshxona Paneli</h1>
-          <p className={cn('text-sm mt-1', isDark ? 'text-slate-400' : 'text-gray-500')}>Oshpaz sifatida kiring</p>
+          <p className={cn('text-sm mt-1', isDark ? 'text-slate-400' : 'text-gray-500')}>PIN kodni kiriting</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className={cn('block text-sm font-medium mb-1.5', isDark ? 'text-slate-300' : 'text-gray-700')}>
-              Telefon raqam
-            </label>
-            <div className="relative">
-              <Phone size={16} className={cn('absolute left-3 top-1/2 -translate-y-1/2', isDark ? 'text-slate-500' : 'text-gray-400')} />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value); clearError(); }}
-                placeholder="+998 90 123 45 67"
-                className={cn(
-                  'w-full rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500',
-                  isDark ? 'bg-slate-800 text-white placeholder:text-slate-500 border border-slate-700' : 'bg-gray-50 text-gray-900 placeholder:text-gray-400 border border-gray-200'
-                )}
-              />
-            </div>
+        {error && (
+          <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 mb-4 text-center">
+            {error}
           </div>
+        )}
 
-          <div>
-            <label className={cn('block text-sm font-medium mb-1.5', isDark ? 'text-slate-300' : 'text-gray-700')}>
-              Parol
-            </label>
-            <div className="relative">
-              <Lock size={16} className={cn('absolute left-3 top-1/2 -translate-y-1/2', isDark ? 'text-slate-500' : 'text-gray-400')} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); clearError(); }}
-                placeholder="Parolni kiriting"
-                className={cn(
-                  'w-full rounded-lg pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500',
-                  isDark ? 'bg-slate-800 text-white placeholder:text-slate-500 border border-slate-700' : 'bg-gray-50 text-gray-900 placeholder:text-gray-400 border border-gray-200'
-                )}
-              />
-            </div>
+        {/* PIN dots */}
+        <div className="flex justify-center gap-3 mb-8">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                'h-4 w-4 rounded-full transition-all',
+                i < pin.length
+                  ? 'bg-orange-500 scale-110'
+                  : isDark ? 'bg-slate-700' : 'bg-gray-200'
+              )}
+            />
+          ))}
+        </div>
+
+        {isLoading && (
+          <div className="flex justify-center mb-4">
+            <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
           </div>
+        )}
 
+        {/* Number pad */}
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            <button
+              key={num}
+              onClick={() => handlePinInput(String(num))}
+              disabled={isLoading}
+              className={cn(
+                'h-14 rounded-xl text-xl font-bold transition-all active:scale-95',
+                isDark
+                  ? 'bg-slate-800 text-white hover:bg-slate-700 active:bg-slate-600'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 active:bg-gray-300'
+              )}
+            >
+              {num}
+            </button>
+          ))}
           <button
-            type="submit"
-            disabled={isLoading || !phone || !password}
+            onClick={handleDelete}
             className={cn(
-              'w-full flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold text-white transition-colors',
-              isLoading ? 'bg-orange-400 cursor-wait' : 'bg-orange-500 hover:bg-orange-600',
-              (!phone || !password) && 'opacity-50 cursor-not-allowed'
+              'h-14 rounded-xl text-sm font-medium transition-all',
+              isDark ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             )}
           >
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
-            {isLoading ? 'Kirish...' : 'Kirish'}
+            ⌫
           </button>
-        </form>
+          <button
+            onClick={() => handlePinInput('0')}
+            disabled={isLoading}
+            className={cn(
+              'h-14 rounded-xl text-xl font-bold transition-all active:scale-95',
+              isDark
+                ? 'bg-slate-800 text-white hover:bg-slate-700 active:bg-slate-600'
+                : 'bg-gray-100 text-gray-900 hover:bg-gray-200 active:bg-gray-300'
+            )}
+          >
+            0
+          </button>
+          <button
+            onClick={() => { setPin(''); clearError(); }}
+            className={cn(
+              'h-14 rounded-xl text-sm font-medium transition-all',
+              isDark ? 'bg-slate-800 text-red-400 hover:bg-slate-700' : 'bg-gray-100 text-red-500 hover:bg-gray-200'
+            )}
+          >
+            C
+          </button>
+        </div>
       </div>
     </div>
   );
