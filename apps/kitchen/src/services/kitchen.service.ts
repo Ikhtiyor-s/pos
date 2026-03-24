@@ -31,8 +31,19 @@ export interface KitchenOrder {
 
 export const kitchenService = {
   getOrders: async (): Promise<KitchenOrder[]> => {
-    const { data: response } = await api.get('/orders/kitchen');
-    return response.data || [];
+    try {
+      const { data: response } = await api.get('/orders/kitchen');
+      return response.data || [];
+    } catch {
+      // Fallback: /orders endpoint with status filter
+      try {
+        const { data: response } = await api.get('/orders', { params: { status: 'NEW,CONFIRMED,PREPARING', limit: 50 } });
+        const orders = response.data?.data || response.data || [];
+        return Array.isArray(orders) ? orders : [];
+      } catch {
+        return [];
+      }
+    }
   },
 
   updateItemStatus: async (

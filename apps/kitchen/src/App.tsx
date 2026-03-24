@@ -277,10 +277,12 @@ export default function App() {
     try {
       setIsLoadingOrders(true);
       const apiOrders = await kitchenService.getOrders();
-      const mapped = apiOrders.map(mapApiOrderToOrder);
-      // Faqat faol buyurtmalar — COMPLETED va CANCELLED ni ko'rsatmaslik
-      const activeOrders = mapped.filter(o => o.status !== 'READY');
-      setOrders(activeOrders);
+      // Faqat faol buyurtmalar — NEW va PREPARING
+      const activeApiOrders = apiOrders.filter(o =>
+        o.status !== 'READY' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'DELIVERING'
+      );
+      const mapped = activeApiOrders.map(mapApiOrderToOrder);
+      setOrders(mapped);
     } catch (err) {
       console.error('[Kitchen] Buyurtmalarni yuklashda xatolik:', err);
     } finally {
@@ -427,18 +429,8 @@ export default function App() {
           kitchenService.updateItemStatus(orderId, item.id, 'READY')
         )
       );
-      // READY bo'lgandan keyin 2 soniyada ro'yxatdan o'chirish
-      setTimeout(() => {
-        setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      }, 2000);
-      // Optimistic: darhol READY ga o'tkazish
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, status: 'READY' as const, items: o.items.map((item) => ({ ...item, status: 'READY' as const })) }
-            : o
-        )
-      );
+      // Buyurtmani darhol ro'yxatdan o'chirish
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (err) {
       console.error('[Kitchen] Buyurtmani tayyor qilishda xatolik:', err);
       fetchOrders();
