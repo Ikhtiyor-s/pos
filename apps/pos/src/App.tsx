@@ -81,7 +81,7 @@ import { inventoryService, type LowStockItem } from './services/inventory.servic
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
-type Step = 'order-type' | 'order-detail' | 'products' | 'payment' | 'receipt' | 'reports';
+type Step = 'tables' | 'products' | 'table-detail' | 'payment' | 'receipt' | 'reports';
 
 interface TableData {
   id: string;
@@ -130,7 +130,11 @@ function formatPrice(price: number) {
 
 export default function App() {
   const { isAuthenticated, currentShift, user, logout } = useAuthStore();
-  const [currentStep, setCurrentStep] = useState<Step>('order-type');
+  const [currentStep, setCurrentStep] = useState<Step>('tables');
+  // Table detail flow states
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [tableDetailPayment, setTableDetailPayment] = useState<PaymentMethod | null>(null);
+  const [addItemsMode, setAddItemsMode] = useState(false);
   const [orderType, setOrderType] = useState<OrderType | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -513,11 +517,6 @@ export default function App() {
     setCurrentStep('products');
   };
 
-  const handleGoToPayment = () => {
-    if (items.length === 0) return;
-    setCurrentStep('payment');
-  };
-
   const handlePlaceOrder = async () => {
     if (items.length === 0) return;
 
@@ -576,7 +575,7 @@ export default function App() {
       try {
         const methodMap: Record<string, string> = { cash: 'CASH', card: 'CARD', payme: 'PAYME', click: 'CLICK', uzum: 'UZUM' };
         const apiMethod = methodMap[paymentMethod || 'cash'] || 'CASH';
-        await orderService.addPayment(currentApiOrderId, apiMethod, total);
+        await orderService.addPayment(currentApiOrderId, apiMethod, getTotal());
       } catch (err) {
         console.error('[POS] To\'lov yuborishda xatolik:', err);
       }
@@ -596,34 +595,41 @@ export default function App() {
 
     // Reset everything
     clearCart();
-    setCurrentStep('order-type');
+    setCurrentStep('tables');
     setOrderType(null);
     setSelectedTable(null);
     setPaymentMethod(null);
+    setTableDetailPayment(null);
     setShowQR(false);
     setQrConfirmed(false);
     setCurrentApiOrderId(null);
+    setCurrentOrder(null);
+    setAddItemsMode(false);
+    setShowCloseConfirm(false);
     try { await fetchData(); } catch { /* ignore refresh errors */ }
   };
 
   const handleBack = () => {
-    if (currentStep === 'order-detail') {
-      setCurrentStep('order-type');
-      setOrderType(null);
+    if (currentStep === 'table-detail') {
+      // Table detail dan bosh sahifaga qaytish
+      setCurrentStep('tables');
       setSelectedTable(null);
       setCurrentOrder(null);
       setCurrentApiOrderId(null);
+      setTableDetailPayment(null);
       clearCart();
     } else if (currentStep === 'products') {
-      if (currentOrder) {
-        // Agar faol buyurtma bo'lsa, order-detail ga qaytish
-        setCurrentStep('order-detail');
+      if (addItemsMode && currentOrder) {
+        // Qo'shimcha mahsulot rejimidan table-detail ga qaytish
+        setAddItemsMode(false);
+        setCurrentStep('table-detail');
       } else {
-        // Aks holda bosh sahifaga
-        setCurrentStep('order-type');
+        // Yangi buyurtmadan bosh sahifaga
+        setCurrentStep('tables');
         setOrderType(null);
         setSelectedTable(null);
         setCurrentApiOrderId(null);
+        clearCart();
       }
     } else if (currentStep === 'payment') {
       setCurrentStep('products');
@@ -993,11 +999,13 @@ export default function App() {
 
   // Reports page (only for admin/manager)
   if (currentStep === 'reports') {
-    return <Reports onBack={() => setCurrentStep('order-type')} />;
+    return <Reports onBack={() => setCurrentStep('tables')} />;
   }
 
-  // Order Detail Step - Faol stol buyurtmalarini ko'rsatish
-  if (currentStep === 'order-detail' && currentOrder && selectedTable) {
+  // Table Detail Step - Band stol bosganda buyurtma ko'rish + yopish
+  if (currentStep === 'table-detail' && currentOrder) {
+    const orderTotal = currentOrder.orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const tableLabel = selectedTable ? `Stol #${selectedTable.number}` : 'Olib ketish';
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
         {lockElements}
@@ -1014,91 +1022,268 @@ export default function App() {
               <UtensilsCrossed className="h-5 w-5 text-white" />
             </div>
             <div>
-              <span className="text-xl font-bold text-gray-900">Stol #{selectedTable.number}</span>
-              <p className="text-xs text-gray-600">{currentOrder.time} dan</p>
+              <span className="text-xl font-bold text-gray-900">{tableLabel}</span>
+              <p className="text-xs text-gray-600">{currentOrder.time} dan beri</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-gray-600">
-            <Clock size={16} />
-            <span className="text-sm">
-              {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              'rounded-full px-3 py-1 text-xs font-medium',
+              currentOrder.status === 'NEW' ? 'bg-orange-500/10 text-orange-600' :
+              currentOrder.status === 'PREPARING' ? 'bg-yellow-500/10 text-yellow-700' :
+              currentOrder.status === 'READY' ? 'bg-green-500/10 text-green-600' :
+              'bg-blue-500/10 text-blue-600'
+            )}>
+              {currentOrder.status === 'NEW' && 'Yangi'}
+              {currentOrder.status === 'CONFIRMED' && 'Tasdiqlangan'}
+              {currentOrder.status === 'PREPARING' && 'Tayyorlanmoqda'}
+              {currentOrder.status === 'READY' && 'Tayyor'}
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Clock size={16} />
+              <span className="text-sm">
+                {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
           </div>
         </header>
 
         <div className="p-8">
-          <div className="mx-auto max-w-4xl space-y-6">
-            {/* Buyurtma ma'lumotlari */}
+          <div className="mx-auto max-w-3xl space-y-6">
+            {/* Buyurtma mahsulotlari ro'yxati */}
             <div className="rounded-2xl glass-card border border-white/60 shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Buyurtma tafsilotlari</h2>
-                <div className="flex items-center gap-2 rounded-full bg-green-500/10 border border-green-200/50 px-3 py-1">
-                  <CheckCircle size={16} className="text-green-500" />
-                  <span className="text-sm font-medium text-green-600">Faol</span>
-                </div>
-              </div>
-
-              {/* Mahsulotlar ro'yxati */}
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Buyurtma mahsulotlari</h2>
               <div className="space-y-3 mb-6">
-                {items.map((item) => (
+                {currentOrder.orderItems.map((item, idx) => (
                   <div
-                    key={item.product.id}
+                    key={idx}
                     className="flex items-center justify-between rounded-xl glass-strong border border-white/60 p-4"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500/10">
-                        <Utensils className="h-6 w-6 text-orange-500" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
+                        <Utensils className="h-5 w-5 text-orange-500" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{item.product.name}</p>
-                        <p className="text-sm text-gray-600">{formatPrice(item.product.price)} x {item.quantity}</p>
+                        <p className="font-medium text-gray-900">{item.name}</p>
+                        <p className="text-sm text-gray-500">{formatPrice(item.price)} x {item.quantity}</p>
                       </div>
                     </div>
                     <p className="text-lg font-bold text-orange-500">
-                      {formatPrice(item.product.price * item.quantity)}
+                      {formatPrice(item.price * item.quantity)}
                     </p>
                   </div>
                 ))}
               </div>
 
-              {/* Umumiy hisob */}
-              <div className="border-t border-gray-200/60 pt-4 space-y-2">
-                <div className="flex justify-between text-gray-600">
+              {/* Jami summa */}
+              <div className="border-t border-gray-200/60 pt-4">
+                <div className="flex justify-between text-gray-600 mb-2">
                   <span>Mahsulotlar soni:</span>
-                  <span className="font-medium">{getItemCount()} ta</span>
+                  <span className="font-medium">{currentOrder.orderItems.reduce((s, i) => s + i.quantity, 0)} ta</span>
                 </div>
-                <div className="flex justify-between text-2xl font-bold text-gray-900">
-                  <span>Jami summa:</span>
-                  <span className="text-orange-500">{formatPrice(getTotal())}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-2xl font-bold text-gray-900">Jami:</span>
+                  <span className="text-3xl font-bold text-orange-500">{formatPrice(orderTotal)}</span>
                 </div>
               </div>
             </div>
 
+            {/* Qo'shimcha mahsulot qo'shish tugmasi */}
+            <button
+              onClick={() => {
+                setAddItemsMode(true);
+                clearCart();
+                setCurrentStep('products');
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+            >
+              <Plus size={18} />
+              Qo'shimcha mahsulot qo'shish
+            </button>
+
+            {/* To'lov turi tanlash */}
+            <div className="rounded-2xl glass-card border border-white/60 shadow-lg p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">To'lov turi</h3>
+              <div className="grid grid-cols-5 gap-3">
+                {[
+                  { id: 'cash' as PaymentMethod, label: 'Naqd', icon: Banknote },
+                  { id: 'card' as PaymentMethod, label: 'Karta', icon: CreditCard },
+                  { id: 'payme' as PaymentMethod, label: 'Payme', icon: Smartphone },
+                  { id: 'click' as PaymentMethod, label: 'Click', icon: Smartphone },
+                  { id: 'uzum' as PaymentMethod, label: 'Uzum', icon: QrCode },
+                ].map((method) => {
+                  const Icon = method.icon;
+                  const isSelected = tableDetailPayment === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      onClick={() => setTableDetailPayment(isSelected ? null : method.id)}
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all',
+                        isSelected
+                          ? 'border-orange-400 bg-orange-50/50 shadow-md'
+                          : 'border-white/60 bg-white/40 hover:border-gray-300'
+                      )}
+                    >
+                      <Icon size={22} className={isSelected ? 'text-orange-500' : 'text-gray-500'} />
+                      <span className={cn('text-xs font-medium', isSelected ? 'text-orange-600' : 'text-gray-600')}>{method.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Tugmalar */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex gap-4">
               <button
-                onClick={() => setCurrentStep('products')}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                onClick={async () => {
+                  // O'tkazib yuborish — to'lovsiz yopish
+                  if (!currentOrder) return;
+                  try {
+                    const statusChain = ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED'];
+                    for (const status of statusChain) {
+                      try {
+                        await orderService.updateStatus(currentOrder.orderId, status);
+                      } catch { /* already in this status */ }
+                    }
+                    clearCart();
+                    setCurrentStep('tables');
+                    setSelectedTable(null);
+                    setCurrentOrder(null);
+                    setCurrentApiOrderId(null);
+                    setTableDetailPayment(null);
+                    try { await fetchData(); } catch { /* ignore */ }
+                  } catch (err) {
+                    console.error('[POS] Xatolik:', err);
+                    alert('Xatolik yuz berdi!');
+                  }
+                }}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl glass-strong border-2 border-gray-300 py-4 font-semibold text-gray-700 hover:bg-white/70 transition-all"
               >
-                <Plus size={18} />
-                Qo'shish
+                <ArrowLeft size={18} />
+                O'tkazib yuborish
               </button>
               <button
-                onClick={handleGoToPayment}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-4 font-semibold text-white shadow-md hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+                onClick={() => setShowCloseConfirm(true)}
+                className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
               >
-                <Check size={18} />
-                Stolni yopish
+                <Printer size={18} />
+                Stolni yopish va chek chiqarish
               </button>
             </div>
           </div>
         </div>
+
+        {/* Tasdiqlash modali */}
+        {showCloseConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-2xl bg-white border border-gray-200 shadow-2xl p-6 mx-4">
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/10">
+                  <AlertTriangle className="h-8 w-8 text-orange-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Buyurtmani yopishni tasdiqlaysizmi?</h2>
+                <p className="text-gray-600 mt-1">{tableLabel}</p>
+              </div>
+
+              {/* Mahsulotlar qisqacha */}
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 mb-4 max-h-48 overflow-y-auto">
+                {currentOrder.orderItems.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-sm py-1">
+                    <span className="text-gray-700">{item.name} x{item.quantity}</span>
+                    <span className="font-medium text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Jami va to'lov */}
+              <div className="rounded-xl bg-orange-50 border border-orange-200 p-4 mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-lg font-bold text-gray-900">Jami:</span>
+                  <span className="text-2xl font-bold text-orange-500">{formatPrice(orderTotal)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">To'lov:</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {tableDetailPayment === 'cash' && 'Naqd pul'}
+                    {tableDetailPayment === 'card' && 'Plastik karta'}
+                    {tableDetailPayment === 'payme' && 'Payme'}
+                    {tableDetailPayment === 'click' && 'Click'}
+                    {tableDetailPayment === 'uzum' && 'Uzum'}
+                    {!tableDetailPayment && 'Tanlanmagan'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCloseConfirm(false)}
+                  className="flex-1 rounded-xl border border-gray-200 bg-white py-3 font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowCloseConfirm(false);
+                    try {
+                      // 1. To'lovni yuborish (agar tanlangan bo'lsa)
+                      if (tableDetailPayment && currentOrder) {
+                        const methodMap: Record<string, string> = { cash: 'CASH', card: 'CARD', payme: 'PAYME', click: 'CLICK', uzum: 'UZUM' };
+                        const apiMethod = methodMap[tableDetailPayment] || 'CASH';
+                        try {
+                          await orderService.addPayment(currentOrder.orderId, apiMethod, orderTotal);
+                        } catch (err) {
+                          console.error('[POS] To\'lov yuborishda xatolik:', err);
+                        }
+                      }
+
+                      // 2. Status ni COMPLETED ga o'tkazish
+                      if (currentOrder) {
+                        const statusChain = ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED'];
+                        for (const status of statusChain) {
+                          try {
+                            await orderService.updateStatus(currentOrder.orderId, status);
+                          } catch { /* already in this status */ }
+                        }
+                      }
+
+                      // 3. Chek sahifasiga o'tish
+                      setCurrentApiOrderId(currentOrder?.orderId || null);
+                      setPaymentMethod(tableDetailPayment);
+                      // Cart ga buyurtma itemlarini yuklash chek uchun
+                      clearCart();
+                      if (currentOrder) {
+                        currentOrder.orderItems.forEach((item) => {
+                          const product = products.find((p) => p.id === item.productId);
+                          if (product) {
+                            for (let i = 0; i < item.quantity; i++) {
+                              addItem(product as any);
+                            }
+                          }
+                        });
+                      }
+                      setCurrentStep('receipt');
+
+                      try { await fetchData(); } catch { /* ignore */ }
+                    } catch (err) {
+                      console.error('[POS] Stol yopishda xatolik:', err);
+                      alert('Xatolik yuz berdi!');
+                    }
+                  }}
+                  className="flex-[2] rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                >
+                  Ha, yopish va chek chiqarish
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Order Type Step
-  if (currentStep === 'order-type') {
+  // Tables Step (main cashier view)
+  if (currentStep === 'tables') {
     // ============ ADMIN DASHBOARD ============
     if (isAdminRole(userRole)) {
       const adminTabs: { id: AdminTab; label: string; icon: any }[] = [
@@ -3776,7 +3961,11 @@ export default function App() {
       );
     }
 
-    // ============ NON-ADMIN (Cashier) ORDER TYPE VIEW ============
+    // ============ NON-ADMIN (Cashier) TABLES VIEW ============
+    // Stol uchun faol buyurtmani topish
+    const getTableOrder = (tableId: string) => activeOrders.find(o => o.tableId === tableId);
+    const occupiedTableIds = new Set(activeOrders.filter(o => o.tableId).map(o => o.tableId));
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50">
         {lockElements}
@@ -3789,7 +3978,7 @@ export default function App() {
             <span className="text-xl font-bold text-gray-900">{bizSettings?.name || 'Oshxona POS'}</span>
             <div className="ml-3 flex items-center gap-2 rounded-xl glass-strong border border-white/60 px-2.5 py-1">
               <span className="text-xs font-medium text-gray-700">{user?.name}</span>
-              <span className="text-[10px] text-gray-500 capitalize">({user?.role?.replace('_', ' ')})</span>
+              <span className="text-[10px] text-gray-500 capitalize">({isCashierRole(userRole) ? 'Kassir' : user?.role?.replace('_', ' ')})</span>
               <button
                 onClick={() => { logout(); localStorage.removeItem('pos-auth'); }}
                 className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
@@ -3810,285 +3999,189 @@ export default function App() {
                 })} {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
-            {(isCashierRole(userRole) || isWaiterRole(userRole)) && (
-              <button
-                onClick={() => setShowOrderTypeModal(true)}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
-              >
-                <Plus size={16} />
-                Buyurtma berish
-              </button>
-            )}
+            {/* Olib ketish tugmasi */}
+            <button
+              onClick={() => {
+                setOrderType('takeaway');
+                setSelectedTable(null);
+                setCurrentOrder(null);
+                setCurrentApiOrderId(null);
+                setAddItemsMode(false);
+                clearCart();
+                setCurrentStep('products');
+              }}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+            >
+              <Package size={16} />
+              Olib ketish
+            </button>
           </div>
         </header>
 
-        {/* Order Type Modal */}
-        {showOrderTypeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl glass-strong border border-white/60 p-6 shadow-2xl">
-              <h3 className="mb-6 text-2xl font-bold text-gray-900">Buyurtma turini tanlang</h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setShowOrderTypeModal(false);
-                    handleSelectOrderType('takeaway');
-                  }}
-                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-blue-200/60 bg-blue-50/50 backdrop-blur-sm p-4 transition-all hover:border-blue-400 hover:bg-blue-100/50"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10">
-                    <Package className="h-6 w-6 text-blue-500" />
+        <div className="p-6">
+          <div className="mx-auto max-w-7xl space-y-6">
+            {/* Stollar grid */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Stollar</h2>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-green-500"></span>
+                    <span className="text-gray-600">Bo'sh ({tables.filter(t => !occupiedTableIds.has(t.id) && t.status === 'free').length})</span>
                   </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-lg font-bold text-gray-900">Olib ketish</p>
-                    <p className="text-sm font-semibold text-gray-600">O'zi olib ketadi</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-red-500"></span>
+                    <span className="text-gray-600">Band ({occupiedTableIds.size})</span>
                   </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowOrderTypeModal(false);
-                    setOrderType('dine-in');
-                  }}
-                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-orange-200/60 bg-orange-50/50 backdrop-blur-sm p-4 transition-all hover:border-orange-400 hover:bg-orange-100/50"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-                    <Utensils className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-lg font-bold text-gray-900">Shu yerda</p>
-                    <p className="text-sm font-semibold text-gray-600">Stolda ovqatlanish</p>
-                  </div>
-                </button>
+                </div>
               </div>
 
-              <button
-                onClick={() => setShowOrderTypeModal(false)}
-                className="mt-6 w-full rounded-xl glass-strong border border-white/60 py-3 text-gray-600 transition-colors hover:bg-white/70 hover:text-gray-900"
-              >
-                Bekor qilish
-              </button>
-            </div>
-          </div>
-        )}
+              <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                {tables.map((table) => {
+                  const tableOrder = getTableOrder(table.id);
+                  const isOccupied = !!tableOrder || occupiedTableIds.has(table.id);
 
-        <div className="p-8">
-          <div className="mx-auto max-w-6xl space-y-8">
-            {/* Faol buyurtmalar */}
+                  return (
+                    <button
+                      key={table.id}
+                      onClick={() => {
+                        if (isOccupied && tableOrder) {
+                          // Band stol — table-detail sahifasiga
+                          setOrderType('dine-in');
+                          setSelectedTable(table);
+                          setCurrentOrder(tableOrder);
+                          setCurrentApiOrderId(tableOrder.orderId);
+                          setTableDetailPayment(null);
+                          setCurrentStep('table-detail');
+                        } else {
+                          // Bo'sh stol — yangi buyurtma uchun mahsulot sahifasiga
+                          setOrderType('dine-in');
+                          setSelectedTable(table);
+                          setCurrentOrder(null);
+                          setCurrentApiOrderId(null);
+                          setAddItemsMode(false);
+                          clearCart();
+                          setCurrentStep('products');
+                        }
+                      }}
+                      className={cn(
+                        'glass-card relative flex flex-col items-center justify-center rounded-2xl border-2 p-5 transition-all shadow-sm hover:shadow-md',
+                        isOccupied
+                          ? 'border-red-300/60 bg-red-50/50 hover:border-red-400'
+                          : 'border-green-300/60 bg-green-50/30 hover:border-green-400'
+                      )}
+                    >
+                      <span className={cn(
+                        'text-2xl font-bold',
+                        isOccupied ? 'text-red-500' : 'text-green-600'
+                      )}>
+                        #{table.number}
+                      </span>
+                      <span className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        <Users size={10} />
+                        {table.capacity}
+                      </span>
+                      {isOccupied && tableOrder && (
+                        <div className="mt-2 text-xs font-medium text-red-500">
+                          {formatPrice(tableOrder.total)}
+                        </div>
+                      )}
+                      {isOccupied && (
+                        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                          <Utensils size={10} className="text-white" />
+                        </div>
+                      )}
+                      {!isOccupied && (
+                        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 shadow-sm">
+                          <Check size={10} className="text-white" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Faol buyurtmalar ro'yxati */}
             {activeOrders.length > 0 && (
-              <div className="space-y-6">
-                {/* To'lov kutayotgan stollar */}
-                {activeOrders.some((o) => o.awaitingPayment) && (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-bold text-gray-900">To'lov kutayotgan stollar</h2>
-                        <span className="flex h-6 items-center gap-1 rounded-full bg-yellow-500/10 border border-yellow-300/40 px-2 text-xs font-medium text-yellow-600 animate-pulse">
-                          <AlertCircle size={12} />
-                          {activeOrders.filter((o) => o.awaitingPayment).length}
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Faol buyurtmalar</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activeOrders.map((order) => (
+                    <button
+                      key={order.orderId}
+                      onClick={() => {
+                        if (order.tableId) {
+                          const table = tables.find((t) => t.id === order.tableId);
+                          if (table) {
+                            setOrderType('dine-in');
+                            setSelectedTable(table);
+                            setCurrentOrder(order);
+                            setCurrentApiOrderId(order.orderId);
+                            setTableDetailPayment(null);
+                            setCurrentStep('table-detail');
+                          }
+                        } else {
+                          // Olib ketish buyurtmasi — table-detail da ko'rsatish
+                          setOrderType('takeaway');
+                          setSelectedTable(null);
+                          setCurrentOrder(order);
+                          setCurrentApiOrderId(order.orderId);
+                          setTableDetailPayment(null);
+                          setCurrentStep('table-detail');
+                        }
+                      }}
+                      className={cn(
+                        'group relative flex flex-col rounded-2xl border-2 p-4 transition-all shadow-lg text-left',
+                        order.awaitingPayment
+                          ? 'glass-card border-yellow-300/50 hover:border-yellow-400'
+                          : 'glass-card border-orange-200/50 hover:border-orange-400'
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            'flex h-10 w-10 items-center justify-center rounded-lg',
+                            order.awaitingPayment ? 'bg-yellow-500/10' : 'bg-orange-500/10'
+                          )}>
+                            {order.tableNumber > 0
+                              ? <Utensils className={cn('h-5 w-5', order.awaitingPayment ? 'text-yellow-600' : 'text-orange-500')} />
+                              : <Package className="h-5 w-5 text-blue-500" />}
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-gray-900">
+                              {order.tableNumber > 0 ? `Stol #${order.tableNumber}` : 'Olib ketish'}
+                            </p>
+                            <p className="text-xs text-gray-600">{order.time}</p>
+                          </div>
+                        </div>
+                        <div className={cn(
+                          'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                          order.status === 'NEW' ? 'bg-orange-500/10 text-orange-600' :
+                          order.status === 'PREPARING' ? 'bg-yellow-500/10 text-yellow-700' :
+                          order.status === 'READY' ? 'bg-green-500/10 text-green-600' :
+                          'bg-blue-500/10 text-blue-600'
+                        )}>
+                          {order.status === 'NEW' && 'Yangi'}
+                          {order.status === 'CONFIRMED' && 'Tasdiqlangan'}
+                          {order.status === 'PREPARING' && 'Tayyorlanmoqda'}
+                          {order.status === 'READY' && 'Tayyor'}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">{order.items} ta mahsulot</span>
+                        <span className={cn('text-lg font-bold', order.awaitingPayment ? 'text-yellow-600' : 'text-orange-500')}>
+                          {formatPrice(order.total)}
                         </span>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activeOrders
-                        .filter((o) => o.awaitingPayment)
-                        .map((order) => (
-                          <button
-                            key={order.tableId}
-                            onClick={() => {
-                              const table = tables.find((t) => t.id === order.tableId);
-                              if (table) {
-                                setOrderType('dine-in');
-                                setSelectedTable(table);
-                                setCurrentOrder(order);
-                                setCurrentApiOrderId(order.orderId);
-                                clearCart();
-                                order.orderItems.forEach((item) => {
-                                  const product = products.find((p) => p.id === item.productId);
-                                  if (product) {
-                                    for (let i = 0; i < item.quantity; i++) {
-                                      addItem(product as any);
-                                    }
-                                  }
-                                });
-                                setCurrentStep('order-detail');
-                              }
-                            }}
-                            className="group relative flex flex-col glass-card rounded-2xl border-2 border-yellow-300/50 p-4 transition-all hover:border-yellow-400 hover:bg-yellow-100/50 shadow-lg"
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10">
-                                  <DollarSign className="h-5 w-5 text-yellow-600" />
-                                </div>
-                                <div className="text-left">
-                                  <p className="text-lg font-bold text-gray-900">
-                                    Stol #{order.tableNumber}
-                                  </p>
-                                  <p className="text-xs text-gray-600">{order.time}</p>
-                                </div>
-                              </div>
-                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 animate-pulse">
-                                <AlertCircle size={14} className="text-white" />
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">{order.items} ta mahsulot</span>
-                              <span className="text-lg font-bold text-yellow-600">
-                                {formatPrice(order.total)}
-                              </span>
-                            </div>
-                            <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-yellow-500 px-2 text-xs font-medium text-white animate-pulse">
-                              To'lov kutilmoqda
-                            </div>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Boshqa ochiq stollar */}
-                {activeOrders.some((o) => !o.awaitingPayment) && (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold text-gray-900">Ochiq stollar</h2>
-                      <span className="text-sm text-gray-600">
-                        {activeOrders.filter((o) => !o.awaitingPayment).length} ta stol
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activeOrders
-                        .filter((o) => !o.awaitingPayment)
-                        .map((order) => (
-                          <button
-                            key={order.tableId}
-                            onClick={() => {
-                              const table = tables.find((t) => t.id === order.tableId);
-                              if (table) {
-                                setOrderType('dine-in');
-                                setSelectedTable(table);
-                                setCurrentOrder(order);
-                                setCurrentApiOrderId(order.orderId);
-                                clearCart();
-                                order.orderItems.forEach((item) => {
-                                  const product = products.find((p) => p.id === item.productId);
-                                  if (product) {
-                                    for (let i = 0; i < item.quantity; i++) {
-                                      addItem(product as any);
-                                    }
-                                  }
-                                });
-                                setCurrentStep('order-detail');
-                              }
-                            }}
-                            className="group relative flex flex-col rounded-2xl border-2 border-orange-200/50 glass-card p-4 transition-all hover:border-orange-400 hover:bg-orange-50/50 shadow-lg"
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
-                                  <Utensils className="h-5 w-5 text-orange-500" />
-                                </div>
-                                <div className="text-left">
-                                  <p className="text-lg font-bold text-gray-900">
-                                    Stol #{order.tableNumber}
-                                  </p>
-                                  <p className="text-xs text-gray-600">{order.time}</p>
-                                </div>
-                              </div>
-                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 animate-pulse">
-                                <Clock size={14} className="text-white" />
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">{order.items} ta mahsulot</span>
-                              <span className="text-lg font-bold text-orange-500">
-                                {formatPrice(order.total)}
-                              </span>
-                            </div>
-                            <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-green-500 px-2 text-xs font-medium text-white">
-                              <CheckCircle size={12} />
-                              Faol
-                            </div>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Table Selection - faqat dine-in turi tanlanganda */}
-            {orderType === 'dine-in' && (
-              <div className="animate-in fade-in-0 slide-in-from-top-4 duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">Stol tanlang</h2>
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-3 w-3 rounded-full bg-green-500"></span>
-                      <span className="text-gray-600">Bo'sh</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-3 w-3 rounded-full bg-red-500"></span>
-                      <span className="text-gray-600">Band</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-3 w-3 rounded-full bg-yellow-500"></span>
-                      <span className="text-gray-600">Bron</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-4">
-                  {tables.map((table) => {
-                    const isFree = table.status === 'free';
-                    const isSelected = selectedTable?.id === table.id;
-
-                    return (
-                      <button
-                        key={table.id}
-                        onClick={() => isFree && setSelectedTable(table)}
-                        disabled={!isFree}
-                        className={cn(
-                          'glass-card relative flex flex-col items-center justify-center rounded-2xl border-2 p-6 transition-all',
-                          isFree
-                            ? isSelected
-                              ? 'border-orange-400 bg-orange-50/50'
-                              : 'border-white/60 bg-white/40 hover:border-green-300'
-                            : table.status === 'occupied'
-                            ? 'border-red-200/60 bg-red-50/40 cursor-not-allowed'
-                            : 'border-yellow-200/60 bg-yellow-50/40 cursor-not-allowed'
-                        )}
-                      >
-                        <span className={cn(
-                          'text-3xl font-bold',
-                          isFree ? (isSelected ? 'text-orange-500' : 'text-gray-900') : 'text-gray-500'
-                        )}>
-                          #{table.number}
-                        </span>
-                        <span className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                          <Users size={12} />
-                          {table.capacity}
-                        </span>
-                        {isSelected && (
-                          <div className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 shadow-md">
-                            <Check size={12} className="text-white" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {selectedTable && (
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => handleSelectOrderType('dine-in', selectedTable)}
-                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-8 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      Davom etish
-                      <Check size={18} />
+                      {order.awaitingPayment && (
+                        <div className="absolute -top-1 -right-1 flex h-6 items-center gap-1 rounded-full bg-yellow-500 px-2 text-xs font-medium text-white animate-pulse">
+                          To'lov kutilmoqda
+                        </div>
+                      )}
                     </button>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -4707,10 +4800,11 @@ export default function App() {
             <div>
               <span className="text-lg font-bold text-gray-900">{bizSettings?.name || 'Oshxona POS'}</span>
               <p className="text-xs text-gray-600">
-                {orderType === 'dine-in' && selectedTable && (
-                  <span className="text-orange-500">Stol #{selectedTable.number}</span>
+                {addItemsMode && <span className="text-green-500 font-medium">Qo'shimcha mahsulot</span>}
+                {!addItemsMode && orderType === 'dine-in' && selectedTable && (
+                  <span className="text-orange-500">Stol #{selectedTable.number} — Yangi buyurtma</span>
                 )}
-                {orderType === 'takeaway' && <span className="text-blue-500">Olib ketish</span>}
+                {!addItemsMode && orderType === 'takeaway' && <span className="text-blue-500">Olib ketish</span>}
               </p>
             </div>
           </div>
@@ -4877,20 +4971,84 @@ export default function App() {
               </div>
             </div>
             <div className="space-y-2">
-              <button
-                onClick={handlePlaceOrder}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
-              >
-                <Plus size={18} />
-                Buyurtma qo'shish
-              </button>
-              <button
-                onClick={handleGoToPayment}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 py-3 font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-orange-500/20"
-              >
-                <Check size={18} />
-                Stolni yopish
-              </button>
+              {addItemsMode ? (
+                /* Qo'shimcha mahsulot qo'shish rejimi */
+                <button
+                  onClick={async () => {
+                    if (items.length === 0 || !currentApiOrderId) return;
+                    try {
+                      await orderService.addItems(currentApiOrderId, items.map((item) => ({
+                        productId: item.product.id,
+                        quantity: item.quantity,
+                      })));
+                      clearCart();
+                      setAddItemsMode(false);
+                      try { await fetchData(); } catch { /* ignore */ }
+                      // Yangilangan buyurtma bilan table-detail ga qaytish
+                      const updatedOrders = await orderService.getAll();
+                      const updatedOrder = (updatedOrders as ApiOrder[]).find(o => o.id === currentApiOrderId);
+                      if (updatedOrder) {
+                        const refreshedOrder: ActiveOrderData = {
+                          orderId: updatedOrder.id,
+                          tableId: updatedOrder.tableId || '',
+                          tableNumber: updatedOrder.table?.number || 0,
+                          items: updatedOrder.items?.length || 0,
+                          total: updatedOrder.total,
+                          time: new Date(updatedOrder.createdAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+                          status: updatedOrder.status,
+                          awaitingPayment: updatedOrder.status === 'READY',
+                          orderItems: (updatedOrder.items || []).map((item) => ({
+                            productId: item.productId,
+                            name: item.product?.name || 'Noma\'lum',
+                            price: item.price,
+                            quantity: item.quantity,
+                          })),
+                        };
+                        setCurrentOrder(refreshedOrder);
+                      }
+                      setCurrentStep('table-detail');
+                    } catch (err) {
+                      console.error('[POS] Mahsulot qo\'shishda xatolik:', err);
+                      alert('Xatolik! Mahsulot qo\'shilmadi.');
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                >
+                  <Plus size={18} />
+                  Qo'shish
+                </button>
+              ) : (
+                /* Yangi buyurtma yaratish */
+                <button
+                  onClick={async () => {
+                    if (items.length === 0) return;
+                    try {
+                      const orderPayload = {
+                        type: (orderType === 'dine-in' ? 'DINE_IN' : 'TAKEAWAY') as 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY',
+                        tableId: selectedTable?.id,
+                        items: items.map((item) => ({
+                          productId: item.product.id,
+                          quantity: item.quantity,
+                        })),
+                      };
+                      await orderService.create(orderPayload);
+                      clearCart();
+                      setCurrentStep('tables');
+                      setOrderType(null);
+                      setSelectedTable(null);
+                      setCurrentApiOrderId(null);
+                      try { await fetchData(); } catch { /* ignore */ }
+                    } catch (err) {
+                      console.error('[POS] Buyurtma yaratishda xatolik:', err);
+                      alert('Xatolik! Buyurtma yuborilmadi.');
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                >
+                  <Check size={18} />
+                  Buyurtma berish
+                </button>
+              )}
             </div>
           </div>
         )}
