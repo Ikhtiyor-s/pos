@@ -66,6 +66,7 @@ import {
   Layers,
   Hash,
   MapPin,
+  Keyboard,
 } from 'lucide-react';
 import api from './services/api';
 import { productService, categoryService, type Product as ApiProduct, type Category as ApiCategory } from './services/product.service';
@@ -1681,38 +1682,174 @@ export default function App() {
                               <ScanLine size={16} className="text-orange-500" />
                               Shtrix kod (Barcode)
                             </label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={productForm.barcode}
-                                onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
-                                placeholder="Shtrix kodni kiriting yoki skanerlang..."
-                                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none font-mono"
-                              />
-                              <button
-                                onClick={async () => {
-                                  if (!productForm.barcode) return;
-                                  setBarcodeLoading(true);
-                                  setBarcodeResult(null);
-                                  try {
-                                    const { data } = await api.get('/mxik/scan/' + productForm.barcode);
-                                    setBarcodeResult(data.data || data);
-                                    if (data.data?.name || data.name) {
-                                      setProductForm((prev: any) => ({ ...prev, name: prev.name || data.data?.name || data.name || '' }));
-                                    }
-                                  } catch (err) {
-                                    setBarcodeResult({ error: true, message: 'Mahsulot topilmadi' });
-                                  } finally {
-                                    setBarcodeLoading(false);
-                                  }
-                                }}
-                                disabled={!productForm.barcode || barcodeLoading}
-                                className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-                              >
-                                {barcodeLoading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-                                Qidirish
-                              </button>
+
+                            {/* Scanner mode tabs */}
+                            <div className="flex gap-1 mb-3 p-1 bg-gray-100 rounded-lg">
+                              {[
+                                { id: 'usb', icon: ScanLine, label: 'USB Skaner' },
+                                { id: 'camera', icon: Camera, label: 'Kamera' },
+                                { id: 'manual', icon: Keyboard, label: "Qo'lda" },
+                              ].map((m) => {
+                                const Icon = m.icon;
+                                const active = (productForm as any)._scanMode === m.id || (!((productForm as any)._scanMode) && m.id === 'usb');
+                                return (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => setProductForm((prev: any) => ({ ...prev, _scanMode: m.id }))}
+                                    className={cn(
+                                      'flex-1 flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-all',
+                                      active ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                    )}
+                                  >
+                                    <Icon size={13} />
+                                    {m.label}
+                                  </button>
+                                );
+                              })}
                             </div>
+
+                            {/* USB Scanner Mode */}
+                            {((productForm as any)._scanMode === 'usb' || !(productForm as any)._scanMode) && (
+                              <div className="rounded-xl border-2 border-dashed border-orange-300 bg-orange-50/50 p-6 text-center">
+                                <ScanLine size={32} className="mx-auto text-orange-400 mb-2 animate-pulse" />
+                                <p className="text-sm font-medium text-orange-700">USB Skaner tayyor</p>
+                                <p className="text-xs text-orange-500 mt-1">Barcode ni skanerlang — avtomatik kiritiladi</p>
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={productForm.barcode}
+                                  onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                                  onKeyDown={async (e) => {
+                                    if (e.key === 'Enter' && productForm.barcode) {
+                                      e.preventDefault();
+                                      setBarcodeLoading(true);
+                                      setBarcodeResult(null);
+                                      try {
+                                        const { data } = await api.get('/mxik/scan/' + productForm.barcode);
+                                        const result = data.data || data;
+                                        setBarcodeResult(result);
+                                        const suggested = result.suggestedData || result;
+                                        setProductForm((prev: any) => ({
+                                          ...prev,
+                                          name: prev.name || suggested.name || '',
+                                          mxikCode: prev.mxikCode || suggested.mxikCode || '',
+                                          weight: prev.weight || suggested.weight || '',
+                                        }));
+                                      } catch { setBarcodeResult({ error: true, message: 'Mahsulot topilmadi' }); }
+                                      finally { setBarcodeLoading(false); }
+                                    }
+                                  }}
+                                  placeholder="Skaner kodi shu yerga tushadi..."
+                                  className="mt-3 w-full rounded-lg border border-orange-200 bg-white px-4 py-2.5 text-center text-sm font-mono focus:border-orange-500 focus:outline-none"
+                                />
+                                {barcodeLoading && <Loader2 size={18} className="mx-auto mt-2 animate-spin text-orange-500" />}
+                              </div>
+                            )}
+
+                            {/* Camera Scanner Mode */}
+                            {(productForm as any)._scanMode === 'camera' && (() => {
+                              const videoRef = { current: null as HTMLVideoElement | null };
+                              return (
+                                <div className="space-y-3">
+                                  <div className="relative rounded-xl overflow-hidden bg-black aspect-[4/3]">
+                                    <video
+                                      ref={(el) => {
+                                        if (el && !el.srcObject) {
+                                          navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 640, height: 480 } })
+                                            .then(stream => { el.srcObject = stream; el.play(); })
+                                            .catch(() => {});
+                                        }
+                                        videoRef.current = el;
+                                      }}
+                                      autoPlay playsInline
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                      <div className="w-3/4 h-0.5 bg-orange-500/80 animate-pulse" />
+                                    </div>
+                                    <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-orange-500 rounded-tl-md" />
+                                    <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-orange-500 rounded-tr-md" />
+                                    <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-orange-500 rounded-bl-md" />
+                                    <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-orange-500 rounded-br-md" />
+                                  </div>
+                                  <p className="text-xs text-gray-500 text-center">Barcode ni kamera oldiga tutib turing</p>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={productForm.barcode}
+                                      onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                                      placeholder="Yoki kodni qo'lda kiriting..."
+                                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-orange-500 focus:outline-none"
+                                    />
+                                    <button
+                                      onClick={async () => {
+                                        if (!productForm.barcode) return;
+                                        setBarcodeLoading(true); setBarcodeResult(null);
+                                        try {
+                                          const { data } = await api.get('/mxik/scan/' + productForm.barcode);
+                                          const result = data.data || data;
+                                          setBarcodeResult(result);
+                                          const suggested = result.suggestedData || result;
+                                          setProductForm((prev: any) => ({ ...prev, name: prev.name || suggested.name || '', mxikCode: prev.mxikCode || suggested.mxikCode || '', weight: prev.weight || suggested.weight || '' }));
+                                        } catch { setBarcodeResult({ error: true, message: 'Topilmadi' }); }
+                                        finally { setBarcodeLoading(false); }
+                                      }}
+                                      disabled={!productForm.barcode || barcodeLoading}
+                                      className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                                    >
+                                      {barcodeLoading ? <Loader2 size={14} className="animate-spin" /> : 'Qidirish'}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Manual Mode */}
+                            {(productForm as any)._scanMode === 'manual' && (
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={productForm.barcode}
+                                  onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}
+                                  placeholder="Shtrix kodni kiriting..."
+                                  autoFocus
+                                  className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:outline-none font-mono"
+                                  onKeyDown={async (e) => {
+                                    if (e.key === 'Enter' && productForm.barcode) {
+                                      e.preventDefault();
+                                      setBarcodeLoading(true); setBarcodeResult(null);
+                                      try {
+                                        const { data } = await api.get('/mxik/scan/' + productForm.barcode);
+                                        const result = data.data || data;
+                                        setBarcodeResult(result);
+                                        const suggested = result.suggestedData || result;
+                                        setProductForm((prev: any) => ({ ...prev, name: prev.name || suggested.name || '', mxikCode: prev.mxikCode || suggested.mxikCode || '', weight: prev.weight || suggested.weight || '' }));
+                                      } catch { setBarcodeResult({ error: true, message: 'Topilmadi' }); }
+                                      finally { setBarcodeLoading(false); }
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={async () => {
+                                    if (!productForm.barcode) return;
+                                    setBarcodeLoading(true); setBarcodeResult(null);
+                                    try {
+                                      const { data } = await api.get('/mxik/scan/' + productForm.barcode);
+                                      const result = data.data || data;
+                                      setBarcodeResult(result);
+                                      const suggested = result.suggestedData || result;
+                                      setProductForm((prev: any) => ({ ...prev, name: prev.name || suggested.name || '', mxikCode: prev.mxikCode || suggested.mxikCode || '', weight: prev.weight || suggested.weight || '' }));
+                                    } catch { setBarcodeResult({ error: true, message: 'Mahsulot topilmadi' }); }
+                                    finally { setBarcodeLoading(false); }
+                                  }}
+                                  disabled={!productForm.barcode || barcodeLoading}
+                                  className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                                >
+                                  {barcodeLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                                  Qidirish
+                                </button>
+                              </div>
+                            )}
                             {/* Barcode Result */}
                             {barcodeResult && !barcodeResult.error && (
                               <div className="mt-3 flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-200 p-3">
