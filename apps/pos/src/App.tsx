@@ -3180,29 +3180,150 @@ export default function App() {
                     </div>
 
                     <div className="space-y-6">
-                      {/* Printer section */}
+                      {/* Printer section — to'liq boshqaruv */}
                       <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-6">
-                        <div className="flex items-center gap-2 mb-4">
-                          <Printer size={20} className="text-gray-600" />
-                          <h3 className="text-lg font-bold text-gray-900">Printer</h3>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-                              <span className="text-sm text-gray-700">Printer holati</span>
-                            </div>
-                            <span className="text-sm font-medium text-green-600">Tayyor</span>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Printer size={20} className="text-gray-600" />
+                            <h3 className="text-lg font-bold text-gray-900">Printerlar</h3>
                           </div>
                           <button
-                            onClick={() => {
-                              try { window.print(); } catch { alert('Printer bilan aloqa yo\'q'); }
+                            onClick={async () => {
+                              try {
+                                const { data } = await api.get('/printer/status');
+                                const status = data.data || data;
+                                alert(status.online ? '✅ XPrinter server ishlayapti' : '❌ XPrinter server ishlamayapti');
+                              } catch { alert('❌ Printer serverga ulanib bo\'lmadi'); }
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-500/20 transition-colors"
+                          >
+                            <RefreshCw size={12} /> Tekshirish
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          {/* Printer holati */}
+                          <div className="flex items-center justify-between rounded-xl glass-strong border border-white/60 px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Activity size={14} className="text-gray-400" />
+                              <span className="text-sm text-gray-700">XPrinter server</span>
+                            </div>
+                            <span className="text-xs font-medium text-gray-500">localhost:8000</span>
+                          </div>
+
+                          {/* Printer turlari */}
+                          <div className="rounded-xl glass-strong border border-white/60 p-4 space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-700">Printer sozlamalari</h4>
+
+                            {/* Oshxona printer */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <ChefHat size={14} className="text-orange-500" />
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800">Oshxona printer</p>
+                                  <p className="text-xs text-gray-400">Buyurtma kelganda avtomatik chop</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                <span className="text-xs text-green-600">Faol</span>
+                              </div>
+                            </div>
+
+                            {/* Kassa printer */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <CreditCard size={14} className="text-blue-500" />
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800">Kassa printer</p>
+                                  <p className="text-xs text-gray-400">To'lov qilinganda chek chop</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                <span className="text-xs text-green-600">Faol</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Printerlar ro'yxati */}
+                          <button
+                            onClick={async () => {
+                              try {
+                                const { data } = await api.get('/printer/list');
+                                const printers = data.data || data || [];
+                                if (Array.isArray(printers) && printers.length > 0) {
+                                  alert('Printerlar:\n' + printers.map((p: any) => `• ${p.name || p.id} (${p.status || 'unknown'})`).join('\n'));
+                                } else {
+                                  alert('Ulangan printerlar topilmadi.\n\nXPrinter dasturini ishga tushiring:\nhttp://localhost:8000');
+                                }
+                              } catch { alert('Printer serverga ulanib bo\'lmadi.\n\nXPrinter dasturini ishga tushiring.'); }
                             }}
                             className="w-full flex items-center justify-center gap-2 rounded-xl glass-strong border border-white/60 py-2.5 text-sm font-medium text-gray-700 hover:bg-white/50 transition-all"
                           >
-                            <Printer size={14} />
-                            Test chop etish
+                            <List size={14} />
+                            Printerlar ro'yxati
                           </button>
+
+                          {/* Test print tugmalari */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { data } = await api.get('/printer/list');
+                                  const printers = data.data || data || [];
+                                  if (printers.length > 0) {
+                                    await api.post(`/printer/test/${printers[0].id || 'default'}`);
+                                    alert('✅ Test chop yuborildi');
+                                  } else {
+                                    window.print();
+                                  }
+                                } catch { window.print(); }
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-green-500/10 border border-green-200 py-2.5 text-sm font-medium text-green-700 hover:bg-green-500/20 transition-all"
+                            >
+                              <Printer size={14} />
+                              Test chek
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.post('/printer/print/daily-report');
+                                  alert('✅ Kunlik hisobot chop etildi');
+                                } catch { alert('Xatolik!'); }
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-blue-500/10 border border-blue-200 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-500/20 transition-all"
+                            >
+                              <BarChart3 size={14} />
+                              Kunlik hisobot
+                            </button>
+                          </div>
+
+                          {/* Printer qo'shish */}
+                          <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Yangi printer ulash</h4>
+                            <p className="text-xs text-gray-500 mb-3">
+                              XPrinter dasturini kompyuterga o'rnating va ishga tushiring. Printer USB yoki LAN orqali ulanadi.
+                            </p>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold">1</span>
+                                XPrinter dasturini yuklab oling
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold">2</span>
+                                Printerni USB yoki tarmoqqa ulang
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold">3</span>
+                                XPrinter server: http://localhost:8000
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold">4</span>
+                                "Tekshirish" tugmasini bosib ulanishni tasdiqlang
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -4139,22 +4260,59 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={handleBack}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl glass-strong border border-white/60 py-4 text-gray-600 hover:text-gray-900 hover:bg-white/70 transition-colors"
-              >
-                <ArrowLeft size={16} />
-                Orqaga
-              </button>
-              <button
-                onClick={handlePrintAndClose}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
-              >
-                <Check size={16} />
-                Tasdiqlash
-                <Printer size={16} />
-              </button>
+            <div className="mt-6 flex flex-col gap-3">
+              {/* Chop etish tugmalari */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    // Thermal printer orqali chop
+                    api.post(`/printer/print/receipt/${currentApiOrderId}`).catch(() => {
+                      // Fallback: brauzer print
+                      window.print();
+                    });
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                >
+                  <Printer size={18} />
+                  Chek chop etish
+                </button>
+                <button
+                  onClick={() => {
+                    // Kitchen ticket chop
+                    api.post(`/printer/print/kitchen/${currentApiOrderId}`).catch(() => {});
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl glass-strong border border-white/60 px-5 py-4 text-gray-600 hover:bg-white/70 transition-colors"
+                  title="Oshxona cheki"
+                >
+                  <ChefHat size={18} />
+                </button>
+              </div>
+
+              {/* Tasdiqlash va yopish */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleBack}
+                  className="flex items-center justify-center gap-2 rounded-xl glass-strong border border-white/60 px-6 py-4 text-gray-600 hover:text-gray-900 hover:bg-white/70 transition-colors"
+                >
+                  <ArrowLeft size={16} />
+                  Orqaga
+                </button>
+                <button
+                  onClick={async () => {
+                    // Chek chop etish + tasdiqlash
+                    try {
+                      await api.post(`/printer/print/receipt/${currentApiOrderId}`);
+                    } catch {
+                      window.print();
+                    }
+                    await handlePrintAndClose();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 py-4 font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                >
+                  <Check size={18} />
+                  Tasdiqlash va chop etish
+                </button>
+              </div>
             </div>
           </div>
         </div>
