@@ -714,7 +714,9 @@ export default function App() {
 
         <div className="p-6">
           <div className="mx-auto max-w-6xl">
-            {activeOrders.length === 0 ? (
+            {(() => {
+              const kitchenOrders = activeOrders.filter(o => o.status !== 'READY' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+              return kitchenOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <div className="flex h-24 w-24 items-center justify-center rounded-3xl glass-card border border-white/60 shadow-lg mb-4">
                   <ChefHat className="h-12 w-12 text-gray-500" />
@@ -724,7 +726,7 @@ export default function App() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeOrders.map((order) => (
+                {kitchenOrders.map((order) => (
                   <div
                     key={order.orderId}
                     className={cn(
@@ -808,6 +810,8 @@ export default function App() {
                       {order.status === 'PREPARING' && (
                         <button
                           onClick={async () => {
+                            const items = order.orderItems.map(i => `${i.quantity}x ${i.name}`).join(', ');
+                            if (!confirm(`Buyurtma tayyor deb belgilansinmi?\n\n${items}`)) return;
                             try {
                               await orderService.updateStatus(order.orderId, 'READY');
                               await fetchData();
@@ -819,17 +823,12 @@ export default function App() {
                           Tayyor!
                         </button>
                       )}
-                      {order.status === 'READY' && (
-                        <div className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-green-100/60 border border-green-200/60 py-2.5 text-sm font-medium text-green-600">
-                          <CheckCircle size={16} />
-                          Tayyor - Kassir kutilmoqda
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            );
+            })()}
           </div>
         </div>
       </div>
