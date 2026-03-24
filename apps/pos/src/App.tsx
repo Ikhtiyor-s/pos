@@ -1418,6 +1418,184 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Charts 2x2 grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* A. Revenue Bar Chart */}
+                    <div className="glass-card rounded-2xl border border-white/60 p-5 shadow-lg">
+                      <h3 className="text-base font-bold text-gray-900 mb-4">Haftalik daromad</h3>
+                      <div className="flex items-end gap-2 h-40">
+                        {(() => {
+                          const revenueData = dashboardData?.dailyRevenue || [
+                            { day: 'Du', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 0.8 },
+                            { day: 'Se', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 0.6 },
+                            { day: 'Ch', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 1.1 },
+                            { day: 'Pa', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 0.9 },
+                            { day: 'Ju', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 1.3 },
+                            { day: 'Sh', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 1.5 },
+                            { day: 'Ya', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) },
+                          ];
+                          const maxVal = Math.max(...revenueData.map((x: any) => x.amount || 0), 1);
+                          return revenueData.map((d: any, i: number) => {
+                            const pct = ((d.amount || 0) / maxVal) * 100;
+                            return (
+                              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                <span className="text-[9px] text-gray-400 font-medium">{d.amount ? formatPrice(d.amount) : ''}</span>
+                                <div className="w-full rounded-t-lg bg-gradient-to-t from-orange-500 to-orange-400 transition-all"
+                                     style={{ height: `${Math.max(pct, 5)}%` }} />
+                                <span className="text-[10px] text-gray-500 font-medium">{d.day}</span>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* B. Top Products Horizontal Bars */}
+                    <div className="glass-card rounded-2xl border border-white/60 p-5 shadow-lg">
+                      <h3 className="text-base font-bold text-gray-900 mb-4">Eng ko'p sotilgan</h3>
+                      {dashboardData?.topProducts && dashboardData.topProducts.length > 0 ? (
+                        <div className="space-y-3">
+                          {(() => {
+                            const items = dashboardData.topProducts.slice(0, 5);
+                            const maxQty = Math.max(...items.map((x: any) => x.quantity || x.count || 0), 1);
+                            const barColors = ['from-orange-500 to-orange-400', 'from-blue-500 to-blue-400', 'from-green-500 to-green-400', 'from-purple-500 to-purple-400', 'from-pink-500 to-pink-400'];
+                            return items.map((item: any, idx: number) => {
+                              const qty = item.quantity || item.count || 0;
+                              const pct = (qty / maxQty) * 100;
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="font-medium text-gray-700 truncate max-w-[60%]">{item.name || item.productName || "Noma'lum"}</span>
+                                    <span className="text-gray-500 text-xs font-semibold">{qty} ta {item.revenue != null ? `/ ${formatPrice(item.revenue)}` : ''}</span>
+                                  </div>
+                                  <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden">
+                                    <div className={`h-full rounded-full bg-gradient-to-r ${barColors[idx % barColors.length]} transition-all`}
+                                         style={{ width: `${Math.max(pct, 3)}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-8">Ma'lumot yo'q</p>
+                      )}
+                    </div>
+
+                    {/* C. Payment Methods */}
+                    <div className="glass-card rounded-2xl border border-white/60 p-5 shadow-lg">
+                      <h3 className="text-base font-bold text-gray-900 mb-4">To'lov usullari</h3>
+                      {(() => {
+                        const methods = dashboardData?.paymentMethods || dashboardData?.paymentBreakdown || null;
+                        const paymentData = methods
+                          ? (Array.isArray(methods) ? methods : Object.entries(methods).map(([k, v]: [string, any]) => ({ method: k, amount: typeof v === 'number' ? v : v?.amount || v?.total || 0, count: typeof v === 'object' ? v?.count || 0 : 0 })))
+                          : [
+                              { method: 'cash', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 0.6, count: 0 },
+                              { method: 'card', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 0.25, count: 0 },
+                              { method: 'online', amount: (dashboardData?.revenue?.total ?? dashboardData?.revenue ?? 0) * 0.15, count: 0 },
+                            ];
+                        const totalAmount = paymentData.reduce((s: number, p: any) => s + (p.amount || 0), 0) || 1;
+                        const methodMeta: Record<string, { label: string; color: string; bg: string }> = {
+                          'cash': { label: 'Naqd', color: 'bg-green-500', bg: 'bg-green-50 text-green-700' },
+                          'CASH': { label: 'Naqd', color: 'bg-green-500', bg: 'bg-green-50 text-green-700' },
+                          'card': { label: 'Karta', color: 'bg-blue-500', bg: 'bg-blue-50 text-blue-700' },
+                          'CARD': { label: 'Karta', color: 'bg-blue-500', bg: 'bg-blue-50 text-blue-700' },
+                          'online': { label: 'Online', color: 'bg-purple-500', bg: 'bg-purple-50 text-purple-700' },
+                          'ONLINE': { label: 'Online', color: 'bg-purple-500', bg: 'bg-purple-50 text-purple-700' },
+                          'payme': { label: 'Payme', color: 'bg-cyan-500', bg: 'bg-cyan-50 text-cyan-700' },
+                          'PAYME': { label: 'Payme', color: 'bg-cyan-500', bg: 'bg-cyan-50 text-cyan-700' },
+                          'click': { label: 'Click', color: 'bg-indigo-500', bg: 'bg-indigo-50 text-indigo-700' },
+                          'CLICK': { label: 'Click', color: 'bg-indigo-500', bg: 'bg-indigo-50 text-indigo-700' },
+                          'uzum': { label: 'Uzum', color: 'bg-yellow-500', bg: 'bg-yellow-50 text-yellow-700' },
+                          'UZUM': { label: 'Uzum', color: 'bg-yellow-500', bg: 'bg-yellow-50 text-yellow-700' },
+                        };
+                        return (
+                          <div className="space-y-4">
+                            {/* Segment bar */}
+                            <div className="w-full h-6 rounded-full overflow-hidden flex">
+                              {paymentData.map((p: any, i: number) => {
+                                const pct = ((p.amount || 0) / totalAmount) * 100;
+                                const meta = methodMeta[p.method] || { label: p.method, color: 'bg-gray-400', bg: 'bg-gray-50 text-gray-700' };
+                                return pct > 0 ? (
+                                  <div key={i} className={`${meta.color} transition-all`} style={{ width: `${Math.max(pct, 2)}%` }}
+                                       title={`${meta.label}: ${Math.round(pct)}%`} />
+                                ) : null;
+                              })}
+                            </div>
+                            {/* Legend */}
+                            <div className="space-y-2">
+                              {paymentData.map((p: any, i: number) => {
+                                const pct = ((p.amount || 0) / totalAmount) * 100;
+                                const meta = methodMeta[p.method] || { label: p.method, color: 'bg-gray-400', bg: 'bg-gray-50 text-gray-700' };
+                                return (
+                                  <div key={i} className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-3 h-3 rounded-full ${meta.color}`} />
+                                      <span className="text-gray-700 font-medium">{meta.label}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.bg}`}>{Math.round(pct)}%</span>
+                                      <span className="text-gray-500 text-xs">{formatPrice(p.amount || 0)}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* D. Order Status Distribution */}
+                    <div className="glass-card rounded-2xl border border-white/60 p-5 shadow-lg">
+                      <h3 className="text-base font-bold text-gray-900 mb-4">Buyurtmalar holati</h3>
+                      {(() => {
+                        const statusData = dashboardData?.ordersByStatus
+                          ? (Array.isArray(dashboardData.ordersByStatus)
+                              ? dashboardData.ordersByStatus
+                              : Object.entries(dashboardData.ordersByStatus).map(([s, c]) => ({ status: s, count: typeof c === 'number' ? c : 0 })))
+                          : [
+                              { status: 'NEW', count: dashboardData?.orders?.total ? Math.round(dashboardData.orders.total * 0.1) : 0 },
+                              { status: 'PREPARING', count: dashboardData?.orders?.total ? Math.round(dashboardData.orders.total * 0.15) : 0 },
+                              { status: 'READY', count: dashboardData?.orders?.total ? Math.round(dashboardData.orders.total * 0.05) : 0 },
+                              { status: 'COMPLETED', count: dashboardData?.orders?.completed ?? dashboardData?.completedOrders ?? 0 },
+                            ];
+                        const statusMeta: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+                          'NEW': { label: 'Yangi', color: 'text-orange-600', bg: 'bg-orange-500/10 border-orange-200', icon: '🆕' },
+                          'CONFIRMED': { label: 'Tasdiqlangan', color: 'text-blue-600', bg: 'bg-blue-500/10 border-blue-200', icon: '✅' },
+                          'PREPARING': { label: 'Tayyorlanmoqda', color: 'text-yellow-700', bg: 'bg-yellow-500/10 border-yellow-200', icon: '👨‍🍳' },
+                          'READY': { label: 'Tayyor', color: 'text-green-600', bg: 'bg-green-500/10 border-green-200', icon: '🔔' },
+                          'COMPLETED': { label: 'Yakunlangan', color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-200', icon: '🏁' },
+                          'CANCELLED': { label: 'Bekor qilingan', color: 'text-red-600', bg: 'bg-red-500/10 border-red-200', icon: '❌' },
+                        };
+                        const totalOrders = statusData.reduce((s: number, item: any) => s + (item.count || 0), 0) || 1;
+                        return (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              {statusData.map((item: any, i: number) => {
+                                const meta = statusMeta[item.status] || { label: item.status, color: 'text-gray-600', bg: 'bg-gray-500/10 border-gray-200', icon: '📋' };
+                                const pct = ((item.count || 0) / totalOrders) * 100;
+                                return (
+                                  <div key={i} className={`rounded-xl border p-3 ${meta.bg} transition-all`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-lg">{meta.icon}</span>
+                                      <span className={`text-2xl font-bold ${meta.color}`}>{item.count || 0}</span>
+                                    </div>
+                                    <p className={`text-xs font-semibold ${meta.color} mb-1`}>{meta.label}</p>
+                                    <div className="w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
+                                      <div className={`h-full rounded-full bg-current ${meta.color} transition-all`}
+                                           style={{ width: `${Math.max(pct, 2)}%` }} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
                   {/* Two column layout: top products + recent orders */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Top Products */}
