@@ -9,6 +9,7 @@ import { IntegrationService } from './integration.service.js';
 
 // Nonbor → Lokal status mapping
 const NONBOR_TO_LOCAL_STATUS: Record<string, OrderStatus> = {
+  PENDING: OrderStatus.NEW,
   CHECKING: OrderStatus.NEW,
   ACCEPTED: OrderStatus.CONFIRMED,
   PREPARING: OrderStatus.PREPARING,
@@ -19,9 +20,8 @@ const NONBOR_TO_LOCAL_STATUS: Record<string, OrderStatus> = {
 };
 
 // Lokal → Nonbor status mapping
-const LOCAL_TO_NONBOR_STATUS: Partial<Record<OrderStatus, NonborOrderState>> = {
+const LOCAL_TO_NONBOR_STATUS: Partial<Record<OrderStatus, 'ACCEPTED' | 'READY' | 'CANCELLED' | 'DELIVERED'>> = {
   [OrderStatus.CONFIRMED]: 'ACCEPTED',
-  [OrderStatus.PREPARING]: 'PREPARING',
   [OrderStatus.READY]: 'READY',
   [OrderStatus.COMPLETED]: 'DELIVERED',
   [OrderStatus.CANCELLED]: 'CANCELLED',
@@ -113,13 +113,14 @@ class NonborSyncService {
 
       for (const settings of enabledSettings) {
         try {
-          const sellerId = settings.nonborSellerId!;
           const tenantId = settings.tenantId;
-          const nonborOrders = await nonborApiService.getSellerOrders(sellerId);
 
-          // Faqat aktiv buyurtmalarni (CHECKING, ACCEPTED, PREPARING, READY)
+          // Use the new v2 API method to fetch orders
+          const nonborOrders = await nonborApiService.syncOrdersFromNonbor(tenantId);
+
+          // Faqat aktiv buyurtmalarni (PENDING, CHECKING, ACCEPTED, PREPARING, READY)
           const activeOrders = nonborOrders.filter((o) =>
-            ['CHECKING', 'ACCEPTED', 'PREPARING', 'READY'].includes(o.state)
+            ['PENDING', 'CHECKING', 'ACCEPTED', 'PREPARING', 'READY'].includes(o.state)
           );
 
           for (const nonborOrder of activeOrders) {
@@ -151,8 +152,23 @@ class NonborSyncService {
       // Status yangilanishini tekshirish (Nonbor → Lokal)
       const expectedLocalStatus = NONBOR_TO_LOCAL_STATUS[nonborOrder.state];
       if (expectedLocalStatus && existingOrder.status !== expectedLocalStatus) {
-        // Faqat Nonbor tomondan o'zgargan bo'lsa yangilash
-        // (lokal o'zgarishlar syncStatusToNonbor orqali ketadi)
+        // Nonbor tomondan status o'zgargan — lokalni yangilash
+        await prisma.order.update({
+          where: { id: existingOrder.id },
+          data: { status: expectedLocalStatus },
+        });
+        console.log(`[Nonbor] Status yangilandi: #${nonborOrder.id} → ${expectedLocalStatus}`);
+
+        // Socket event yuborish
+        if (this.io) {
+          const updatedOrder = await prisma.order.findUnique({
+            where: { id: existingOrder.id },
+            include: { items: { include: { product: true } }, customer: true },
+          });
+          this.io.to(`tenant:${tenantId}:kitchen`).emit('order:updated', updatedOrder);
+          this.io.to(`tenant:${tenantId}:pos`).emit('order:updated', updatedOrder);
+          this.io.to(`tenant:${tenantId}:admin`).emit('order:updated', updatedOrder);
+        }
       }
       return;
     }
@@ -342,10 +358,10 @@ class NonborSyncService {
     // Integration Hub — barcha integratsiyalarga event dispatch
     IntegrationService.dispatchEvent('order:new', order).catch(console.error);
 
-    // 11. CHECKING statusli buyurtmani avtomatik ACCEPTED qilish
-    if (nonborOrder.state === 'CHECKING') {
+    // 11. PENDING/CHECKING statusli buyurtmani avtomatik ACCEPTED qilish
+    if (nonborOrder.state === 'CHECKING' || nonborOrder.state === 'PENDING') {
       try {
-        await nonborApiService.updateOrderState(nonborOrder.id, 'ACCEPTED');
+        await nonborApiService.changeOrderStatus(nonborOrder.id, 'ACCEPTED', tenantId);
         // Lokal statusni ham CONFIRMED qilish
         await prisma.order.update({
           where: { id: order.id },
@@ -357,7 +373,18 @@ class NonborSyncService {
       }
     }
 
-    // 12. Socket.IO event — tenant-scoped rooms
+    // 12. DELIVERY buyurtma uchun avtomatik kuryer qidirish
+    if (nonborOrder.delivery_method === 'DELIVERY' && nonborOrder.state !== 'CANCELLED') {
+      try {
+        await nonborApiService.acceptDelivery(nonborOrder.id, tenantId);
+        console.log(`[Nonbor] Buyurtma #${nonborOrder.id} uchun yetkazish boshlandi`);
+      } catch (err) {
+        // Delivery already accepted or not available — not critical
+        console.warn(`[Nonbor] Delivery accept: #${nonborOrder.id}`, (err as any)?.response?.data || (err as any)?.message);
+      }
+    }
+
+    // 13. Socket.IO event — tenant-scoped rooms
     if (this.io) {
       this.io.to(`tenant:${tenantId}:kitchen`).emit('order:new', order);
       this.io.to(`tenant:${tenantId}:pos`).emit('order:new', order);
@@ -374,6 +401,7 @@ class NonborSyncService {
     status: OrderStatus;
     nonborOrderId: number | null;
     isNonborOrder: boolean;
+    tenantId?: string;
   }) {
     if (!order.isNonborOrder || !order.nonborOrderId) return;
 
@@ -381,7 +409,12 @@ class NonborSyncService {
     if (!nonborState) return;
 
     try {
-      await nonborApiService.updateOrderState(order.nonborOrderId, nonborState);
+      await nonborApiService.syncOrderStatusToNonbor(
+        order.id,
+        order.nonborOrderId,
+        nonborState,
+        order.tenantId
+      );
       console.log(
         `[Nonbor] Status sync: Buyurtma #${order.nonborOrderId} → ${nonborState}`
       );
@@ -398,6 +431,14 @@ class NonborSyncService {
     console.log('[Nonbor] Manual sync boshlandi...');
     await this.syncOrders();
     console.log('[Nonbor] Manual sync yakunlandi');
+  }
+
+  // Sync products from local POS to Nonbor
+  async syncProducts(tenantId: string) {
+    console.log(`[Nonbor] Mahsulotlar sync boshlandi (tenant: ${tenantId})...`);
+    const result = await nonborApiService.syncProductsToNonbor(tenantId);
+    console.log(`[Nonbor] Mahsulotlar sync yakunlandi: ${result.created} yaratildi, ${result.updated} yangilandi, ${result.errors.length} xatolik`);
+    return result;
   }
 }
 
