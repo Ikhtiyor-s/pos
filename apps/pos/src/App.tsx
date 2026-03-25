@@ -29,7 +29,6 @@ import {
   Percent,
   X,
   BarChart3,
-  AlertCircle,
   AlertTriangle,
   Calculator,
   Store,
@@ -78,6 +77,7 @@ import { IntegrationHub } from './components/IntegrationHub';
 // QR Scanner — faqat admin panelda ishlatiladi
 import { LowStockAlert } from './components/LowStockAlert';
 import { inventoryService, type LowStockItem } from './services/inventory.service';
+import { Warehouse } from './components/Warehouse';
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
@@ -201,18 +201,7 @@ export default function App() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffSaving, setStaffSaving] = useState(false);
 
-  // Inventory states
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [showInvModal, setShowInvModal] = useState(false);
-  const [editInv, setEditInv] = useState<any>(null);
-  const [invForm, setInvForm] = useState({ name: '', sku: '', quantity: '', minQuantity: '', unit: 'kg', costPrice: '' });
-  const [invSaving, setInvSaving] = useState(false);
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [stockAction, setStockAction] = useState<'in' | 'out'>('in');
-  const [stockItem, setStockItem] = useState<any>(null);
-  const [stockAmount, setStockAmount] = useState('');
-  const [stockNote, setStockNote] = useState('');
+  // Inventory states — managed by <Warehouse /> component
 
   // Settings states
   const [settingsForm, setSettingsForm] = useState({ name: '', address: '', phone: '', email: '' });
@@ -280,19 +269,6 @@ export default function App() {
     }
   }, []);
 
-  // Fetch inventory
-  const fetchInventory = useCallback(async () => {
-    setInventoryLoading(true);
-    try {
-      const { data: response } = await api.get('/inventory');
-      const items = response.data?.data || response.data || [];
-      setInventoryItems(Array.isArray(items) ? items : []);
-    } catch (err) {
-      console.error('[Admin] Omborni yuklashda xatolik:', err);
-    } finally {
-      setInventoryLoading(false);
-    }
-  }, []);
 
   // Admin tab change effect
   useEffect(() => {
@@ -311,8 +287,6 @@ export default function App() {
       fetchAllOrders();
     } else if (adminTab === 'staff') {
       fetchStaff();
-    } else if (adminTab === 'inventory') {
-      fetchInventory();
     } else if (adminTab === 'settings') {
       if (!settingsInitialized && bizSettings) {
         setSettingsForm({
@@ -324,7 +298,7 @@ export default function App() {
         setSettingsInitialized(true);
       }
     }
-  }, [adminTab, dashboardPeriod, isAuthenticated, currentShift, user?.role, fetchDashboard, fetchAdminProducts, fetchAllOrders, fetchStaff, fetchInventory, bizSettings, settingsInitialized]);
+  }, [adminTab, dashboardPeriod, isAuthenticated, currentShift, user?.role, fetchDashboard, fetchAdminProducts, fetchAllOrders, fetchStaff, bizSettings, settingsInitialized]);
 
   // Category icons map
   const categoryIcons: Record<string, string> = {
@@ -660,17 +634,8 @@ export default function App() {
         </button>
       )}
       {isLocked && (
-        <div
-          className="fixed inset-0 z-[100] bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col items-center justify-center cursor-pointer select-none"
-          onClick={() => setIsLocked(false)}
-        >
-          <div className="flex flex-col items-center gap-6 animate-pulse">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full glass-strong border-2 border-white/80 shadow-xl">
-              <Lock size={40} className="text-gray-500" />
-            </div>
-            <p className="text-gray-600 text-lg font-medium">Ekran bloklangan</p>
-            <p className="text-gray-500 text-sm">Ochish uchun bosing</p>
-          </div>
+        <div className="fixed inset-0 z-[100]">
+          <Login onLoginSuccess={() => setIsLocked(false)} />
         </div>
       )}
     </>
@@ -3443,194 +3408,7 @@ export default function App() {
               )}
 
               {/* ====== TAB 7: INVENTORY ====== */}
-              {adminTab === 'inventory' && (() => {
-                const invItem = (inventoryItems as any[]) || [];
-
-                const openNewInv = () => { setEditInv(null); setInvForm({ name: '', sku: '', quantity: '', minQuantity: '5', unit: 'kg', costPrice: '' }); setShowInvModal(true); };
-                const openEditInv = (item: any) => {
-                  setEditInv(item);
-                  setInvForm({ name: item.name || '', sku: item.sku || '', quantity: String(item.quantity ?? ''), minQuantity: String(item.minQuantity ?? ''), unit: item.unit || 'kg', costPrice: String(item.costPrice ?? '') });
-                  setShowInvModal(true);
-                };
-                const openStockAction = (item: any, action: 'in' | 'out') => { setStockItem(item); setStockAction(action); setStockAmount(''); setStockNote(''); setShowStockModal(true); };
-
-                const saveInv = async () => {
-                  if (!invForm.name) return;
-                  setInvSaving(true);
-                  try {
-                    const payload = { name: invForm.name, sku: invForm.sku || undefined, quantity: parseFloat(invForm.quantity) || 0, minQuantity: parseFloat(invForm.minQuantity) || 5, unit: invForm.unit, costPrice: parseFloat(invForm.costPrice) || 0 };
-                    if (editInv) { await api.put(`/inventory/${editInv.id}`, payload); }
-                    else { await api.post('/inventory', payload); }
-                    setShowInvModal(false); fetchInventory();
-                  } catch (e) { alert('Xatolik!'); } finally { setInvSaving(false); }
-                };
-
-                const deleteInv = async (id: string) => {
-                  if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
-                  try { await api.delete(`/inventory/${id}`); fetchInventory(); } catch { alert("Xatolik!"); }
-                };
-
-                const saveStockAction = async () => {
-                  if (!stockItem || !stockAmount) return;
-                  try {
-                    await api.post(`/inventory/${stockItem.id}/transaction`, {
-                      type: stockAction === 'in' ? 'IN' : 'OUT',
-                      quantity: parseFloat(stockAmount),
-                      notes: stockNote || (stockAction === 'in' ? 'Kirim' : 'Chiqim'),
-                    });
-                    setShowStockModal(false); fetchInventory();
-                  } catch { alert('Xatolik!'); }
-                };
-
-                return (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-900">Ombor <span className="text-sm font-normal text-gray-400">({invItem.length} ta)</span></h2>
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => fetchInventory()} className="flex items-center gap-2 rounded-xl glass-strong border border-white/60 px-3 py-2 text-sm text-gray-600 hover:bg-white/50 transition-all">
-                        <RefreshCw size={14} /> Yangilash
-                      </button>
-                      <button onClick={openNewInv} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all">
-                        <Plus size={16} /> Yangi mahsulot
-                      </button>
-                    </div>
-                  </div>
-
-                  {lowStockItems.length > 0 && (
-                    <div className="glass-card rounded-2xl border border-red-200 bg-red-50/50 shadow-lg p-4">
-                      <h3 className="text-sm font-semibold text-red-700 flex items-center gap-2 mb-2">
-                        <AlertTriangle size={16} className="text-red-500" /> Kam qolgan ({lowStockItems.length})
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {lowStockItems.map((item: any, idx: number) => (
-                          <span key={idx} className="flex items-center gap-1 rounded-lg bg-white/80 border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600">
-                            <AlertCircle size={12} /> {item.name || 'Noma\'lum'}: {item.currentStock ?? item.quantity ?? 0}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {inventoryLoading ? (
-                    <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>
-                  ) : invItem.length === 0 ? (
-                    <div className="glass-card rounded-2xl border border-white/60 shadow-lg p-8 text-center">
-                      <Boxes className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500">Ombor bo'sh</p>
-                      <button onClick={openNewInv} className="mt-3 text-orange-500 text-sm font-medium hover:underline">+ Mahsulot qo'shish</button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {invItem.map((item: any) => {
-                        const qty = item.quantity ?? 0;
-                        const minQty = item.minQuantity ?? 0;
-                        const isLow = qty <= minQty;
-                        const isWarn = qty <= minQty * 2 && !isLow;
-                        const statusColor = isLow ? 'border-red-200 bg-red-50/30' : isWarn ? 'border-yellow-200 bg-yellow-50/30' : 'border-green-200 bg-green-50/30';
-                        const statusLabel = isLow ? { t: 'Tanqis', c: 'bg-red-500/10 text-red-600' } : isWarn ? { t: 'Kam', c: 'bg-yellow-500/10 text-yellow-600' } : { t: 'Normal', c: 'bg-green-500/10 text-green-600' };
-                        const barColor = isLow ? 'bg-red-500' : isWarn ? 'bg-yellow-500' : 'bg-green-500';
-                        const pct = minQty > 0 ? Math.min((qty / (minQty * 3)) * 100, 100) : 100;
-
-                        return (
-                          <div key={item.id} className={cn("glass-card rounded-2xl border shadow-lg p-5 hover:shadow-xl transition-all", statusColor)}>
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h4 className="font-semibold text-gray-900">{item.name}</h4>
-                                {item.sku && <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku}</p>}
-                              </div>
-                              <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", statusLabel.c)}>{statusLabel.t}</span>
-                            </div>
-                            <div className="space-y-2 mb-3">
-                              <div className="flex justify-between text-sm"><span className="text-gray-500">Joriy</span><span className="font-bold text-gray-900">{qty} {item.unit || 'dona'}</span></div>
-                              <div className="flex justify-between text-sm"><span className="text-gray-500">Min</span><span className="text-gray-600">{minQty} {item.unit || 'dona'}</span></div>
-                              <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden"><div className={cn("h-full rounded-full", barColor)} style={{ width: `${pct}%` }} /></div>
-                            </div>
-                            {item.costPrice > 0 && (
-                              <p className="text-xs text-gray-400 mb-3 flex items-center gap-1"><DollarSign size={11} /> Tan narxi: {formatPrice(item.costPrice)}</p>
-                            )}
-                            <div className="flex items-center gap-2 pt-3 border-t border-white/40">
-                              <button onClick={() => openStockAction(item, 'in')} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-green-500/10 text-green-600 py-2 text-xs font-medium hover:bg-green-500/20 transition-colors">
-                                <Plus size={14} /> Kirim
-                              </button>
-                              <button onClick={() => openStockAction(item, 'out')} className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-red-500/10 text-red-600 py-2 text-xs font-medium hover:bg-red-500/20 transition-colors">
-                                <Minus size={14} /> Chiqim
-                              </button>
-                              <button onClick={() => openEditInv(item)} className="flex items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 p-2 hover:bg-blue-500/20 transition-colors">
-                                <Edit3 size={14} />
-                              </button>
-                              <button onClick={() => deleteInv(item.id)} className="flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 p-2 hover:bg-red-500/20 transition-colors">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Add/Edit Inventory Modal */}
-                  {showInvModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowInvModal(false)}>
-                      <div className="w-full max-w-md mx-4 rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-6 py-4 border-b">
-                          <h3 className="text-lg font-bold">{editInv ? "Tahrirlash" : "Yangi mahsulot"}</h3>
-                          <button onClick={() => setShowInvModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                          <div><label className="text-sm font-medium text-gray-700">Nomi *</label><input value={invForm.name} onChange={e => setInvForm({...invForm, name: e.target.value})} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none" placeholder="Masalan: Guruch" /></div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-sm font-medium text-gray-700">SKU</label><input value={invForm.sku} onChange={e => setInvForm({...invForm, sku: e.target.value})} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none" placeholder="INV-001" /></div>
-                            <div><label className="text-sm font-medium text-gray-700">O'lchov birligi</label>
-                              <select value={invForm.unit} onChange={e => setInvForm({...invForm, unit: e.target.value})} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none">
-                                <option value="kg">Kilogramm (kg)</option><option value="g">Gramm (g)</option><option value="litr">Litr</option><option value="dona">Dona</option><option value="pachka">Pachka</option><option value="quti">Quti</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-sm font-medium text-gray-700">Miqdori</label><input type="number" value={invForm.quantity} onChange={e => setInvForm({...invForm, quantity: e.target.value})} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none" placeholder="0" /></div>
-                            <div><label className="text-sm font-medium text-gray-700">Min miqdor</label><input type="number" value={invForm.minQuantity} onChange={e => setInvForm({...invForm, minQuantity: e.target.value})} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none" placeholder="5" /></div>
-                          </div>
-                          <div><label className="text-sm font-medium text-gray-700">Tan narxi (so'm)</label><input type="number" value={invForm.costPrice} onChange={e => setInvForm({...invForm, costPrice: e.target.value})} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none" placeholder="0" /></div>
-                        </div>
-                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-2xl">
-                          <button onClick={() => setShowInvModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Bekor qilish</button>
-                          <button onClick={saveInv} disabled={invSaving || !invForm.name} className="flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50 transition-colors">
-                            {invSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Saqlash
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Stock In/Out Modal */}
-                  {showStockModal && stockItem && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowStockModal(false)}>
-                      <div className="w-full max-w-sm mx-4 rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className={cn("flex items-center gap-3 px-6 py-4 rounded-t-2xl", stockAction === 'in' ? 'bg-green-50 border-b border-green-100' : 'bg-red-50 border-b border-red-100')}>
-                          <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", stockAction === 'in' ? 'bg-green-500 text-white' : 'bg-red-500 text-white')}>
-                            {stockAction === 'in' ? <Plus size={20} /> : <Minus size={20} />}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-gray-900">{stockAction === 'in' ? 'Kirim' : 'Chiqim'}</h3>
-                            <p className="text-sm text-gray-500">{stockItem.name} (hozir: {stockItem.quantity ?? 0} {stockItem.unit || 'dona'})</p>
-                          </div>
-                        </div>
-                        <div className="p-6 space-y-4">
-                          <div><label className="text-sm font-medium text-gray-700">Miqdor *</label><input type="number" value={stockAmount} onChange={e => setStockAmount(e.target.value)} autoFocus className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-lg font-bold text-center focus:border-orange-500 focus:outline-none" placeholder="0" /></div>
-                          <div><label className="text-sm font-medium text-gray-700">Izoh</label><input value={stockNote} onChange={e => setStockNote(e.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-orange-500 focus:outline-none" placeholder={stockAction === 'in' ? 'Yetkazib beruvchidan' : 'Oshxonaga'} /></div>
-                        </div>
-                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-2xl">
-                          <button onClick={() => setShowStockModal(false)} className="px-4 py-2 text-sm text-gray-600">Bekor</button>
-                          <button onClick={saveStockAction} disabled={!stockAmount} className={cn("flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50", stockAction === 'in' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600')}>
-                            <Check size={16} /> {stockAction === 'in' ? 'Kirim qilish' : 'Chiqim qilish'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                );
-              })()}
+              {adminTab === 'inventory' && <Warehouse />}
 
               {/* ====== TAB 8: SETTINGS ====== */}
               {adminTab === 'settings' && (

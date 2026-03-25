@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.tsbuildinfo
+uploads/products/*
+uploads/categories/*
+uploads/inventory/*
+!uploads/products/.gitkeep
+!uploads/categories/.gitkeep
+!uploads/inventory/.gitkeep

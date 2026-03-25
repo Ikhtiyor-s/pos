@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Yaroqli email kiriting'),
-  password: z.string().min(6, 'Parol kamida 6 ta belgidan iborat bo\'lishi kerak'),
+  password: z.string().min(4, 'Parol kamida 4 ta belgidan iborat bo\'lishi kerak'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -57,8 +57,8 @@ export function LoginPage() {
               <UtensilsCrossed className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">DreamsPOS</h1>
-              <p className="text-sm text-gray-500">Restaurant POS System</p>
+              <h1 className="text-2xl font-bold text-gray-900">Oshxona POS</h1>
+              <p className="text-sm text-gray-500">Admin Panel</p>
             </div>
           </div>
 

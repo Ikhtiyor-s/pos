@@ -54,6 +54,15 @@ export function Login({ onLoginSuccess }: LoginProps) {
     try {
       const success = await loginWithPin(pin);
       if (success) {
+        // Admin rolini POS dan bloklash — faqat web panel orqali kiradi
+        const loggedUser = useAuthStore.getState().user;
+        const adminRoles = ['super_admin', 'admin', 'manager', 'owner'];
+        if (loggedUser && adminRoles.includes(loggedUser.role?.toLowerCase())) {
+          useAuthStore.getState().logout();
+          setError('Admin panel: localhost:5173 dan kiring');
+          setPin('');
+          return;
+        }
         startShift(0);
         onLoginSuccess();
       } else {
