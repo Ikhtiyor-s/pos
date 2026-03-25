@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.git
+*.log
+.env
+apps/flutter-pos
+apps/*/dist
+backend/dist
+apps/api
+apps/kitchen/src
+apps/kitchen/electron
+apps/waiter/src
+apps/waiter/electron
+apps/web/src
+apps/web/electron
+apps/qr-menu/src

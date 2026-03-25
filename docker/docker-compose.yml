@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: oshxona-postgres
@@ -12,7 +12,7 @@ services:
       POSTGRES_DB: oshxona_pos
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -23,7 +23,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis Cache
+  # ─── Redis ───────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: oshxona-redis
@@ -41,7 +41,52 @@ services:
       timeout: 5s
       retries: 5
 
-  # Adminer - Database management
+  # ─── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: oshxona-backend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://oshxona:oshxona_secret_2024@postgres:5432/oshxona_pos
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: oshxona-jwt-secret-change-in-production
+      JWT_REFRESH_SECRET: oshxona-refresh-secret-change-in-production
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:5174
+    volumes:
+      - backend_uploads:/app/backend/uploads
+    networks:
+      - oshxona-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── POS Frontend ────────────────────────────────────────────────────────────
+  pos:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: oshxona-pos
+    restart: unless-stopped
+    ports:
+      - '5174:80'
+    networks:
+      - oshxona-network
+    depends_on:
+      - backend
+
+  # ─── Adminer (DB boshqaruvi) ──────────────────────────────────────────────────
   adminer:
     image: adminer:latest
     container_name: oshxona-adminer
@@ -64,4 +109,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  backend_uploads:
     driver: local
