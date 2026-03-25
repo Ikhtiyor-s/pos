@@ -3,10 +3,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build args — docker-compose.yml dan uzatiladi
+ARG VITE_API_URL=/api
+ARG VITE_TENANT_ID
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_TENANT_ID=$VITE_TENANT_ID
+
 # Root workspace manifest (npm workspaces uchun)
 COPY package.json package-lock.json ./
 
-# Barcha workspace package.json larini ko'chirish (npm workspaces uchun kerak)
+# Barcha workspace package.json larini ko'chirish
 COPY packages/shared/package.json       packages/shared/
 COPY packages/config/package.json       packages/config/
 COPY packages/database/package.json     packages/database/
@@ -25,8 +31,7 @@ COPY packages/shared/   packages/shared/
 COPY packages/config/   packages/config/
 COPY apps/pos/          apps/pos/
 
-# apps/pos ni build qilish (vite build — tsc type check o'tkazib yuboriladi)
-# VITE_API_URL va VITE_TENANT_ID — apps/pos/.env dan avtomatik olinadi
+# apps/pos build (VITE_* env vars yukori ARG dan olinadi)
 RUN cd apps/pos && npx vite build
 
 # ─── Stage 2: Nginx ───────────────────────────────────────────────────────────

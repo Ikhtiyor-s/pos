@@ -77,6 +77,9 @@ services:
     build:
       context: ..
       dockerfile: docker/frontend.Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_TENANT_ID: 0f17da38-bc59-4bd1-ab22-949f1696254c
     container_name: oshxona-pos
     restart: unless-stopped
     ports:
@@ -86,20 +89,6 @@ services:
     depends_on:
       - backend
 
-  # ─── Adminer (DB boshqaruvi) ──────────────────────────────────────────────────
-  adminer:
-    image: adminer:latest
-    container_name: oshxona-adminer
-    restart: unless-stopped
-    ports:
-      - '8080:8080'
-    networks:
-      - oshxona-network
-    depends_on:
-      - postgres
-    environment:
-      ADMINER_DEFAULT_SERVER: postgres
-      ADMINER_DESIGN: pepa-linha-dark
 
 networks:
   oshxona-network:
