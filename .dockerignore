@@ -6,7 +6,6 @@ node_modules
 apps/flutter-pos
 apps/*/dist
 backend/dist
-apps/api
 apps/kitchen/src
 apps/kitchen/electron
 apps/waiter/src
