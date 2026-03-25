@@ -86,13 +86,12 @@ export const useAuthStore = create<AuthState>()(
 
       loginWithPin: async (username: string, password: string) => {
         try {
-          const tenantId = import.meta.env.VITE_TENANT_ID;
-          if (!tenantId) {
-            console.error('[POS] VITE_TENANT_ID sozlanmagan');
-            return false;
-          }
+          const isEmail = username.includes('@');
+          const payload = isEmail
+            ? { email: username, password }
+            : { phone: username, password };
 
-          const { data: response } = await api.post('/auth/login-pin', { username, password, tenantId });
+          const { data: response } = await api.post('/auth/login', payload);
           const { user: apiUser, accessToken, refreshToken } = response.data;
 
           const user: User = {

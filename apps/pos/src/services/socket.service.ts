@@ -6,8 +6,11 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    this.socket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000', {
+    // Docker: nginx same-origin proxyi orqali ulanish
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      path: '/socket.io',
     });
 
     this.socket.on('connect', () => {

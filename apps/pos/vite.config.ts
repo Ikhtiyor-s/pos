@@ -14,9 +14,13 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://localhost:8088',
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        rewrite: (path: string) => '/api/pos' + path.slice(4),
+      },
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
       },
     },
   },
