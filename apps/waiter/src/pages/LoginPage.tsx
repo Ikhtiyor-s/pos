@@ -1,24 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, Lock, Eye, EyeOff, Loader2, ChefHat } from 'lucide-react';
+import { Loader2, ChefHat, Delete } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
 import { useTranslation } from '../store/language';
 import type { Language } from '../utils/translations';
 
-const languageFlags: Record<Language, string> = {
-  uz: '🇺🇿',
-  ru: '🇷🇺',
-  en: '🇬🇧',
-};
+const LANG_FLAGS: Record<Language, string> = { uz: '🇺🇿', ru: '🇷🇺', en: '🇬🇧' };
+const LANGS: Language[] = ['uz', 'ru', 'en'];
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const { loginWithPin, isLoading, error, clearError, isAuthenticated } = useAuthStore();
   const { t, language, setLanguage } = useTranslation();
-
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const cycleLanguage = () => setLanguage(LANGS[(LANGS.indexOf(language) + 1) % LANGS.length]);
+  const [pin, setPin] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -28,164 +23,128 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(clearError, 5000);
+      const timer = setTimeout(clearError, 3000);
       return () => clearTimeout(timer);
     }
   }, [error, clearError]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!phone || !password) return;
-
-    // Clean phone: remove all non-digits, then add +998 prefix
-    const digits = phone.replace(/\D/g, '');
-    // Handle different input formats
-    let cleanPhone: string;
-    if (digits.startsWith('998') && digits.length === 12) {
-      cleanPhone = `+${digits}`;
-    } else if (digits.length === 9) {
-      cleanPhone = `+998${digits}`;
-    } else {
-      cleanPhone = `+998${digits.slice(-9)}`;
-    }
-
-    const success = await login(cleanPhone, password);
+  const handlePinSubmit = useCallback(async (pinValue: string) => {
+    const success = await loginWithPin(pinValue);
     if (success) {
       navigate('/tables', { replace: true });
+    } else {
+      setPin('');
     }
-  };
+  }, [loginWithPin, navigate]);
 
-  const formatPhone = (value: string) => {
-    // Remove non-digits
-    const digits = value.replace(/\D/g, '');
-
-    // Get last 9 digits (local number)
-    let localNumber = digits;
-    if (digits.startsWith('998')) {
-      localNumber = digits.slice(3);
+  useEffect(() => {
+    if (pin.length === 4) {
+      handlePinSubmit(pin);
     }
+  }, [pin, handlePinSubmit]);
 
-    // Limit to 9 digits
-    localNumber = localNumber.slice(0, 9);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (/^\d$/.test(e.key) && pin.length < 4 && !isLoading) {
+        setPin(p => p + e.key);
+        clearError();
+      }
+      if (e.key === 'Backspace') {
+        setPin(p => p.slice(0, -1));
+        clearError();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pin, isLoading, clearError]);
 
-    // Format as +998 XX XXX XX XX
-    if (localNumber.length <= 2) return `+998 ${localNumber}`;
-    if (localNumber.length <= 5) return `+998 ${localNumber.slice(0, 2)} ${localNumber.slice(2)}`;
-    if (localNumber.length <= 7) return `+998 ${localNumber.slice(0, 2)} ${localNumber.slice(2, 5)} ${localNumber.slice(5)}`;
-    return `+998 ${localNumber.slice(0, 2)} ${localNumber.slice(2, 5)} ${localNumber.slice(5, 7)} ${localNumber.slice(7, 9)}`;
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhone(e.target.value);
-    setPhone(formatted);
-  };
-
-  const cycleLanguage = () => {
-    const langs: Language[] = ['uz', 'ru', 'en'];
-    const currentIndex = langs.indexOf(language);
-    const nextIndex = (currentIndex + 1) % langs.length;
-    setLanguage(langs[nextIndex]);
+  const pressDigit = (d: string) => {
+    if (pin.length < 4 && !isLoading) {
+      setPin(p => p + d);
+      clearError();
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-orange-500 to-pink-500">
-      {/* Language Switcher */}
+      {/* Language switcher */}
       <div className="absolute top-4 right-4 z-10">
         <button
           onClick={cycleLanguage}
-          className="flex items-center gap-2 px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium hover:bg-white/30 transition-all"
+          className="flex items-center gap-1.5 px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium active:bg-white/30 transition-all"
         >
-          <span className="text-lg">{languageFlags[language]}</span>
-          <span>{t('languages.' + language)}</span>
+          <span className="text-base">{LANG_FLAGS[language]}</span>
+          <span>{t(`languages.${language}` as any)}</span>
         </button>
       </div>
 
       {/* Header */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm">
-            <ChefHat className="h-12 w-12 text-white" />
-          </div>
+        <div className="p-4 bg-white/20 rounded-2xl backdrop-blur-sm mb-6">
+          <ChefHat className="h-14 w-14 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">{t('login.appName')}</h1>
-        <p className="text-white/80 text-sm">{t('login.appSubtitle')}</p>
+        <h1 className="text-3xl font-bold text-white mb-1">{t('login.appSubtitle' as any)}</h1>
+        <p className="text-white/80 text-sm">{t('login.appName' as any)}</p>
       </div>
 
-      {/* Login Form */}
-      <div className="bg-card rounded-t-3xl px-6 py-8 shadow-2xl">
-        <h2 className="text-xl font-bold text-foreground mb-6 text-center">
-          {t('login.title')}
-        </h2>
+      {/* PIN panel */}
+      <div className="bg-white rounded-t-3xl px-6 py-8 shadow-2xl">
+        <p className="text-center text-sm text-gray-500 mb-6">
+          {t('login.pinHint' as any) || '4 raqamli PIN kodingizni kiriting'}
+        </p>
 
+        {/* PIN dots */}
+        <div className="flex justify-center gap-5 mb-6">
+          {[0, 1, 2, 3].map(i => (
+            <div
+              key={i}
+              className={`h-4 w-4 rounded-full transition-all duration-150 ${
+                i < pin.length
+                  ? 'bg-orange-500 scale-110'
+                  : 'border-2 border-gray-300 bg-gray-100'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Error */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm text-center">
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-center text-red-600">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Phone Input */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('login.phone')}
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={handlePhoneChange}
-                placeholder={t('login.phonePlaceholder')}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-              />
-            </div>
+        {/* Numpad */}
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
           </div>
-
-          {/* Password Input */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t('login.password')}
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('login.passwordPlaceholder')}
-                className="w-full pl-11 pr-11 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-              />
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                key={d}
+                onPointerDown={() => pressDigit(d)}
+                className="rounded-2xl bg-gray-50 border border-gray-200 py-5 text-xl font-semibold text-gray-800 active:bg-orange-50 active:border-orange-300 active:scale-95 transition-all touch-none"
               >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                {d}
               </button>
-            </div>
+            ))}
+            <div />
+            <button
+              onPointerDown={() => pressDigit('0')}
+              className="rounded-2xl bg-gray-50 border border-gray-200 py-5 text-xl font-semibold text-gray-800 active:bg-orange-50 active:border-orange-300 active:scale-95 transition-all touch-none"
+            >
+              0
+            </button>
+            <button
+              onPointerDown={() => { setPin(p => p.slice(0, -1)); clearError(); }}
+              className="rounded-2xl bg-gray-50 border border-gray-200 py-5 flex items-center justify-center text-gray-400 active:bg-red-50 active:border-red-300 active:text-red-500 active:scale-95 transition-all touch-none"
+            >
+              <Delete className="h-5 w-5" />
+            </button>
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading || !phone || !password}
-            className="w-full py-3.5 mt-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/20 hover:shadow-xl hover:shadow-orange-500/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                {t('login.submitting')}
-              </>
-            ) : (
-              t('login.submit')
-            )}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          {t('login.hint')}
-        </p>
+        )}
       </div>
     </div>
   );

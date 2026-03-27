@@ -13,6 +13,7 @@ router.post('/logout', AuthController.logout);
 
 // Protected routes
 router.get('/me', authenticate, AuthController.me);
+router.put('/change-password', authenticate, AuthController.changePassword);
 
 // PIN boshqaruvi (faqat MANAGER/SUPER_ADMIN)
 router.put('/users/:userId/pin', authenticate, authorize('MANAGER', 'SUPER_ADMIN'), AuthController.setUserPin);

@@ -438,6 +438,59 @@ export const translations = {
     ru: 'Русский',
     en: 'English',
   },
+
+  // Exit dialog
+  exit: {
+    title: {
+      uz: 'Ilovadan chiqish',
+      ru: 'Выход из приложения',
+      en: 'Exit App',
+    },
+    confirm: {
+      uz: 'Ilovadan chiqishni xohlaysizmi?',
+      ru: 'Вы хотите выйти из приложения?',
+      en: 'Do you want to exit the app?',
+    },
+    exit: {
+      uz: 'Chiqish',
+      ru: 'Выйти',
+      en: 'Exit',
+    },
+  },
+
+  // Settings
+  settings: {
+    title: {
+      uz: 'Sozlamalar',
+      ru: 'Настройки',
+      en: 'Settings',
+    },
+    language: {
+      uz: 'Til',
+      ru: 'Язык',
+      en: 'Language',
+    },
+    theme: {
+      uz: 'Ko\'rinish',
+      ru: 'Тема',
+      en: 'Theme',
+    },
+    themeLight: {
+      uz: 'Yorug\'',
+      ru: 'Светлая',
+      en: 'Light',
+    },
+    themeDark: {
+      uz: 'Qorong\'i',
+      ru: 'Тёмная',
+      en: 'Dark',
+    },
+    themeSystem: {
+      uz: 'Tizim',
+      ru: 'Системная',
+      en: 'System',
+    },
+  },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

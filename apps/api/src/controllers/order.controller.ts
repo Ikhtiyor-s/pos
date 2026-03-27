@@ -169,6 +169,24 @@ export class OrderController {
     }
   }
 
+  static async updateItemQuantity(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const { quantity } = req.body;
+      if (typeof quantity !== 'number') {
+        return res.status(400).json({ success: false, message: 'quantity raqam bo\'lishi kerak' });
+      }
+      const order = await OrderService.updateItemQuantity(tenantId, req.params.id, req.params.itemId, quantity);
+      const io = req.app.get('io') as Server;
+      io.to('kitchen').emit('order:updated', order);
+      io.to('pos').emit('order:updated', order);
+      io.to('waiter').emit('order:updated', order);
+      return successResponse(res, order, 'Element yangilandi');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Kassir to'lov qabul qilish
   static async addPayment(req: Request, res: Response, next: NextFunction) {
     try {

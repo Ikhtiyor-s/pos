@@ -10,6 +10,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (phone: string, password: string) => Promise<boolean>;
+  loginWithPin: (pin: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
   clearError: () => void;
@@ -44,6 +45,27 @@ export const useAuthStore = create<AuthState>()(
           set({
             isLoading: false,
             error: error.response?.data?.message || 'Login xatoligi',
+          });
+          return false;
+        }
+      },
+
+      loginWithPin: async (pin: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await authService.loginWithPin(pin);
+          set({
+            user: response.user,
+            accessToken: response.accessToken,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+          return true;
+        } catch (error: any) {
+          set({
+            isLoading: false,
+            error: error.response?.data?.message || "PIN kod noto'g'ri",
           });
           return false;
         }

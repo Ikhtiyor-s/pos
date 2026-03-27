@@ -13,8 +13,12 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    this.socket = io('http://localhost:3005', {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL ||
+      (import.meta.env.VITE_API_URL || '').replace('/api', '') ||
+      'http://localhost:3000';
+    this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      path: '/socket.io',
     });
 
     this.socket.on('connect', () => {

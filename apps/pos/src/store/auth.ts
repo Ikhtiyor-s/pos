@@ -38,7 +38,7 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<boolean>;
-  loginWithPin: (username: string, password: string) => Promise<boolean>;
+  loginWithPin: (pin: string) => Promise<boolean>;
   logout: () => void;
   startShift: (startingCash: number) => void;
   endShift: (endingCash: number) => void;
@@ -84,14 +84,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      loginWithPin: async (username: string, password: string) => {
+      loginWithPin: async (pin: string) => {
         try {
-          const isEmail = username.includes('@');
-          const payload = isEmail
-            ? { email: username, password }
-            : { phone: username, password };
-
-          const { data: response } = await api.post('/auth/login', payload);
+          const tenantId = import.meta.env.VITE_TENANT_ID;
+          const { data: response } = await api.post('/auth/login-pin', { pin, tenantId });
           const { user: apiUser, accessToken, refreshToken } = response.data;
 
           const user: User = {

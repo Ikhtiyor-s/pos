@@ -32,7 +32,12 @@ interface DailyStats {
 export const authService = {
   login: async (phone: string, password: string): Promise<LoginResponse> => {
     const { data: response } = await api.post('/auth/login', { phone, password });
-    // API returns { success, data: { user, accessToken, refreshToken } }
+    return response.data;
+  },
+
+  loginWithPin: async (pin: string): Promise<LoginResponse> => {
+    const tenantId = import.meta.env.VITE_TENANT_ID;
+    const { data: response } = await api.post('/auth/login-pin', { pin, tenantId });
     return response.data;
   },
 

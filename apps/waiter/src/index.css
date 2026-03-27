@@ -151,3 +151,16 @@
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* Safe area insets for notch / gesture bar */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pb-safe {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}

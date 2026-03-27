@@ -27,7 +27,7 @@ COPY apps/pos/        apps/pos/
 RUN cd apps/pos && npx vite build
 
 # ─── Nginx ────────────────────────────────────────────────────────────────────
-FROM nginx:alpine
+FROM nginx:alpine3.21
 COPY --from=builder /app/apps/pos/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

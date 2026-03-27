@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, Loader2, RefreshCw, ClipboardList, Bell, User, UtensilsCrossed, Clock, ShoppingBag } from 'lucide-react';
+import { Users, Loader2, RefreshCw, Clock } from 'lucide-react';
 import { tableService, socketService } from '../services';
 import { useAuthStore } from '../store/auth';
 import { useTranslation } from '../store/language';
@@ -9,7 +9,6 @@ import type { Table } from '../services/table.service';
 
 export default function TablesPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -104,18 +103,6 @@ export default function TablesPage() {
   const freeCount = tables.filter((t: Table) => t.status === 'FREE').length;
   const occupiedCount = tables.filter((t: Table) => t.status === 'OCCUPIED').length;
 
-  // Bottom nav items
-  const navItems = [
-    { id: 'tables', label: 'Stollar', icon: UtensilsCrossed, path: '/tables' },
-    { id: 'orders', label: 'Buyurtmalar', icon: ClipboardList, path: '/orders' },
-    { id: 'notifications', label: 'Bildirishnomalar', icon: Bell, path: '/notifications' },
-    { id: 'profile', label: 'Profil', icon: User, path: '/profile' },
-  ];
-
-  const activeTab = location.pathname.includes('/orders') ? 'orders' :
-    location.pathname.includes('/notifications') ? 'notifications' :
-    location.pathname.includes('/profile') ? 'profile' : 'tables';
-
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
@@ -209,7 +196,7 @@ export default function TablesPage() {
 
       {/* Tables Grid - 2 columns for phone */}
       <div
-        className="flex-1 overflow-y-auto px-4 pt-4 pb-24"
+        className="flex-1 overflow-y-auto px-4 pt-4 pb-safe"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -256,42 +243,6 @@ export default function TablesPage() {
         </div>
       </div>
 
-      {/* Floating "Olib ketish" button */}
-      <div className="fixed bottom-20 right-4 z-40">
-        <button
-          onClick={() => navigate('/menu/takeaway')}
-          className="flex items-center gap-2 rounded-full bg-orange-500 px-5 py-3.5 text-white font-semibold shadow-lg shadow-orange-500/30 active:bg-orange-600 active:scale-95 transition-all"
-          style={{ minHeight: '48px' }}
-        >
-          <ShoppingBag className="h-5 w-5" />
-          <span className="text-sm">Olib ketish</span>
-        </button>
-      </div>
-
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 safe-area-bottom" style={{ height: '64px' }}>
-        <div className="flex items-center justify-around h-full px-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-                  isActive ? 'text-orange-500' : 'text-gray-400 dark:text-gray-500'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                <Icon className={`h-6 w-6 ${isActive ? 'text-orange-500' : ''}`} />
-                <span className={`text-[11px] mt-0.5 font-medium ${isActive ? 'text-orange-500' : ''}`}>
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }

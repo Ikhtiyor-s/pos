@@ -3,7 +3,7 @@ import { cn } from '../../../lib/utils';
 import { useAuthStore } from '../../../store/auth';
 import { useCartStore } from '../../../store/cart';
 import { orderService } from '../../../services/order.service';
-import { LogOut, Clock, User, ChevronLeft } from 'lucide-react';
+import { LogOut, Clock, User, ChevronLeft, Search, X } from 'lucide-react';
 import TouchButton from '../shared/TouchButton';
 import TableView from './TableView';
 import ProductGrid from './ProductGrid';
@@ -23,6 +23,8 @@ export default function TabletLayout() {
   const [currentTableNumber, setCurrentTableNumber] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [time, setTime] = useState(new Date());
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Clock
   React.useEffect(() => {
@@ -143,6 +145,46 @@ export default function TabletLayout() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Search */}
+          {currentScreen === 'products' && (
+            searchOpen ? (
+              <div className="flex items-center gap-2 animate-in slide-in-from-right-4 duration-200">
+                <div className="relative">
+                  <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Qidirish..."
+                    autoFocus
+                    className={cn(
+                      'w-48 h-9 pl-8 pr-3 rounded-lg text-sm',
+                      'bg-gray-100 dark:bg-gray-800',
+                      'text-gray-900 dark:text-gray-100',
+                      'placeholder-gray-400',
+                      'border border-gray-200 dark:border-gray-700',
+                      'focus:outline-none focus:ring-2 focus:ring-blue-500'
+                    )}
+                  />
+                </div>
+                <button
+                  onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 100); }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              >
+                <Search size={18} />
+              </button>
+            )
+          )}
+
           {/* Time */}
           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
             <Clock size={16} />

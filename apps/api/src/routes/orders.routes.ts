@@ -11,10 +11,10 @@ const router = Router();
 // All order routes require authentication
 router.use(authenticate);
 
-// Get all orders (admin, manager, cashier)
+// Get all orders (admin, manager, cashier, waiter)
 router.get(
   '/',
-  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER, Role.ACCOUNTANT),
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER, Role.ACCOUNTANT, Role.WAITER),
   OrderController.getAll
 );
 
@@ -54,11 +54,18 @@ router.patch(
   OrderController.updateItemStatus
 );
 
-// Add items to existing order
+// Add items to existing order (waiter can also add)
 router.post(
   '/:id/items',
-  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER),
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER, Role.WAITER),
   OrderController.addItems
+);
+
+// Update item quantity (waiter can change qty)
+router.patch(
+  '/:id/items/:itemId',
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.CASHIER, Role.WAITER),
+  OrderController.updateItemQuantity
 );
 
 // To'lov qabul qilish (kassir)

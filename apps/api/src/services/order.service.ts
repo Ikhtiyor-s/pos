@@ -411,4 +411,42 @@ export class OrderService {
 
     return updatedOrder;
   }
+
+  static async updateItemQuantity(tenantId: string, orderId: string, itemId: string, quantity: number) {
+    const order = await this.getById(tenantId, orderId);
+    if (order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) {
+      throw new AppError('Yakunlangan buyurtmani o\'zgartirib bo\'lmaydi', 400);
+    }
+
+    const item = await prisma.orderItem.findUnique({ where: { id: itemId } });
+    if (!item || item.orderId !== orderId) throw new AppError('Element topilmadi', 404);
+
+    if (quantity <= 0) {
+      await prisma.orderItem.delete({ where: { id: itemId } });
+    } else {
+      const price = Number(item.price);
+      await prisma.orderItem.update({
+        where: { id: itemId },
+        data: { quantity, total: price * quantity },
+      });
+    }
+
+    // Recalculate order totals
+    const items = await prisma.orderItem.findMany({ where: { orderId } });
+    const newSubtotal = items.reduce((sum, i) => sum + Number(i.total), 0);
+    const discountPercent = Number(order.discountPercent || 0);
+    const discount = discountPercent > 0 ? newSubtotal * (discountPercent / 100) : Number(order.discount);
+    const settings = await prisma.settings.findFirst({ where: { tenantId } });
+    const taxRate = Number(settings?.taxRate || 0);
+    const tax = (newSubtotal - discount) * (taxRate / 100);
+    const total = newSubtotal - discount + tax;
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId, tenantId },
+      data: { subtotal: newSubtotal, discount, tax, total },
+      include: { table: true, items: { include: { product: true } } },
+    });
+
+    return updatedOrder;
+  }
 }

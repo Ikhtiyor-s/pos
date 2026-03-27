@@ -11,16 +11,29 @@ import {
   Loader2,
   Calendar,
   TrendingUp,
+  Languages,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { useAuthStore } from '../store/auth';
+import { useThemeStore } from '../store/theme';
+import type { Language } from '../utils/translations';
 import { authService } from '../services/auth.service';
 import { useTranslation } from '../store/language';
+
+const LANGS: { code: Language; flag: string }[] = [
+  { code: 'uz', flag: '🇺🇿' },
+  { code: 'ru', flag: '🇷🇺' },
+  { code: 'en', flag: '🇬🇧' },
+];
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
-  const { t } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
+  const { theme, setTheme } = useThemeStore();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Fetch daily stats
@@ -262,6 +275,61 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Settings Card */}
+        <div className="bg-card rounded-2xl p-4 shadow-sm">
+          <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Languages className="h-5 w-5 text-orange-500" />
+            {t('settings.title' as any)}
+          </h3>
+
+          {/* Language */}
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground mb-2">{t('settings.language' as any)}</p>
+            <div className="flex gap-2">
+              {LANGS.map(l => (
+                <button
+                  key={l.code}
+                  onClick={() => setLanguage(l.code)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    language === l.code
+                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                      : 'border-border text-muted-foreground hover:border-orange-300'
+                  }`}
+                >
+                  <span className="text-base">{l.flag}</span>
+                  <span>{t(`languages.${l.code}` as any)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">{t('settings.theme' as any)}</p>
+            <div className="flex gap-2">
+              {([
+                { val: 'light', icon: Sun,     label: t('settings.themeLight' as any) },
+                { val: 'dark',  icon: Moon,    label: t('settings.themeDark' as any) },
+                { val: 'system',icon: Monitor, label: t('settings.themeSystem' as any) },
+              ] as const).map(({ val, icon: Icon, label }) => (
+                <button
+                  key={val}
+                  onClick={() => setTheme(val)}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                    theme === val
+                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400'
+                      : 'border-border text-muted-foreground hover:border-orange-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

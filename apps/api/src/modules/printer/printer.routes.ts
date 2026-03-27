@@ -32,9 +32,9 @@ router.post('/print/kitchen/:orderId',
   PrinterController.printKitchenTicket
 );
 
-// Mijoz cheki — kassir, manager, admin
+// Mijoz cheki — kassir, manager, admin, ofitsiant
 router.post('/print/receipt/:orderId',
-  authorize('SUPER_ADMIN', 'MANAGER', 'CASHIER'),
+  authorize('SUPER_ADMIN', 'MANAGER', 'CASHIER', 'WAITER'),
   PrinterController.printReceipt
 );
 
