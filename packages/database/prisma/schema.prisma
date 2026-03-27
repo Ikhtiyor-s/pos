@@ -111,6 +111,7 @@ model User {
   orders                Order[]
   inventoryTransactions InventoryTransaction[]
   refreshTokens         RefreshToken[]
+  passwordResetTokens   PasswordResetToken[]
   expenses              Expense[]
   cashRegisters         CashRegister[]
   purchaseOrders        PurchaseOrder[]
@@ -135,6 +136,19 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // ==========================================

@@ -332,4 +332,90 @@ export class AuthService {
       data: { password: hashed },
     });
   }
+
+  // ============ PASSWORD RESET ============
+
+  static async forgotPassword(email?: string, phone?: string) {
+    if (!email && !phone) {
+      throw new AppError('Email yoki telefon raqam kiritilishi shart', 400);
+    }
+
+    const user = await prisma.user.findFirst({
+      where: email
+        ? { email }
+        : { phone },
+      select: { id: true, email: true, phone: true },
+    });
+
+    if (!user) {
+      // Xavfsizlik: foydalanuvchi mavjudligini oshkor qilmaymiz
+      return { message: 'Agar hisob mavjud bo\'lsa, tiklash havolasi yuborildi' };
+    }
+
+    // Oldingi tokenlarni o'chirish
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    // Yangi token yaratish
+    const crypto = await import('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 soat
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    // TODO: Email/SMS orqali tokenni yuborish
+    // Hozircha dev rejimda tokenni qaytaramiz
+    console.log(`[Auth] Password reset token for ${user.email}: ${token}`);
+
+    return {
+      message: 'Agar hisob mavjud bo\'lsa, tiklash havolasi yuborildi',
+      ...(process.env.NODE_ENV !== 'production' ? { token } : {}),
+    };
+  }
+
+  static async resetPassword(token: string, newPassword: string) {
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!resetToken) {
+      throw new AppError('Yaroqsiz yoki muddati o\'tgan token', 400);
+    }
+
+    if (resetToken.usedAt) {
+      throw new AppError('Bu token allaqachon ishlatilgan', 400);
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      await prisma.passwordResetToken.delete({ where: { id: resetToken.id } });
+      throw new AppError('Token muddati tugagan. Qaytadan so\'rang.', 400);
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetToken.userId },
+        data: { password: hashed },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+      // Barcha refresh tokenlarni o'chirish (qayta login talab qilinadi)
+      prisma.refreshToken.deleteMany({
+        where: { userId: resetToken.userId },
+      }),
+    ]);
+
+    return { message: 'Parol muvaffaqiyatli yangilandi' };
+  }
 }

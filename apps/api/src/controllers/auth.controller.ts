@@ -114,4 +114,29 @@ export class AuthController {
       next(error);
     }
   }
+
+  // ============ PASSWORD RESET ============
+
+  static async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, phone } = req.body;
+      const result = await AuthService.forgotPassword(email, phone);
+      return successResponse(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword || newPassword.length < 6) {
+        throw new AppError('Token va yangi parol (min 6 belgi) talab qilinadi', 400);
+      }
+      const result = await AuthService.resetPassword(token, newPassword);
+      return successResponse(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

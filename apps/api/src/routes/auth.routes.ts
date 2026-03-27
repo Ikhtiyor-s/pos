@@ -10,6 +10,8 @@ router.post('/login-pin', AuthController.loginWithPin);
 router.post('/register', AuthController.register);
 router.post('/refresh', AuthController.refresh);
 router.post('/logout', AuthController.logout);
+router.post('/forgot-password', AuthController.forgotPassword);
+router.post('/reset-password', AuthController.resetPassword);
 
 // Protected routes
 router.get('/me', authenticate, AuthController.me);
