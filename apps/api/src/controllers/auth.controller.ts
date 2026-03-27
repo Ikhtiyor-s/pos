@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { successResponse } from '../utils/response.js';
 import {
   loginSchema,
@@ -105,7 +106,7 @@ export class AuthController {
     try {
       const { currentPassword, newPassword } = req.body;
       if (!currentPassword || !newPassword || newPassword.length < 6) {
-        throw { status: 400, message: 'Joriy va yangi parol (min 6 belgi) talab qilinadi' };
+        throw new AppError('Joriy va yangi parol (min 6 belgi) talab qilinadi', 400);
       }
       await AuthService.changePassword(req.user!.id, currentPassword, newPassword);
       return successResponse(res, null, 'Parol muvaffaqiyatli o\'zgartirildi');

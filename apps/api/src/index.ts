@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { validateEnv } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import routes from './routes/index.js';
@@ -18,21 +19,14 @@ import { realtimeSyncManager } from './modules/order-lifecycle/realtime-sync.js'
 import { nonborSyncService } from './services/nonbor-sync.service.js';
 import { startWorker } from './integration/index.js';
 
+// Environment validation — majburiy o'zgaruvchilar tekshiriladi
+const env = validateEnv();
+
 const app = express();
 const httpServer = createServer(app);
 
 // Socket.IO setup
-const allowedOrigins = process.env.CLIENT_URL?.split(',') || [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'http://localhost:5176',
-  'http://localhost:5177',
-  'http://localhost:5178',
-  'http://localhost:5179',
-  'http://localhost:5180',
-  'http://localhost:5181',
-];
+const allowedOrigins = env.CLIENT_URL;
 
 const io = new Server(httpServer, {
   cors: {
@@ -61,7 +55,14 @@ app.use(helmet());
 // 2. CORS
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Server-to-server (no origin) yoki ruxsat etilgan originlar
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: ${origin} ruxsat etilmagan`));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],

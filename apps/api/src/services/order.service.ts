@@ -211,44 +211,48 @@ export class OrderService {
     // Generate order number
     const orderNumber = await this.generateOrderNumber(tenantId);
 
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        tenantId,
-        orderNumber,
-        source: data.source as any || 'POS_ORDER',
-        type: data.type,
-        status: OrderStatus.NEW,
-        tableId: data.tableId,
-        customerId: data.customerId,
-        userId,
-        subtotal,
-        discount,
-        discountPercent: data.discountPercent,
-        tax,
-        total,
-        notes: data.notes,
-        address: data.address,
-        items: {
-          create: orderItems,
+    // Transaction — buyurtma + stol yangilash atomik bo'lishi kerak
+    const order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          tenantId,
+          orderNumber,
+          source: data.source as any || 'POS_ORDER',
+          type: data.type,
+          status: OrderStatus.NEW,
+          tableId: data.tableId,
+          customerId: data.customerId,
+          userId,
+          subtotal,
+          discount,
+          discountPercent: data.discountPercent,
+          tax,
+          total,
+          notes: data.notes,
+          address: data.address,
+          items: {
+            create: orderItems,
+          },
         },
-      },
-      include: {
-        table: true,
-        customer: true,
-        items: {
-          include: { product: true },
+        include: {
+          table: true,
+          customer: true,
+          items: {
+            include: { product: true },
+          },
         },
-      },
-    });
-
-    // Update table status if DINE_IN
-    if (data.tableId && data.type === 'DINE_IN') {
-      await prisma.table.update({
-        where: { id: data.tableId, tenantId },
-        data: { status: TableStatus.OCCUPIED },
       });
-    }
+
+      // Update table status if DINE_IN
+      if (data.tableId && data.type === 'DINE_IN') {
+        await tx.table.update({
+          where: { id: data.tableId, tenantId },
+          data: { status: TableStatus.OCCUPIED },
+        });
+      }
+
+      return created;
+    });
 
     return order;
   }

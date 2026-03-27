@@ -39,7 +39,10 @@ export async function authenticate(
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'secret';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({ success: false, message: 'Server konfiguratsiya xatosi' });
+    }
 
     const decoded = jwt.verify(token, secret) as JwtPayload;
 

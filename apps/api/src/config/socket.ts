@@ -11,18 +11,23 @@ export function setupSocket(io: Server) {
   // Socket autentifikatsiya middleware
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
-    if (token) {
-      try {
-        const secret = process.env.JWT_SECRET || 'secret';
-        const decoded = jwt.verify(token, secret) as SocketUser;
-        socket.data.userId = decoded.userId;
-        socket.data.role = decoded.role;
-        socket.data.tenantId = decoded.tenantId;
-      } catch {
-        // Token yo'q yoki noto'g'ri — lekin ulanishga ruxsat beramiz
-      }
+    if (!token) {
+      return next(new Error('Autentifikatsiya talab qilinadi'));
     }
-    next();
+
+    try {
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        return next(new Error('Server konfiguratsiya xatosi'));
+      }
+      const decoded = jwt.verify(token, secret) as SocketUser;
+      socket.data.userId = decoded.userId;
+      socket.data.role = decoded.role;
+      socket.data.tenantId = decoded.tenantId;
+      next();
+    } catch {
+      return next(new Error('Yaroqsiz yoki muddati o\'tgan token'));
+    }
   });
 
   io.on('connection', (socket: Socket) => {

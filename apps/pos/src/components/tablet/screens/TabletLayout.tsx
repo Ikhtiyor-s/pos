@@ -3,18 +3,19 @@ import { cn } from '../../../lib/utils';
 import { useAuthStore } from '../../../store/auth';
 import { useCartStore } from '../../../store/cart';
 import { orderService } from '../../../services/order.service';
-import { LogOut, Clock, User, ChevronLeft, Search, X } from 'lucide-react';
+import { LogOut, Clock, User, ChevronLeft, Search, X, ScanBarcode } from 'lucide-react';
 import TouchButton from '../shared/TouchButton';
 import TableView from './TableView';
 import ProductGrid from './ProductGrid';
 import CartPanel from './CartPanel';
 import PaymentScreen from './PaymentScreen';
+import { BarcodeScanner, useBarcodeScannerListener } from '../../BarcodeScanner';
 
 type Screen = 'tables' | 'products' | 'payment';
 
 export default function TabletLayout() {
   const { user, logout } = useAuthStore();
-  const { items, setTable, setOrderType, clearCart, getTotal, tableId, orderType } = useCartStore();
+  const { items, addItem, setTable, setOrderType, clearCart, getTotal, tableId, orderType } = useCartStore();
 
   const [currentScreen, setCurrentScreen] = useState<Screen>('tables');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -24,7 +25,30 @@ export default function TabletLayout() {
   const [sending, setSending] = useState(false);
   const [time, setTime] = useState(new Date());
   const [searchOpen, setSearchOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanToast, setScanToast] = useState<string | null>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Background barcode listener — USB/Bluetooth skaner uchun
+  const handleBarcodeScan = useCallback((product: any) => {
+    addItem(product);
+    setScanToast(`${product.name} savatga qo'shildi`);
+    setTimeout(() => setScanToast(null), 2000);
+  }, [addItem]);
+
+  useBarcodeScannerListener(
+    useCallback(async (barcode: string) => {
+      try {
+        const { productService } = await import('../../../services/product.service');
+        const product = await productService.getByBarcode(barcode);
+        if (product) handleBarcodeScan(product);
+      } catch {
+        setScanToast(`"${barcode}" topilmadi`);
+        setTimeout(() => setScanToast(null), 2000);
+      }
+    }, [handleBarcodeScan]),
+    currentScreen === 'products' && !scannerOpen && !searchOpen
+  );
 
   // Clock
   React.useEffect(() => {
@@ -145,6 +169,17 @@ export default function TabletLayout() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Barcode Scanner */}
+          {currentScreen === 'products' && (
+            <button
+              onClick={() => setScannerOpen(true)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              title="Barcode Scanner"
+            >
+              <ScanBarcode size={18} />
+            </button>
+          )}
+
           {/* Search */}
           {currentScreen === 'products' && (
             searchOpen ? (
@@ -207,6 +242,31 @@ export default function TabletLayout() {
           </TouchButton>
         </div>
       </header>
+
+      {/* Barcode Scanner Modal */}
+      {scannerOpen && (
+        <BarcodeScanner
+          onProductFound={(product) => {
+            handleBarcodeScan(product);
+          }}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
+
+      {/* Scan Toast */}
+      {scanToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-200">
+          <div className={cn(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium',
+            scanToast.includes('topilmadi')
+              ? 'bg-red-500 text-white'
+              : 'bg-green-500 text-white'
+          )}>
+            <ScanBarcode size={16} />
+            {scanToast}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 flex overflow-hidden">
