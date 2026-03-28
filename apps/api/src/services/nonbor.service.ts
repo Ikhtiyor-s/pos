@@ -231,7 +231,7 @@ class NonborV2Service {
     }
 
     const settings: NonborSettings = {
-      nonborApiUrl: dbSettings.nonborApiUrl || 'https://test.nonbor.uz/api/v2',
+      nonborApiUrl: dbSettings.nonborApiUrl || 'https://prod.nonbor.uz/api/v2',
       nonborApiSecret: dbSettings.nonborApiSecret || '',
       nonborSellerId: dbSettings.nonborSellerId,
       nonborEnabled: dbSettings.nonborEnabled,

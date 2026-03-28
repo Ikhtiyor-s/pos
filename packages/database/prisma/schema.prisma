@@ -579,7 +579,7 @@ model Settings {
   bonusPercent    Decimal @default(0) @map("bonus_percent") @db.Decimal(5, 2)
   nonborEnabled   Boolean @default(false) @map("nonbor_enabled")
   nonborSellerId  Int?    @map("nonbor_seller_id")
-  nonborApiUrl    String? @default("https://nonbor.uz/api/v2") @map("nonbor_api_url")
+  nonborApiUrl    String? @default("https://prod.nonbor.uz/api/v2") @map("nonbor_api_url")
   nonborApiSecret String? @default("nonbor-secret-key") @map("nonbor_api_secret")
 
   // To'lov integratsiyalar

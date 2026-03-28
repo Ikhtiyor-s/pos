@@ -9,7 +9,7 @@ export class NonborController {
   // Nonbor bilan ulash
   static async connect(req: Request, res: Response, next: NextFunction) {
     try {
-      const { sellerId } = req.body;
+      const { sellerId, nonborToken, nonborApiUrl } = req.body;
       const tenantId = req.user!.tenantId!;
 
       if (!sellerId || typeof sellerId !== 'number') {
@@ -17,6 +17,27 @@ export class NonborController {
           success: false,
           message: 'sellerId (raqam) kiritilishi shart',
         });
+      }
+
+      // Nonbor token va API URL ni saqlash (agar berilgan bo'lsa)
+      if (nonborToken) {
+        await prisma.settings.upsert({
+          where: { tenantId },
+          update: {
+            nonborApiSecret: nonborToken,
+            ...(nonborApiUrl ? { nonborApiUrl } : {}),
+          },
+          create: {
+            tenantId,
+            name: 'Oshxona',
+            nonborApiSecret: nonborToken,
+            nonborApiUrl: nonborApiUrl || 'https://prod.nonbor.uz/api/v2',
+            taxRate: 0,
+            currency: 'UZS',
+            orderPrefix: 'ORD',
+          },
+        });
+        nonborApiService.resetClient();
       }
 
       // Nonbor API dan biznesni tekshirish
