@@ -69,12 +69,14 @@ export const useMenuStore = create<MenuState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const data = await getMenuByTable(qrCode);
+      const cats = (data.categories || []).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const prods = (data.products || []).filter((p: any) => p.available !== false && p.isActive !== false);
       set({
         tenant: data.tenant,
         table: data.table,
-        categories: data.categories.sort((a, b) => a.sortOrder - b.sortOrder),
-        products: data.products.filter((p) => p.available),
-        activeCategory: data.categories.length > 0 ? data.categories[0].id : null,
+        categories: cats,
+        products: prods,
+        activeCategory: cats.length > 0 ? cats[0].id : null,
         loading: false,
       });
     } catch (err) {

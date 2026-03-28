@@ -61,7 +61,7 @@ services:
       JWT_REFRESH_SECRET: oshxona-refresh-secret-change-in-production
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
-      CLIENT_URL: http://localhost:4000,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5180,http://192.168.0.100:3000,http://192.168.0.100:5174,http://192.168.0.100:5176,capacitor://localhost,https://localhost
+      CLIENT_URL: http://localhost:4000,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5180,http://192.168.1.29:3000,http://192.168.1.29:5176,capacitor://localhost,https://localhost,http://localhost
     volumes:
       - backend_uploads:/app/apps/api/uploads
     networks:

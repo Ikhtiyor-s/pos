@@ -73,18 +73,18 @@ export interface OrderResponse {
 }
 
 export const getMenuByTable = async (tableQrCode: string): Promise<MenuResponse> => {
-  const { data } = await api.get<MenuResponse>(`/qr-menu/${tableQrCode}`);
-  return data;
+  const { data } = await api.get(`/qr-menu/${tableQrCode}`);
+  return data.data || data;
 };
 
 export const placeOrder = async (orderData: PlaceOrderData): Promise<OrderResponse> => {
-  const { data } = await api.post<OrderResponse>('/qr-menu/order', orderData);
-  return data;
+  const { data } = await api.post('/qr-menu/order', orderData);
+  return data.data || data;
 };
 
 export const getOrderStatus = async (orderId: string): Promise<OrderResponse> => {
-  const { data } = await api.get<OrderResponse>(`/qr-menu/order/${orderId}`);
-  return data;
+  const { data } = await api.get(`/qr-menu/order/${orderId}`);
+  return data.data || data;
 };
 
 export default api;
