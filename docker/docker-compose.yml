@@ -79,7 +79,7 @@ services:
       dockerfile: docker/frontend.Dockerfile
       args:
         VITE_API_URL: /api
-        VITE_TENANT_ID: 0f17da38-bc59-4bd1-ab22-949f1696254c
+        VITE_TENANT_ID: 004f93b4-05d1-4abf-a165-aa6ff5c2a5b2
     container_name: oshxona-pos
     restart: unless-stopped
     ports:

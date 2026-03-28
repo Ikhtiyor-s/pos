@@ -76,7 +76,10 @@ export const useAuthStore = create<AuthState>()(
             avatar: apiUser.avatar,
           };
 
-          set({ user, accessToken, refreshToken, isAuthenticated: true });
+          set({
+            user, accessToken, refreshToken, isAuthenticated: true,
+            currentShift: { id: `shift-${Date.now()}`, startTime: new Date().toISOString(), startingCash: 0 },
+          });
           return true;
         } catch (error) {
           console.error('[POS] Login xatoligi:', error);
@@ -101,7 +104,10 @@ export const useAuthStore = create<AuthState>()(
             avatar: apiUser.avatar,
           };
 
-          set({ user, accessToken, refreshToken, isAuthenticated: true });
+          set({
+            user, accessToken, refreshToken, isAuthenticated: true,
+            currentShift: { id: `shift-${Date.now()}`, startTime: new Date().toISOString(), startingCash: 0 },
+          });
           return true;
         } catch (error) {
           console.error('[POS] PIN login xatoligi:', error);
