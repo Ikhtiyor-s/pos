@@ -622,7 +622,8 @@ export default function App() {
     return <Login onLoginSuccess={() => {}} />;
   }
 
-  // Lock tugmasi va overlay (barcha ekranlarda ko'rinadi)
+  // Lock tugmasi — bosilganda PIN sahifasi ochiladi
+  // Chiqish — to'liq logout qilib login sahifaga o'tkazadi
   const lockElements = (
     <>
       {!isLocked && (
@@ -635,7 +636,7 @@ export default function App() {
       )}
       {isLocked && (
         <div className="fixed inset-0 z-[100]">
-          <Login onLoginSuccess={() => setIsLocked(false)} />
+          <Login lockMode onLoginSuccess={() => setIsLocked(false)} />
         </div>
       )}
     </>

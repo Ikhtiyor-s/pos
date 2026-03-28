@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
+import { cn } from '../lib/utils';
 import {
   UtensilsCrossed,
   Loader2,
@@ -13,11 +14,12 @@ import {
 
 interface LoginProps {
   onLoginSuccess: () => void;
+  lockMode?: boolean;
 }
 
 type Mode = 'pin' | 'admin';
 
-export function Login({ onLoginSuccess }: LoginProps) {
+export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
   const [mode, setMode] = useState<Mode>('pin');
 
   // PIN mode state
@@ -107,27 +109,33 @@ export function Login({ onLoginSuccess }: LoginProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-blue-50 flex flex-col items-center justify-center p-4 select-none">
       {/* Logo */}
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-xl shadow-orange-500/20">
-          <UtensilsCrossed className="h-10 w-10 text-white" />
+        <div className={cn(
+          "mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl shadow-xl",
+          lockMode ? "bg-gradient-to-br from-yellow-500 to-orange-500 shadow-yellow-500/20" : "bg-gradient-to-br from-orange-500 to-red-500 shadow-orange-500/20"
+        )}>
+          {lockMode ? <Lock className="h-10 w-10 text-white" /> : <UtensilsCrossed className="h-10 w-10 text-white" />}
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">Oshxona POS</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{lockMode ? 'Ekran bloklangan' : 'Oshxona POS'}</h1>
+        {lockMode && <p className="text-sm text-gray-500 mt-1">PIN kodingizni kiriting</p>}
       </div>
 
-      {/* Tabs */}
-      <div className="mb-5 flex w-full max-w-sm rounded-xl bg-gray-100 p-1">
-        <button
-          onClick={() => { setMode('pin'); setPin(''); setPinError(''); }}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === 'pin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Xodim (PIN)
-        </button>
-        <button
-          onClick={() => { setMode('admin'); setAdminError(''); }}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === 'admin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Admin
-        </button>
-      </div>
+      {/* Tabs — faqat login rejimda */}
+      {!lockMode && (
+        <div className="mb-5 flex w-full max-w-sm rounded-xl bg-gray-100 p-1">
+          <button
+            onClick={() => { setMode('pin'); setPin(''); setPinError(''); }}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === 'pin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Xodim (PIN)
+          </button>
+          <button
+            onClick={() => { setMode('admin'); setAdminError(''); }}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === 'admin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Admin
+          </button>
+        </div>
+      )}
 
       {/* PIN mode */}
       {mode === 'pin' && (
