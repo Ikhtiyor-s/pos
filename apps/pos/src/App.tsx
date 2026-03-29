@@ -629,9 +629,10 @@ export default function App() {
       {!isLocked && (
         <button
           onClick={() => setIsLocked(true)}
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 flex h-10 w-10 items-center justify-center rounded-full glass-strong border border-white/60 text-gray-500 hover:text-gray-700 hover:bg-white/70 transition-all shadow-lg"
+          className="fixed top-3 right-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-white transition-all shadow-sm"
+          title="Ekranni qulflash"
         >
-          <Lock size={18} />
+          <Lock size={14} />
         </button>
       )}
       {isLocked && (
@@ -4579,6 +4580,16 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Mahsulot qidirish..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64 rounded-xl glass-strong border border-white/60 pl-10 pr-4 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-orange-400 focus:outline-none"
+              />
+            </div>
             {/* Bron qilish tugmasi */}
             {orderType === 'dine-in' && selectedTable && !addItemsMode && (
               <button
@@ -4592,22 +4603,12 @@ export default function App() {
                     } catch { alert('Xatolik!'); }
                   }
                 }}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-yellow-500/25 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
               >
-                <Clock size={16} />
-                Bron qilish
+                <Clock size={14} />
+                Bron
               </button>
             )}
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Mahsulot qidirish..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 rounded-xl glass-strong border border-white/60 pl-10 pr-4 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-orange-400 focus:outline-none"
-              />
-            </div>
           </div>
         </header>
 
