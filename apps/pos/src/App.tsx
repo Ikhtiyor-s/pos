@@ -1183,14 +1183,22 @@ export default function App() {
                       clearCart();
                       if (currentOrder) {
                         currentOrder.orderItems.forEach((item) => {
-                          const product = products.find((p) => p.id === item.productId);
-                          if (product) {
-                            for (let i = 0; i < item.quantity; i++) {
-                              addItem(product as any);
-                            }
+                          const prod = products.find((p) => p.id === item.productId) || {
+                            id: item.productId, name: item.name, price: item.price,
+                            categoryId: '', cookTime: 0, image: '',
+                          };
+                          for (let i = 0; i < item.quantity; i++) {
+                            addItem(prod as any);
                           }
                         });
                       }
+                      setSelectedTable(selectedTable || {
+                        id: currentOrder?.tableId || '',
+                        number: currentOrder?.tableNumber || 0,
+                        name: '',
+                        capacity: 0,
+                        status: 'occupied' as const,
+                      });
                       setCurrentStep('receipt');
 
                       try { await fetchData(); } catch { /* ignore */ }
