@@ -824,11 +824,11 @@ export default function App() {
               </span>
             </div>
             <button
-              onClick={() => setShowOrderTypeModal(true)}
+              onClick={() => { setOrderType('dine-in'); setShowOrderTypeModal(true); }}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
             >
               <Plus size={16} />
-              Yangi buyurtma
+              Stol tanlash
             </button>
             <div className="flex items-center gap-2 rounded-xl glass-card px-2.5 py-1">
               <span className="text-xs font-medium text-gray-700">{user?.name}</span>
@@ -843,46 +843,10 @@ export default function App() {
           </div>
         </header>
 
-        {/* Order Type Modal */}
-        {showOrderTypeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl glass-strong p-6 shadow-2xl">
-              <h3 className="mb-6 text-2xl font-bold text-gray-900">Buyurtma turini tanlang</h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => { setShowOrderTypeModal(false); handleSelectOrderType('takeaway'); }}
-                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-purple-200/60 bg-purple-50/50 p-4 transition-all hover:border-purple-400"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/10">
-                    <Package className="h-6 w-6 text-purple-500" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-lg font-bold text-gray-900">Olib ketish</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => { setShowOrderTypeModal(false); setOrderType('dine-in'); }}
-                  className="relative flex w-full items-center gap-4 rounded-xl border-2 border-orange-200/60 bg-orange-50/50 p-4 transition-all hover:border-orange-400"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
-                    <Utensils className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-lg font-bold text-gray-900">Shu yerda</p>
-                  </div>
-                </button>
-              </div>
-              <button onClick={() => setShowOrderTypeModal(false)} className="mt-4 w-full rounded-xl glass-card py-3 text-gray-600 hover:text-gray-900 transition-colors">
-                Bekor qilish
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="p-6">
           <div className="mx-auto max-w-6xl">
-            {/* Stol tanlash - dine-in tanlanganda */}
-            {orderType === 'dine-in' && (
+            {/* Stol tanlash */}
+            {showOrderTypeModal && (
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Stol tanlang</h2>
                 <div className="grid grid-cols-4 gap-4">
