@@ -4648,7 +4648,7 @@ export default function App() {
               <button
                 key={product.id}
                 onClick={() => handleAddProduct(product)}
-                className="flex flex-col items-center rounded-2xl glass-card border border-white/50 p-3 text-center transition-all hover:bg-white/50 hover:shadow-md hover:border-orange-200 shadow-sm"
+                className="flex flex-col items-center rounded-2xl border border-gray-200 bg-gradient-to-b from-white to-gray-50 p-3 text-center shadow-md shadow-gray-200/50 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-500/15 hover:border-orange-300 active:translate-y-0 active:shadow-md"
               >
                 <div className="mb-3 w-full aspect-square overflow-hidden rounded-xl bg-gray-100/50 flex items-center justify-center">
                   {product.image ? (
