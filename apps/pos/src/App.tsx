@@ -3780,6 +3780,10 @@ export default function App() {
                     <span className="text-gray-600">Bo'sh ({tables.filter(t => !occupiedTableIds.has(t.id) && t.status === 'free').length})</span>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-yellow-500"></span>
+                    <span className="text-gray-600">Bron ({tables.filter(t => t.status === 'reserved').length})</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-full bg-red-500"></span>
                     <span className="text-gray-600">Band ({occupiedTableIds.size})</span>
                   </div>
@@ -3790,21 +3794,32 @@ export default function App() {
                 {tables.map((table) => {
                   const tableOrder = getTableOrder(table.id);
                   const isOccupied = !!tableOrder || occupiedTableIds.has(table.id);
+                  const isReserved = table.status === 'reserved' && !isOccupied;
 
                   return (
                     <button
                       key={table.id}
                       onClick={() => {
                         if (isOccupied && tableOrder) {
-                          // Band stol — table-detail sahifasiga
                           setOrderType('dine-in');
                           setSelectedTable(table);
                           setCurrentOrder(tableOrder);
                           setCurrentApiOrderId(tableOrder.orderId);
                           setTableDetailPayment(null);
                           setCurrentStep('table-detail');
+                        } else if (isReserved) {
+                          // Bron stol — mijoz keldimi so'rash
+                          if (confirm(`Stol #${table.number} bron qilingan.\n\nMijoz keldimi? Buyurtma olishni boshlaysizmi?`)) {
+                            tableService.updateStatus(table.id, 'OCCUPIED').catch(() => {});
+                            setOrderType('dine-in');
+                            setSelectedTable(table);
+                            setCurrentOrder(null);
+                            setCurrentApiOrderId(null);
+                            setAddItemsMode(false);
+                            clearCart();
+                            setCurrentStep('products');
+                          }
                         } else {
-                          // Bo'sh stol — yangi buyurtma uchun mahsulot sahifasiga
                           setOrderType('dine-in');
                           setSelectedTable(table);
                           setCurrentOrder(null);
@@ -3818,12 +3833,14 @@ export default function App() {
                         'glass-card relative flex flex-col items-center justify-center rounded-2xl border-2 p-5 transition-all shadow-sm hover:shadow-md',
                         isOccupied
                           ? 'border-red-300/60 bg-red-50/50 hover:border-red-400'
+                          : isReserved
+                          ? 'border-yellow-300/60 bg-yellow-50/50 hover:border-yellow-400'
                           : 'border-green-300/60 bg-green-50/30 hover:border-green-400'
                       )}
                     >
                       <span className={cn(
                         'text-2xl font-bold',
-                        isOccupied ? 'text-red-500' : 'text-green-600'
+                        isOccupied ? 'text-red-500' : isReserved ? 'text-yellow-600' : 'text-green-600'
                       )}>
                         #{table.number}
                       </span>
@@ -3836,16 +3853,17 @@ export default function App() {
                           {formatPrice(tableOrder.total)}
                         </div>
                       )}
-                      {isOccupied && (
-                        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 shadow-sm">
-                          <Utensils size={10} className="text-white" />
-                        </div>
+                      {isReserved && (
+                        <div className="mt-2 text-[10px] font-semibold text-yellow-600">Bron</div>
                       )}
-                      {!isOccupied && (
-                        <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 shadow-sm">
-                          <Check size={10} className="text-white" />
-                        </div>
-                      )}
+                      <div className={cn(
+                        'absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full shadow-sm',
+                        isOccupied ? 'bg-red-500' : isReserved ? 'bg-yellow-500' : 'bg-green-500'
+                      )}>
+                        {isOccupied ? <Utensils size={10} className="text-white" />
+                          : isReserved ? <Clock size={10} className="text-white" />
+                          : <Check size={10} className="text-white" />}
+                      </div>
                     </button>
                   );
                 })}
@@ -4559,6 +4577,25 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Bron qilish tugmasi */}
+            {orderType === 'dine-in' && selectedTable && !addItemsMode && (
+              <button
+                onClick={async () => {
+                  if (confirm(`Stol #${selectedTable.number} ni bron qilmoqchimisiz?`)) {
+                    try {
+                      await tableService.updateStatus(selectedTable.id, 'RESERVED');
+                      alert(`✅ Stol #${selectedTable.number} bron qilindi`);
+                      handleBack();
+                      fetchData();
+                    } catch { alert('Xatolik!'); }
+                  }
+                }}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+              >
+                <Clock size={16} />
+                Bron qilish
+              </button>
+            )}
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
@@ -4569,7 +4606,6 @@ export default function App() {
                 className="w-64 rounded-xl glass-strong border border-white/60 pl-10 pr-4 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-orange-400 focus:outline-none"
               />
             </div>
-            {/* QR Scanner — faqat admin panelda ishlatiladi, POS dan olib tashlandi */}
           </div>
         </header>
 
