@@ -626,7 +626,15 @@ export default function App() {
   // Chiqish — to'liq logout qilib login sahifaga o'tkazadi
   const lockElements = (
     <>
-      {!isLocked && (<></>)}
+      {!isLocked && (
+        <button
+          onClick={() => setIsLocked(true)}
+          className="fixed top-[18px] left-1/2 -translate-x-1/2 z-[55] flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur border border-gray-200/80 text-gray-400 hover:text-orange-500 hover:border-orange-300 transition-all"
+          title="Ekranni qulflash"
+        >
+          <Lock size={14} />
+        </button>
+      )}
       {isLocked && (
         <div className="fixed inset-0 z-[100]">
           <Login lockMode onLoginSuccess={() => setIsLocked(false)} />
@@ -4571,14 +4579,6 @@ export default function App() {
               </p>
             </div>
           </div>
-          {/* Qulfcha — markazda */}
-          <button
-            onClick={() => setIsLocked(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white border-2 border-gray-200 text-gray-400 hover:text-orange-500 hover:border-orange-300 hover:shadow-md transition-all"
-            title="Ekranni qulflash"
-          >
-            <Lock size={15} />
-          </button>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
