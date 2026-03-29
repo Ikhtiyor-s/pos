@@ -629,7 +629,7 @@ export default function App() {
       {!isLocked && (
         <button
           onClick={() => setIsLocked(true)}
-          className="fixed top-[18px] left-1/2 -translate-x-1/2 z-[55] flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur border border-gray-200/80 text-gray-400 hover:text-orange-500 hover:border-orange-300 transition-all"
+          className="fixed top-[18px] left-[440px] z-[55] flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur border border-gray-200/80 text-gray-400 hover:text-orange-500 hover:border-orange-300 transition-all"
           title="Ekranni qulflash"
         >
           <Lock size={14} />
