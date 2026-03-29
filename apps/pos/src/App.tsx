@@ -3760,7 +3760,7 @@ export default function App() {
                 clearCart();
                 setCurrentStep('products');
               }}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
             >
               <Package size={16} />
               Olib ketish
@@ -3830,12 +3830,13 @@ export default function App() {
                         }
                       }}
                       className={cn(
-                        'glass-card relative flex flex-col items-center justify-center rounded-2xl border-2 p-5 transition-all shadow-sm hover:shadow-md',
+                        'relative flex flex-col items-center justify-center rounded-2xl border-2 p-5 transition-all duration-200 cursor-pointer',
+                        'hover:-translate-y-1 hover:shadow-xl active:translate-y-0 active:shadow-md',
                         isOccupied
-                          ? 'border-red-300/60 bg-red-50/50 hover:border-red-400'
+                          ? 'border-red-300 bg-gradient-to-b from-white to-red-50 shadow-lg shadow-red-500/10 hover:shadow-red-500/20'
                           : isReserved
-                          ? 'border-yellow-300/60 bg-yellow-50/50 hover:border-yellow-400'
-                          : 'border-green-300/60 bg-green-50/30 hover:border-green-400'
+                          ? 'border-yellow-300 bg-gradient-to-b from-white to-yellow-50 shadow-lg shadow-yellow-500/10 hover:shadow-yellow-500/20'
+                          : 'border-green-300 bg-gradient-to-b from-white to-green-50 shadow-lg shadow-green-500/10 hover:shadow-green-500/20'
                       )}
                     >
                       <span className={cn(
@@ -3900,10 +3901,11 @@ export default function App() {
                         }
                       }}
                       className={cn(
-                        'group relative flex flex-col rounded-2xl border-2 p-4 transition-all shadow-lg text-left',
+                        'group relative flex flex-col rounded-2xl border-2 p-4 transition-all duration-200 text-left cursor-pointer',
+                        'hover:-translate-y-1 hover:shadow-xl active:translate-y-0 active:shadow-md',
                         order.awaitingPayment
-                          ? 'glass-card border-yellow-300/50 hover:border-yellow-400'
-                          : 'glass-card border-orange-200/50 hover:border-orange-400'
+                          ? 'border-yellow-300 bg-gradient-to-b from-white to-yellow-50 shadow-lg shadow-yellow-500/10'
+                          : 'border-orange-200 bg-gradient-to-b from-white to-orange-50 shadow-lg shadow-orange-500/10'
                       )}
                     >
                       <div className="flex items-start justify-between mb-3">
