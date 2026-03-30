@@ -20,7 +20,7 @@ interface LoginProps {
 type Mode = 'pin' | 'admin';
 
 export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
-  const [mode, setMode] = useState<Mode>('pin');
+  const [mode, setMode] = useState<Mode>(lockMode ? 'pin' : 'admin');
 
   // PIN mode state
   const [pin, setPin] = useState('');
@@ -116,26 +116,11 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
           {lockMode ? <Lock className="h-10 w-10 text-white" /> : <UtensilsCrossed className="h-10 w-10 text-white" />}
         </div>
         <h1 className="text-3xl font-bold text-gray-900">{lockMode ? 'Ekran bloklangan' : 'Oshxona POS'}</h1>
-        {lockMode && <p className="text-sm text-gray-500 mt-1">PIN kodingizni kiriting</p>}
+        {lockMode && <p className="text-sm text-gray-500 mt-1">4 raqamli PIN kodingizni kiriting</p>}
+        {!lockMode && <p className="text-sm text-gray-500 mt-1">Email va parol bilan kiring</p>}
       </div>
 
-      {/* Tabs — faqat login rejimda */}
-      {!lockMode && (
-        <div className="mb-5 flex w-full max-w-sm rounded-xl bg-gray-100 p-1">
-          <button
-            onClick={() => { setMode('pin'); setPin(''); setPinError(''); }}
-            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === 'pin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Xodim (PIN)
-          </button>
-          <button
-            onClick={() => { setMode('admin'); setAdminError(''); }}
-            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === 'admin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Admin
-          </button>
-        </div>
-      )}
+      {/* Tablar yo'q — birinchi kirish email+parol, qulfcha PIN */}
 
       {/* PIN mode */}
       {mode === 'pin' && (
