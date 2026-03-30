@@ -63,5 +63,13 @@
     "typescript": "^5.3.0",
     "vite": "^5.0.8"
   },
-  "main": "electron/main.cjs"
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "uz.oshxona.admin",
+    "productName": "Oshxona Admin",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "electron/**/*"],
+    "win": { "target": ["nsis"] },
+    "nsis": { "oneClick": true }
+  }
 }
