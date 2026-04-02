@@ -3,6 +3,11 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+// Seed parollar env dan olinadi, bo'lmasa random yaratiladi
+function seedPass(envKey: string): string {
+  return process.env[envKey] || Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+}
+
 async function main() {
   console.log('🌱 Seeding database...');
 
@@ -49,8 +54,8 @@ async function main() {
     create: {
       email: 'admin@oshxona.uz',
       phone: '+998901234567',
-      password: await bcrypt.hash('1234', 10),
-      pinCode: await bcrypt.hash('1234', 10),
+      password: await bcrypt.hash(seedPass('SEED_ADMIN_PASSWORD'), 10),
+      pinCode: await bcrypt.hash(seedPass('SEED_ADMIN_PIN'), 10),
       firstName: 'Admin',
       lastName: 'Superuser',
       role: Role.SUPER_ADMIN,
@@ -67,8 +72,8 @@ async function main() {
     create: {
       email: 'kassir@oshxona.uz',
       phone: '+998901234568',
-      password: await bcrypt.hash('5678', 10),
-      pinCode: await bcrypt.hash('5678', 10),
+      password: await bcrypt.hash(seedPass('SEED_CASHIER_PASSWORD'), 10),
+      pinCode: await bcrypt.hash(seedPass('SEED_CASHIER_PIN'), 10),
       firstName: 'Kassir',
       lastName: 'Xodim',
       role: Role.CASHIER,
@@ -84,8 +89,8 @@ async function main() {
     create: {
       email: 'oshpaz@oshxona.uz',
       phone: '+998901234569',
-      password: await bcrypt.hash('9012', 10),
-      pinCode: await bcrypt.hash('9012', 10),
+      password: await bcrypt.hash(seedPass('SEED_CHEF_PASSWORD'), 10),
+      pinCode: await bcrypt.hash(seedPass('SEED_CHEF_PIN'), 10),
       firstName: 'Oshpaz',
       lastName: 'Bosh',
       role: Role.CHEF,
@@ -101,8 +106,8 @@ async function main() {
     create: {
       email: 'ofitsiant@oshxona.uz',
       phone: '+998901234570',
-      password: await bcrypt.hash('3456', 10),
-      pinCode: await bcrypt.hash('3456', 10),
+      password: await bcrypt.hash(seedPass('SEED_WAITER_PASSWORD'), 10),
+      pinCode: await bcrypt.hash(seedPass('SEED_WAITER_PIN'), 10),
       firstName: 'Ofitsiant',
       lastName: 'Xodim',
       role: Role.WAITER,
