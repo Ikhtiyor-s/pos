@@ -1,31 +1,31 @@
 import { prisma, Prisma, OrderStatus, ItemStatus, TableStatus } from '@oshxona/database';
-import { AppError } from '../middleware/errorHandler.js';
+import { AppError, ErrorCode } from '../middleware/errorHandler.js';
 import { CreateOrderInput, UpdateOrderInput, OrderItemInput } from '../validators/order.validator.js';
 import { InventoryService } from './inventory.service.js';
+import { redis } from '../config/redis.js';
+import { logger } from '../utils/logger.js';
 
 export class OrderService {
+  // Atomik order number — Redis INCR + DATE key, midnight'da expire
   static async generateOrderNumber(tenantId: string): Promise<string> {
     const settings = await prisma.settings.findFirst({ where: { tenantId } });
     const prefix = settings?.orderPrefix || 'ORD';
-    const date = new Date();
-    const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
 
-    // Count today's orders
-    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
 
-    const todayOrdersCount = await prisma.order.count({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-    });
+    const key = `order_seq:${tenantId}:${dateStr}`;
 
-    const orderNum = String(todayOrdersCount + 1).padStart(4, '0');
-    return `${prefix}-${dateStr}-${orderNum}`;
+    // INCR atomik — race condition yo'q
+    const seq = await redis.incr(key);
+
+    // Agar yangi key bo'lsa — keyingi kuni yarim kechada expire bo'lsin
+    if (seq === 1) {
+      const midnightMs = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+      await redis.pexpire(key, midnightMs);
+    }
+
+    return `${prefix}-${dateStr}-${String(seq).padStart(4, '0')}`;
   }
 
   static async getAll(tenantId: string, options?: {
@@ -40,7 +40,7 @@ export class OrderService {
     endDate?: Date;
   }) {
     const page = options?.page || 1;
-    const limit = options?.limit || 20;
+    const limit = Math.min(options?.limit || 20, 100);
     const skip = (page - 1) * limit;
 
     const where: Prisma.OrderWhereInput = { tenantId };
@@ -65,9 +65,7 @@ export class OrderService {
           customer: { select: { id: true, phone: true, firstName: true, lastName: true } },
           user: { select: { id: true, firstName: true, lastName: true } },
           items: {
-            include: {
-              product: { select: { id: true, name: true, image: true } },
-            },
+            include: { product: { select: { id: true, name: true, image: true } } },
           },
           payments: true,
         },
@@ -88,19 +86,12 @@ export class OrderService {
         table: true,
         customer: true,
         user: { select: { id: true, firstName: true, lastName: true, email: true } },
-        items: {
-          include: {
-            product: true,
-          },
-        },
+        items: { include: { product: true } },
         payments: true,
       },
     });
 
-    if (!order) {
-      throw new AppError('Buyurtma topilmadi', 404);
-    }
-
+    if (!order) throw new AppError('Buyurtma topilmadi', 404, ErrorCode.NOT_FOUND);
     return order;
   }
 
@@ -108,116 +99,74 @@ export class OrderService {
     const orders = await prisma.order.findMany({
       where: {
         tenantId,
-        status: {
-          in: [OrderStatus.NEW, OrderStatus.CONFIRMED, OrderStatus.PREPARING],
-        },
+        status: { in: [OrderStatus.NEW, OrderStatus.CONFIRMED, OrderStatus.PREPARING] },
       },
       include: {
         table: { select: { id: true, number: true, name: true } },
         items: {
-          where: {
-            status: {
-              in: [ItemStatus.PENDING, ItemStatus.PREPARING],
-            },
-          },
-          include: {
-            product: { select: { id: true, name: true, cookingTime: true } },
-          },
+          where: { status: { in: [ItemStatus.PENDING, ItemStatus.PREPARING] } },
+          include: { product: { select: { id: true, name: true, cookingTime: true } } },
         },
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    return orders.filter((order) => order.items.length > 0);
+    return orders.filter((o) => o.items.length > 0);
   }
 
   static async create(tenantId: string, data: CreateOrderInput, userId: string) {
-    // Validate table
     if (data.tableId) {
-      const table = await prisma.table.findUnique({
-        where: { id: data.tableId, tenantId },
-      });
-
-      if (!table) {
-        throw new AppError('Stol topilmadi', 404);
-      }
+      const table = await prisma.table.findUnique({ where: { id: data.tableId, tenantId } });
+      if (!table) throw new AppError('Stol topilmadi', 404, ErrorCode.NOT_FOUND);
 
       if (table.status === TableStatus.OCCUPIED) {
-        // Check if there's an active order for this table
         const activeOrder = await prisma.order.findFirst({
           where: {
             tenantId,
             tableId: data.tableId,
-            status: {
-              notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
-            },
+            status: { notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] },
           },
         });
-
-        if (activeOrder) {
-          throw new AppError('Bu stolda faol buyurtma mavjud', 400);
-        }
+        if (activeOrder) throw new AppError('Bu stolda faol buyurtma mavjud', 400, ErrorCode.CONFLICT);
       }
     }
 
-    // Get products and calculate totals
     const productIds = data.items.map((item) => item.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds }, tenantId },
-    });
+    const [products, settings] = await Promise.all([
+      prisma.product.findMany({ where: { id: { in: productIds }, tenantId } }),
+      prisma.settings.findFirst({ where: { tenantId } }),
+    ]);
 
     if (products.length !== productIds.length) {
-      throw new AppError('Ba\'zi mahsulotlar topilmadi', 404);
+      throw new AppError("Ba'zi mahsulotlar topilmadi", 404, ErrorCode.NOT_FOUND);
     }
 
     const productMap = new Map(products.map((p) => [p.id, p]));
-
     let subtotal = 0;
-    const orderItems: Array<{
-      productId: string;
-      quantity: number;
-      price: number;
-      total: number;
-      notes?: string;
-    }> = [];
 
-    for (const item of data.items) {
+    const orderItems = data.items.map((item) => {
       const product = productMap.get(item.productId)!;
       const price = Number(product.price);
       const total = price * item.quantity;
       subtotal += total;
+      return { productId: item.productId, quantity: item.quantity, price, total, notes: item.notes };
+    });
 
-      orderItems.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        price,
-        total,
-        notes: item.notes,
-      });
-    }
-
-    // Calculate discount
     let discount = data.discount || 0;
-    if (data.discountPercent) {
-      discount = subtotal * (data.discountPercent / 100);
-    }
+    if (data.discountPercent) discount = subtotal * (data.discountPercent / 100);
 
-    // Get tax rate
-    const settings = await prisma.settings.findFirst({ where: { tenantId } });
     const taxRate = Number(settings?.taxRate || 0);
     const tax = (subtotal - discount) * (taxRate / 100);
     const total = subtotal - discount + tax;
 
-    // Generate order number
     const orderNumber = await this.generateOrderNumber(tenantId);
 
-    // Transaction — buyurtma + stol yangilash atomik bo'lishi kerak
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
           tenantId,
           orderNumber,
-          source: data.source as any || 'POS_ORDER',
+          source: (data.source as any) || 'POS_ORDER',
           type: data.type,
           status: OrderStatus.NEW,
           tableId: data.tableId,
@@ -230,20 +179,11 @@ export class OrderService {
           total,
           notes: data.notes,
           address: data.address,
-          items: {
-            create: orderItems,
-          },
+          items: { create: orderItems },
         },
-        include: {
-          table: true,
-          customer: true,
-          items: {
-            include: { product: true },
-          },
-        },
+        include: { table: true, customer: true, items: { include: { product: true } } },
       });
 
-      // Update table status if DINE_IN
       if (data.tableId && data.type === 'DINE_IN') {
         await tx.table.update({
           where: { id: data.tableId, tenantId },
@@ -254,13 +194,13 @@ export class OrderService {
       return created;
     });
 
+    logger.info('Order created', { tenantId, orderId: order.id, orderNumber, total });
     return order;
   }
 
   static async updateStatus(tenantId: string, id: string, status: OrderStatus) {
     const order = await this.getById(tenantId, id);
 
-    // Validate status transition
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       NEW: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
       CONFIRMED: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
@@ -274,47 +214,38 @@ export class OrderService {
     if (!validTransitions[order.status].includes(status)) {
       throw new AppError(
         `Buyurtma holatini ${order.status} dan ${status} ga o'zgartirish mumkin emas`,
-        400
+        400,
+        ErrorCode.ORDER_INVALID_STATUS,
       );
     }
 
     const updatedOrder = await prisma.order.update({
       where: { id, tenantId },
       data: { status },
-      include: {
-        table: true,
-        items: { include: { product: true } },
-      },
-    }) as any; // nonborOrderId, isNonborOrder ham qaytadi
+      include: { table: true, items: { include: { product: true } } },
+    });
 
-    // Buyurtma yakunlanganda ingredientlarni avtomatik kamaytirish
     if (status === OrderStatus.COMPLETED) {
       InventoryService.deductForOrder(id, order.userId, tenantId).catch((err) =>
-        console.error('[Inventory] Deduct xatolik:', err)
+        logger.error('Inventory deduct failed', { orderId: id, error: err.message }),
       );
     }
 
-    // Free table if order completed or cancelled
-    if (
-      (status === OrderStatus.COMPLETED || status === OrderStatus.CANCELLED) &&
-      order.tableId
-    ) {
+    if ((status === OrderStatus.COMPLETED || status === OrderStatus.CANCELLED) && order.tableId) {
       await prisma.table.update({
         where: { id: order.tableId, tenantId },
         data: { status: TableStatus.CLEANING },
       });
     }
 
+    logger.info('Order status updated', { tenantId, orderId: id, from: order.status, to: status });
     return updatedOrder;
   }
 
   static async updateItemStatus(tenantId: string, orderId: string, itemId: string, status: ItemStatus) {
     const order = await this.getById(tenantId, orderId);
     const item = order.items.find((i) => i.id === itemId);
-
-    if (!item) {
-      throw new AppError('Buyurtma elementi topilmadi', 404);
-    }
+    if (!item) throw new AppError('Buyurtma elementi topilmadi', 404, ErrorCode.NOT_FOUND);
 
     const updatedItem = await prisma.orderItem.update({
       where: { id: itemId },
@@ -322,13 +253,9 @@ export class OrderService {
       include: { product: true },
     });
 
-    // Check if all items are ready
-    const allItems = await prisma.orderItem.findMany({
-      where: { orderId },
-    });
-
+    const allItems = await prisma.orderItem.findMany({ where: { orderId } });
     const allReady = allItems.every(
-      (i) => i.status === ItemStatus.READY || i.status === ItemStatus.SERVED
+      (i) => i.status === ItemStatus.READY || i.status === ItemStatus.SERVED,
     );
 
     if (allReady && order.status === OrderStatus.PREPARING) {
@@ -345,112 +272,78 @@ export class OrderService {
     const order = await this.getById(tenantId, orderId);
 
     if (order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) {
-      throw new AppError('Yakunlangan buyurtmaga element qo\'shib bo\'lmaydi', 400);
+      throw new AppError("Yakunlangan buyurtmaga element qo'shib bo'lmaydi", 400, ErrorCode.ORDER_INVALID_STATUS);
     }
 
-    // Get products
     const productIds = items.map((item) => item.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds }, tenantId },
-    });
+    const [products, settings] = await Promise.all([
+      prisma.product.findMany({ where: { id: { in: productIds }, tenantId } }),
+      prisma.settings.findFirst({ where: { tenantId } }),
+    ]);
 
     const productMap = new Map(products.map((p) => [p.id, p]));
-
     let addedTotal = 0;
-    const orderItems: Array<{
-      orderId: string;
-      productId: string;
-      quantity: number;
-      price: number;
-      total: number;
-      notes?: string;
-    }> = [];
 
-    for (const item of items) {
+    const orderItems = items.flatMap((item) => {
       const product = productMap.get(item.productId);
-      if (!product) continue;
-
+      if (!product) return [];
       const price = Number(product.price);
       const total = price * item.quantity;
       addedTotal += total;
-
-      orderItems.push({
-        orderId,
-        productId: item.productId,
-        quantity: item.quantity,
-        price,
-        total,
-        notes: item.notes,
-      });
-    }
-
-    // Create new items
-    await prisma.orderItem.createMany({
-      data: orderItems,
+      return [{ orderId, productId: item.productId, quantity: item.quantity, price, total, notes: item.notes }];
     });
 
-    // Recalculate totals
+    await prisma.orderItem.createMany({ data: orderItems });
+
     const newSubtotal = Number(order.subtotal) + addedTotal;
     const discountPercent = Number(order.discountPercent || 0);
     const discount = discountPercent > 0 ? newSubtotal * (discountPercent / 100) : Number(order.discount);
-
-    const settings = await prisma.settings.findFirst({ where: { tenantId } });
     const taxRate = Number(settings?.taxRate || 0);
     const tax = (newSubtotal - discount) * (taxRate / 100);
     const total = newSubtotal - discount + tax;
 
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId, tenantId },
-      data: {
-        subtotal: newSubtotal,
-        discount,
-        tax,
-        total,
-      },
-      include: {
-        table: true,
-        items: { include: { product: true } },
-      },
-    });
-
-    return updatedOrder;
-  }
-
-  static async updateItemQuantity(tenantId: string, orderId: string, itemId: string, quantity: number) {
-    const order = await this.getById(tenantId, orderId);
-    if (order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) {
-      throw new AppError('Yakunlangan buyurtmani o\'zgartirib bo\'lmaydi', 400);
-    }
-
-    const item = await prisma.orderItem.findUnique({ where: { id: itemId } });
-    if (!item || item.orderId !== orderId) throw new AppError('Element topilmadi', 404);
-
-    if (quantity <= 0) {
-      await prisma.orderItem.delete({ where: { id: itemId } });
-    } else {
-      const price = Number(item.price);
-      await prisma.orderItem.update({
-        where: { id: itemId },
-        data: { quantity, total: price * quantity },
-      });
-    }
-
-    // Recalculate order totals
-    const items = await prisma.orderItem.findMany({ where: { orderId } });
-    const newSubtotal = items.reduce((sum, i) => sum + Number(i.total), 0);
-    const discountPercent = Number(order.discountPercent || 0);
-    const discount = discountPercent > 0 ? newSubtotal * (discountPercent / 100) : Number(order.discount);
-    const settings = await prisma.settings.findFirst({ where: { tenantId } });
-    const taxRate = Number(settings?.taxRate || 0);
-    const tax = (newSubtotal - discount) * (taxRate / 100);
-    const total = newSubtotal - discount + tax;
-
-    const updatedOrder = await prisma.order.update({
+    return prisma.order.update({
       where: { id: orderId, tenantId },
       data: { subtotal: newSubtotal, discount, tax, total },
       include: { table: true, items: { include: { product: true } } },
     });
+  }
 
-    return updatedOrder;
+  static async updateItemQuantity(tenantId: string, orderId: string, itemId: string, quantity: number) {
+    const order = await this.getById(tenantId, orderId);
+
+    if (order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED) {
+      throw new AppError("Yakunlangan buyurtmani o'zgartirib bo'lmaydi", 400, ErrorCode.ORDER_INVALID_STATUS);
+    }
+
+    const item = await prisma.orderItem.findUnique({ where: { id: itemId } });
+    if (!item || item.orderId !== orderId) throw new AppError('Element topilmadi', 404, ErrorCode.NOT_FOUND);
+
+    if (quantity <= 0) {
+      await prisma.orderItem.delete({ where: { id: itemId } });
+    } else {
+      await prisma.orderItem.update({
+        where: { id: itemId },
+        data: { quantity, total: Number(item.price) * quantity },
+      });
+    }
+
+    const [items, settings] = await Promise.all([
+      prisma.orderItem.findMany({ where: { orderId } }),
+      prisma.settings.findFirst({ where: { tenantId } }),
+    ]);
+
+    const newSubtotal = items.reduce((sum, i) => sum + Number(i.total), 0);
+    const discountPercent = Number(order.discountPercent || 0);
+    const discount = discountPercent > 0 ? newSubtotal * (discountPercent / 100) : Number(order.discount);
+    const taxRate = Number(settings?.taxRate || 0);
+    const tax = (newSubtotal - discount) * (taxRate / 100);
+    const total = newSubtotal - discount + tax;
+
+    return prisma.order.update({
+      where: { id: orderId, tenantId },
+      data: { subtotal: newSubtotal, discount, tax, total },
+      include: { table: true, items: { include: { product: true } } },
+    });
   }
 }

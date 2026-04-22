@@ -1,5 +1,6 @@
 import { prisma, Prisma, TransactionType } from '@oshxona/database';
-import { AppError } from '../middleware/errorHandler.js';
+import { AppError, ErrorCode } from '../middleware/errorHandler.js';
+import { logger } from '../utils/logger.js';
 
 export class InventoryService {
   static async getAll(tenantId: string, options?: {
@@ -9,7 +10,7 @@ export class InventoryService {
     isActive?: boolean;
   }) {
     const page = options?.page || 1;
-    const limit = options?.limit || 50;
+    const limit = Math.min(options?.limit || 50, 200);
     const skip = (page - 1) * limit;
 
     const where: Prisma.InventoryItemWhereInput = { tenantId };
@@ -20,19 +21,12 @@ export class InventoryService {
         { sku: { contains: options.search, mode: 'insensitive' } },
       ];
     }
-
-    if (options?.isActive !== undefined) {
-      where.isActive = options.isActive;
-    }
+    if (options?.isActive !== undefined) where.isActive = options.isActive;
 
     const [items, total] = await Promise.all([
       prisma.inventoryItem.findMany({
         where,
-        include: {
-          supplier: {
-            select: { id: true, name: true },
-          },
-        },
+        include: { supplier: { select: { id: true, name: true } } },
         orderBy: { name: 'asc' },
         skip,
         take: limit,
@@ -51,19 +45,12 @@ export class InventoryService {
         transactions: {
           orderBy: { createdAt: 'desc' },
           take: 20,
-          include: {
-            user: {
-              select: { id: true, firstName: true, lastName: true },
-            },
-          },
+          include: { user: { select: { id: true, firstName: true, lastName: true } } },
         },
       },
     });
 
-    if (!item) {
-      throw new AppError('Ombor mahsuloti topilmadi', 404);
-    }
-
+    if (!item) throw new AppError('Ombor mahsuloti topilmadi', 404, ErrorCode.NOT_FOUND);
     return item;
   }
 
@@ -79,16 +66,10 @@ export class InventoryService {
     supplierId?: string;
     expiryDate?: string;
   }) {
-    // sku + tenantId unique constraint
-    const existing = await prisma.inventoryItem.findFirst({
-      where: { sku: data.sku, tenantId },
-    });
+    const existing = await prisma.inventoryItem.findFirst({ where: { sku: data.sku, tenantId } });
+    if (existing) throw new AppError('Bu SKU raqamli mahsulot mavjud', 400, ErrorCode.CONFLICT);
 
-    if (existing) {
-      throw new AppError('Bu SKU raqamli mahsulot mavjud', 400);
-    }
-
-    const item = await prisma.inventoryItem.create({
+    return prisma.inventoryItem.create({
       data: {
         tenantId,
         name: data.name,
@@ -102,14 +83,8 @@ export class InventoryService {
         supplierId: data.supplierId,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
       },
-      include: {
-        supplier: {
-          select: { id: true, name: true },
-        },
-      },
+      include: { supplier: { select: { id: true, name: true } } },
     });
-
-    return item;
   }
 
   static async update(id: string, tenantId: string, data: {
@@ -125,21 +100,11 @@ export class InventoryService {
     isActive?: boolean;
   }) {
     await this.getById(id, tenantId);
-
-    const item = await prisma.inventoryItem.update({
+    return prisma.inventoryItem.update({
       where: { id },
-      data: {
-        ...data,
-        expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
-      },
-      include: {
-        supplier: {
-          select: { id: true, name: true },
-        },
-      },
+      data: { ...data, expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined },
+      include: { supplier: { select: { id: true, name: true } } },
     });
-
-    return item;
   }
 
   static async delete(id: string, tenantId: string) {
@@ -147,7 +112,6 @@ export class InventoryService {
     await prisma.inventoryItem.delete({ where: { id } });
   }
 
-  // Ombor tranzaksiyasi - kirim/chiqim/tuzatish
   static async addTransaction(tenantId: string, data: {
     itemId: string;
     type: TransactionType;
@@ -157,12 +121,10 @@ export class InventoryService {
   }) {
     const item = await this.getById(data.itemId, tenantId);
 
-    // Chiqim yoki yo'qotishda miqdor yetarli bo'lishi kerak
     if ((data.type === 'OUT' || data.type === 'WASTE') && Number(item.quantity) < data.quantity) {
-      throw new AppError('Omborda yetarli miqdor yo\'q', 400);
+      throw new AppError("Omborda yetarli miqdor yo'q", 400, ErrorCode.INVENTORY_INSUFFICIENT);
     }
 
-    // Tranzaksiya yaratish va miqdorni yangilash
     const [transaction] = await prisma.$transaction([
       prisma.inventoryTransaction.create({
         data: {
@@ -174,19 +136,18 @@ export class InventoryService {
         },
         include: {
           item: true,
-          user: {
-            select: { id: true, firstName: true, lastName: true },
-          },
+          user: { select: { id: true, firstName: true, lastName: true } },
         },
       }),
       prisma.inventoryItem.update({
         where: { id: data.itemId },
         data: {
-          quantity: data.type === 'IN'
-            ? { increment: data.quantity }
-            : data.type === 'ADJUST'
-              ? data.quantity
-              : { decrement: data.quantity },
+          quantity:
+            data.type === 'IN'
+              ? { increment: data.quantity }
+              : data.type === 'ADJUST'
+                ? data.quantity
+                : { decrement: data.quantity },
         },
       }),
     ]);
@@ -194,55 +155,30 @@ export class InventoryService {
     return transaction;
   }
 
-  // Kam qolgan mahsulotlar (quantity <= minQuantity)
+  // Faqat raw query — Prisma field comparison qo'llab-quvvatlamaydi
   static async getLowStock(tenantId: string) {
-    const items = await prisma.inventoryItem.findMany({
-      where: {
-        tenantId,
-        isActive: true,
-        minQuantity: { gt: 0 },
-        quantity: { lte: prisma.inventoryItem.fields?.minQuantity as any },
-      },
-      include: {
-        supplier: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { quantity: 'asc' },
-    });
-
-    // Prisma da field comparison to'g'ridan-to'g'ri qo'llab-quvvatlanmaydi
-    // Shuning uchun raw query ishlatamiz
-    const lowStockItems = await prisma.$queryRaw`
-      SELECT i.*, s.name as supplier_name
+    const lowStockItems = await prisma.$queryRaw<any[]>`
+      SELECT
+        i.id, i.name, i.name_ru as "nameRu", i.sku, i.unit,
+        i.quantity::float, i.min_quantity::float as "minQuantity",
+        i.cost_price::float as "costPrice", i.is_active as "isActive",
+        i.created_at as "createdAt", i.updated_at as "updatedAt",
+        s.id as "supplierId", s.name as "supplierName"
       FROM inventory_items i
       LEFT JOIN suppliers s ON i.supplier_id = s.id
       WHERE i.is_active = true
         AND i.tenant_id = ${tenantId}
         AND i.min_quantity > 0
         AND i.quantity <= i.min_quantity
-      ORDER BY i.quantity ASC
-    ` as any[];
+      ORDER BY (i.quantity / NULLIF(i.min_quantity, 0)) ASC
+    `;
 
-    return lowStockItems.map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      nameRu: item.name_ru,
-      sku: item.sku,
-      unit: item.unit,
-      quantity: Number(item.quantity),
-      minQuantity: Number(item.min_quantity),
-      costPrice: Number(item.cost_price),
-      isActive: item.is_active,
-      supplierName: item.supplier_name,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-    }));
+    return lowStockItems;
   }
 
-  // Buyurtma yakunlanganda ingredientlarni avtomatik kamaytirish
+  // Buyurtma yakunlanganda ingredientlarni batch transaksiyada kamaytirish
+  // N+1 loop o'rniga bitta $transaction ichida barchasi bajariladi
   static async deductForOrder(orderId: string, userId: string, tenantId: string) {
-    // 1. Buyurtma items ni olish
     const order = await prisma.order.findFirst({
       where: { id: orderId, tenantId },
       include: {
@@ -250,11 +186,7 @@ export class InventoryService {
           include: {
             product: {
               include: {
-                ingredients: {
-                  include: {
-                    inventoryItem: true,
-                  },
-                },
+                ingredients: { include: { inventoryItem: true } },
               },
             },
           },
@@ -263,53 +195,61 @@ export class InventoryService {
     });
 
     if (!order) {
-      console.error(`[Inventory] Buyurtma topilmadi: ${orderId}`);
+      logger.error('Inventory deduct: order not found', { orderId });
       return;
     }
 
-    // 2. Har bir mahsulot uchun ingredientlarni kamaytirish
+    type DeductEntry = { itemId: string; amount: number; itemName: string };
+    const deductMap = new Map<string, DeductEntry>();
+
     for (const orderItem of order.items) {
-      const ingredients = orderItem.product.ingredients;
-      if (!ingredients || ingredients.length === 0) continue;
+      for (const ingredient of orderItem.product.ingredients) {
+        const needed = Number(ingredient.quantity) * orderItem.quantity;
+        const available = Number(ingredient.inventoryItem.quantity);
+        const actual = Math.min(needed, available);
 
-      for (const ingredient of ingredients) {
-        const deductAmount = Number(ingredient.quantity) * orderItem.quantity;
-        const currentQty = Number(ingredient.inventoryItem.quantity);
+        if (actual <= 0) continue;
 
-        if (currentQty < deductAmount) {
-          console.warn(
-            `[Inventory] Yetarli emas: ${ingredient.inventoryItem.name} (kerak: ${deductAmount}, bor: ${currentQty})`
-          );
+        if (deductMap.has(ingredient.inventoryItemId)) {
+          deductMap.get(ingredient.inventoryItemId)!.amount += actual;
+        } else {
+          deductMap.set(ingredient.inventoryItemId, {
+            itemId: ingredient.inventoryItemId,
+            amount: actual,
+            itemName: ingredient.inventoryItem.name,
+          });
         }
-
-        const actualDeduct = Math.min(deductAmount, currentQty);
-        if (actualDeduct <= 0) continue;
-
-        // Tranzaksiya yaratish va miqdorni kamaytirish
-        await prisma.$transaction([
-          prisma.inventoryTransaction.create({
-            data: {
-              itemId: ingredient.inventoryItemId,
-              type: 'OUT',
-              quantity: actualDeduct,
-              notes: `Buyurtma ${order.orderNumber} — ${orderItem.product.name} x${orderItem.quantity}`,
-              userId,
-            },
-          }),
-          prisma.inventoryItem.update({
-            where: { id: ingredient.inventoryItemId },
-            data: {
-              quantity: { decrement: actualDeduct },
-            },
-          }),
-        ]);
       }
     }
 
-    console.log(`[Inventory] Buyurtma ${order.orderNumber} uchun ingredientlar kamaytildi`);
+    if (deductMap.size === 0) return;
+
+    // Bitta transaksiyada barchani bajarish — N+1 yo'q
+    await prisma.$transaction(
+      [...deductMap.values()].flatMap(({ itemId, amount, itemName }) => [
+        prisma.inventoryTransaction.create({
+          data: {
+            itemId,
+            type: 'OUT',
+            quantity: amount,
+            notes: `Buyurtma ${order.orderNumber} — ${itemName}`,
+            userId,
+          },
+        }),
+        prisma.inventoryItem.update({
+          where: { id: itemId },
+          data: { quantity: { decrement: amount } },
+        }),
+      ]),
+    );
+
+    logger.info('Inventory deducted for order', {
+      orderId,
+      orderNumber: order.orderNumber,
+      itemsCount: deductMap.size,
+    });
   }
 
-  // Tranzaksiya tarixi
   static async getTransactions(itemId: string, tenantId: string, options?: {
     page?: number;
     limit?: number;
@@ -318,17 +258,12 @@ export class InventoryService {
     const limit = options?.limit || 20;
     const skip = (page - 1) * limit;
 
-    // Avval item tenantga tegishliligini tekshirish
     await this.getById(itemId, tenantId);
 
     const [transactions, total] = await Promise.all([
       prisma.inventoryTransaction.findMany({
         where: { itemId },
-        include: {
-          user: {
-            select: { id: true, firstName: true, lastName: true },
-          },
-        },
+        include: { user: { select: { id: true, firstName: true, lastName: true } } },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,

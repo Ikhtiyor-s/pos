@@ -1,68 +1,60 @@
 import { Server } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import { prisma } from '@oshxona/database';
-import { rateLimiterStore } from '../middleware/rate-limiter.js';
-
-// ==========================================
-// GRACEFUL SHUTDOWN
-// SIGTERM/SIGINT signallarida xavfsiz yopish
-// ==========================================
+import { disconnectRedis } from './redis.js';
+import { logger } from '../utils/logger.js';
 
 let isShuttingDown = false;
 
-export function setupGracefulShutdown(
-  httpServer: Server,
-  io: SocketServer,
-): void {
+export function setupGracefulShutdown(httpServer: Server, io: SocketServer): void {
   const shutdown = async (signal: string) => {
     if (isShuttingDown) return;
     isShuttingDown = true;
 
-    console.log(`\n[Shutdown] ${signal} received. Graceful shutdown boshlandi...`);
+    logger.info('Graceful shutdown started', { signal });
 
-    // 1. Yangi connectionlarni qabul qilmaslik
-    httpServer.close(() => {
-      console.log('[Shutdown] HTTP server yopildi');
-    });
+    // 1. Yangi connectionlarni to'xtatish
+    httpServer.close(() => logger.info('HTTP server closed'));
 
-    // 2. Socket.IO ulanishlarni yopish
+    // 2. Socket.IO yopish
     io.disconnectSockets(true);
-    console.log('[Shutdown] Socket.IO ulanishlar uzildi');
+    logger.info('Socket.IO connections closed');
 
-    // 3. Rate limiter tozalash
-    rateLimiterStore.destroy();
-
-    // 4. Database ulanishni yopish
+    // 3. Redis yopish
     try {
-      await prisma.$disconnect();
-      console.log('[Shutdown] Database ulanish yopildi');
-    } catch (error) {
-      console.error('[Shutdown] Database disconnect xatolik:', error);
+      await disconnectRedis();
+      logger.info('Redis connection closed');
+    } catch (err) {
+      logger.error('Redis disconnect error', { error: (err as Error).message });
     }
 
-    console.log('[Shutdown] Graceful shutdown yakunlandi');
+    // 4. Database yopish
+    try {
+      await prisma.$disconnect();
+      logger.info('Database connection closed');
+    } catch (err) {
+      logger.error('Database disconnect error', { error: (err as Error).message });
+    }
+
+    logger.info('Graceful shutdown complete');
     process.exit(0);
   };
 
-  // Signal handlers
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  // Uncaught exceptions
   process.on('uncaughtException', (error) => {
-    console.error('[FATAL] Uncaught Exception:', error);
+    logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
     shutdown('uncaughtException');
   });
 
   process.on('unhandledRejection', (reason) => {
-    console.error('[FATAL] Unhandled Rejection:', reason);
-    // Don't shutdown — just log
+    logger.error('Unhandled Rejection', { reason: String(reason) });
   });
 
-  console.log('[Shutdown] Graceful shutdown handlers registered');
+  logger.info('Graceful shutdown handlers registered');
 }
 
-// Health check uchun
 export function isServerShuttingDown(): boolean {
   return isShuttingDown;
 }

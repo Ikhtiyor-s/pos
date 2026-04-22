@@ -1,40 +1,51 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
+import { logger } from '../utils/logger.js';
 
-// ==========================================
-// REQUEST LOGGER — Production-level logging
-// Structured JSON logs with request metadata
-// ==========================================
+declare global {
+  namespace Express {
+    interface Request {
+      requestId: string;
+      startTime: number;
+    }
+  }
+}
+
+export function requestIdMiddleware(req: Request, _res: Response, next: NextFunction) {
+  req.requestId = (req.headers['x-request-id'] as string) || randomUUID();
+  req.startTime = Date.now();
+  next();
+}
 
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
-  const start = Date.now();
+  const originalEnd = res.end.bind(res);
 
-  // Response end da log yozish
-  const originalEnd = res.end;
-  res.end = function (...args: any[]) {
-    const duration = Date.now() - start;
-    const logEntry = {
-      timestamp: new Date().toISOString(),
+  res.end = function (...args: Parameters<typeof res.end>) {
+    const duration = Date.now() - req.startTime;
+    const log = {
+      requestId: req.requestId,
       method: req.method,
       url: req.originalUrl,
       status: res.statusCode,
-      duration: `${duration}ms`,
+      durationMs: duration,
       ip: req.ip,
       userId: req.user?.id,
       tenantId: req.user?.tenantId,
-      userAgent: req.get('user-agent')?.substring(0, 100),
+      ua: req.get('user-agent')?.substring(0, 120),
     };
 
-    // Slow request warning (> 5s)
-    if (duration > 5000) {
-      console.warn('[SLOW REQUEST]', JSON.stringify(logEntry));
+    if (duration > 3000) {
+      logger.warn('Slow request', log);
     } else if (res.statusCode >= 500) {
-      console.error('[ERROR]', JSON.stringify(logEntry));
+      logger.error('Request error', log);
     } else if (res.statusCode >= 400) {
-      console.warn('[WARN]', JSON.stringify(logEntry));
+      logger.warn('Request warning', log);
+    } else {
+      logger.info('Request', log);
     }
 
-    return originalEnd.apply(res, args as any);
-  } as any;
+    return originalEnd(...args);
+  } as typeof res.end;
 
   next();
 }
