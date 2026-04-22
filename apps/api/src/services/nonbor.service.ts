@@ -138,6 +138,8 @@ export interface NonborOrder {
   comment?: string | null;
   user: NonborUser;
   paid: boolean;
+  source?: 'WEB' | 'APP' | 'ADMIN' | string | null;
+  cancel_description?: string | null;
   pre_comment?: string | null;
   accepted_at?: string | null;
   checking_at?: string | null;
