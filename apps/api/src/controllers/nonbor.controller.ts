@@ -3,6 +3,7 @@ import { prisma } from '@oshxona/database';
 import { successResponse } from '../utils/response.js';
 import { nonborApiService } from '../services/nonbor.service.js';
 import { nonborSyncService } from '../services/nonbor-sync.service.js';
+import { logger } from '../utils/logger.js';
 import { Server } from 'socket.io';
 
 export class NonborController {
@@ -19,7 +20,6 @@ export class NonborController {
         });
       }
 
-      // Nonbor token va API URL ni saqlash (agar berilgan bo'lsa)
       if (nonborToken) {
         await prisma.settings.upsert({
           where: { tenantId },
@@ -31,7 +31,7 @@ export class NonborController {
             tenantId,
             name: 'Oshxona',
             nonborApiSecret: nonborToken,
-            nonborApiUrl: nonborApiUrl || 'https://prod.nonbor.uz/api/v2',
+            nonborApiUrl: nonborApiUrl || 'https://test.nonbor.uz/api/v2',
             taxRate: 0,
             currency: 'UZS',
             orderPrefix: 'ORD',
@@ -40,18 +40,20 @@ export class NonborController {
         nonborApiService.resetClient();
       }
 
-      // Nonbor API dan biznesni tekshirish
       let businessInfo = null;
       try {
         businessInfo = await nonborApiService.findBusinessById(sellerId);
       } catch (err) {
+        logger.warn('[Nonbor] connect: biznes topilmadi', {
+          sellerId,
+          error: (err as Error).message,
+        });
         return res.status(502).json({
           success: false,
           message: 'Nonbor API ga ulanishda xatolik',
         });
       }
 
-      // Settings ga saqlash
       const settings = await prisma.settings.upsert({
         where: { tenantId },
         update: {
@@ -78,21 +80,25 @@ export class NonborController {
         },
       });
 
-      // API client reset (yangi settings bilan)
       nonborApiService.resetClient();
 
-      // Pollingni qayta ishga tushirish
       const io = req.app.get('io') as Server;
       await nonborSyncService.restartPolling(io);
 
-      return successResponse(res, {
-        enabled: true,
-        sellerId,
-        businessName: settings.name,
-        businessAddress: settings.address,
-        businessPhone: settings.phone,
-        businessLogo: settings.logo,
-      }, 'Nonbor bilan muvaffaqiyatli ulandi');
+      logger.info('[Nonbor] Tenant ulandi', { tenantId, sellerId });
+
+      return successResponse(
+        res,
+        {
+          enabled: true,
+          sellerId,
+          businessName: settings.name,
+          businessAddress: settings.address,
+          businessPhone: settings.phone,
+          businessLogo: settings.logo,
+        },
+        'Nonbor bilan muvaffaqiyatli ulandi',
+      );
     } catch (error) {
       next(error);
     }
@@ -103,26 +109,19 @@ export class NonborController {
     try {
       const tenantId = req.user!.tenantId!;
 
-      const settings = await prisma.settings.findUnique({
-        where: { tenantId },
-      });
+      const settings = await prisma.settings.findUnique({ where: { tenantId } });
 
       if (!settings?.nonborEnabled) {
-        return successResponse(res, {
-          enabled: false,
-          sellerId: null,
-          businessName: null,
-        });
+        return successResponse(res, { enabled: false, sellerId: null, businessName: null });
       }
 
-      // Nonbor dan status count olish
       let statusCount = null;
       try {
         if (settings.nonborSellerId) {
           statusCount = await nonborApiService.getOrderStatusCount(settings.nonborSellerId);
         }
       } catch {
-        // Ignore - offline bo'lishi mumkin
+        // offline bo'lishi mumkin
       }
 
       return successResponse(res, {
@@ -146,15 +145,13 @@ export class NonborController {
 
       await prisma.settings.update({
         where: { tenantId },
-        data: {
-          nonborEnabled: false,
-          nonborSellerId: null,
-        },
+        data: { nonborEnabled: false, nonborSellerId: null },
       });
 
-      // Pollingni to'xtatish
       nonborSyncService.stopPolling();
       nonborApiService.resetClient();
+
+      logger.info('[Nonbor] Tenant uzildi', { tenantId });
 
       return successResponse(res, { enabled: false }, 'Nonbordan uzildi');
     } catch (error) {
@@ -167,41 +164,67 @@ export class NonborController {
     try {
       const tenantId = req.user!.tenantId!;
 
-      const settings = await prisma.settings.findUnique({
-        where: { tenantId },
-      });
+      const settings = await prisma.settings.findUnique({ where: { tenantId } });
 
       if (!settings?.nonborEnabled || !settings.nonborSellerId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Nonbor integratsiya yoqilmagan',
-        });
+        return res.status(400).json({ success: false, message: 'Nonbor integratsiya yoqilmagan' });
       }
 
       await nonborSyncService.manualSync();
 
-      // Sync qilingan buyurtmalar sonini hisoblash
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       const nonborOrderCount = await prisma.order.count({
-        where: {
-          isNonborOrder: true,
-          tenantId,
-          createdAt: { gte: today },
-        },
+        where: { isNonborOrder: true, tenantId, createdAt: { gte: today } },
       });
 
-      return successResponse(res, {
-        synced: true,
-        nonborOrdersToday: nonborOrderCount,
-      }, 'Sync muvaffaqiyatli');
+      return successResponse(
+        res,
+        { synced: true, nonborOrdersToday: nonborOrderCount },
+        'Sync muvaffaqiyatli',
+      );
     } catch (error) {
       next(error);
     }
   }
 
-  // Nonbor bizneslar ro'yxati (connect qilish uchun)
+  // Nonbor mahsulotlarni POSga import qilish
+  static async pullProducts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+
+      const settings = await prisma.settings.findUnique({ where: { tenantId } });
+
+      if (!settings?.nonborEnabled || !settings.nonborSellerId) {
+        return res.status(400).json({ success: false, message: 'Nonbor integratsiya yoqilmagan' });
+      }
+
+      const result = await nonborApiService.pullProductsFromNonbor(tenantId);
+
+      logger.info('[Nonbor] Mahsulotlar import qilindi', {
+        tenantId,
+        created: result.created,
+        updated: result.updated,
+        skipped: result.skipped,
+      });
+
+      return successResponse(
+        res,
+        {
+          created: result.created,
+          updated: result.updated,
+          skipped: result.skipped,
+          errors: result.errors,
+        },
+        `Mahsulotlar import qilindi: ${result.created} yangi, ${result.updated} yangilandi`,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Nonbor bizneslar ro'yxati
   static async listBusinesses(_req: Request, res: Response, next: NextFunction) {
     try {
       const businesses = await nonborApiService.getBusinesses();

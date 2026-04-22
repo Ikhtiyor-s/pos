@@ -1,52 +1,66 @@
 import { Server } from 'socket.io';
-import { prisma, OrderStatus, ItemStatus, OrderType } from '@oshxona/database';
+import { prisma, OrderStatus, OrderType } from '@oshxona/database';
 import {
   nonborApiService,
   type NonborOrder,
-  type NonborOrderState,
 } from './nonbor.service.js';
+import { OrderService } from './order.service.js';
 import { IntegrationService } from './integration.service.js';
+import { logger } from '../utils/logger.js';
 
-// Nonbor → Lokal status mapping
+// Nonbor → Lokal status mapping (barcha 12 ta holat)
 const NONBOR_TO_LOCAL_STATUS: Record<string, OrderStatus> = {
   PENDING: OrderStatus.NEW,
+  WAITING_PAYMENT: OrderStatus.NEW,
   CHECKING: OrderStatus.NEW,
   ACCEPTED: OrderStatus.CONFIRMED,
-  PREPARING: OrderStatus.PREPARING,
   READY: OrderStatus.READY,
+  PAYMENT_EXPIRED: OrderStatus.CANCELLED,
+  ACCEPT_EXPIRED: OrderStatus.CANCELLED,
+  CANCELLED_CLIENT: OrderStatus.CANCELLED,
+  CANCELLED_SELLER: OrderStatus.CANCELLED,
   DELIVERING: OrderStatus.DELIVERING,
   DELIVERED: OrderStatus.COMPLETED,
-  CANCELLED: OrderStatus.CANCELLED,
+  COMPLETED: OrderStatus.COMPLETED,
 };
 
-// Lokal → Nonbor status mapping
-const LOCAL_TO_NONBOR_STATUS: Partial<Record<OrderStatus, 'ACCEPTED' | 'READY' | 'CANCELLED' | 'DELIVERED'>> = {
+// Lokal → Nonbor status mapping (faqat biz push qila oladigan holatlar)
+const LOCAL_TO_NONBOR_STATUS: Partial<
+  Record<OrderStatus, 'ACCEPTED' | 'READY' | 'CANCELLED_SELLER' | 'DELIVERED' | 'COMPLETED'>
+> = {
   [OrderStatus.CONFIRMED]: 'ACCEPTED',
   [OrderStatus.READY]: 'READY',
-  [OrderStatus.COMPLETED]: 'DELIVERED',
-  [OrderStatus.CANCELLED]: 'CANCELLED',
+  [OrderStatus.COMPLETED]: 'COMPLETED',
+  [OrderStatus.CANCELLED]: 'CANCELLED_SELLER',
 };
 
-// Polling intervallari
-const POLLING_FAST = 10000;  // 10s — webhook yo'q bo'lsa
-const POLLING_SLOW = 60000;  // 60s — webhook faol bo'lsa (fallback)
+// Aktiv (terminal bo'lmagan) nonbor holatlari
+const ACTIVE_NONBOR_STATES = new Set([
+  'PENDING',
+  'WAITING_PAYMENT',
+  'CHECKING',
+  'ACCEPTED',
+  'READY',
+  'DELIVERING',
+]);
+
+const POLLING_FAST = 10000; // 10s — webhook yo'q bo'lsa
+const POLLING_SLOW = 60000; // 60s — webhook faol bo'lsa (fallback)
 
 class NonborSyncService {
   private pollingInterval: ReturnType<typeof setInterval> | null = null;
   private isPolling = false;
   private io: Server | null = null;
   private currentInterval = POLLING_FAST;
-  private lastWebhookTime = 0; // Oxirgi webhook kelgan vaqt
+  private lastWebhookTime = 0;
 
-  // Webhook kelganini belgilash (polling ni sekinlashtiradi)
   notifyWebhookReceived() {
     this.lastWebhookTime = Date.now();
     this.adjustPollingInterval();
   }
 
-  // Polling intervalini webhook holatiga qarab moslashtirish
   private adjustPollingInterval() {
-    const hasRecentWebhook = Date.now() - this.lastWebhookTime < 5 * 60 * 1000; // 5 daqiqa ichida
+    const hasRecentWebhook = Date.now() - this.lastWebhookTime < 5 * 60 * 1000;
     const targetInterval = hasRecentWebhook ? POLLING_SLOW : POLLING_FAST;
 
     if (targetInterval !== this.currentInterval && this.io) {
@@ -54,56 +68,54 @@ class NonborSyncService {
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
         this.pollingInterval = setInterval(() => this.syncOrders(), this.currentInterval);
-        console.log(`[Nonbor] Polling interval: ${this.currentInterval / 1000}s (webhook ${hasRecentWebhook ? 'faol' : 'yo\'q'})`);
+        logger.info('[Nonbor] Polling interval o\'zgartirildi', {
+          intervalSec: this.currentInterval / 1000,
+          webhookActive: hasRecentWebhook,
+        });
       }
     }
   }
 
-  // Polling boshlash
   async startPolling(io: Server) {
     this.io = io;
 
-    // Barcha tenantlarni tekshirish — nonbor yoqilganlarni topish
     const enabledSettings = await prisma.settings.findMany({
       where: { nonborEnabled: true, nonborSellerId: { not: null } },
     });
 
     if (enabledSettings.length === 0) {
-      console.log('[Nonbor] Hech qaysi tenantda integratsiya yoqilmagan');
+      logger.info('[Nonbor] Hech qaysi tenantda integratsiya yoqilmagan');
       return;
     }
 
-    // Webhook faol bo'lsa sekin polling, aks holda tez
     const hasActiveWebhooks = await prisma.webhook.count({
       where: { isActive: true, service: 'nonbor' },
     });
     this.currentInterval = hasActiveWebhooks > 0 ? POLLING_SLOW : POLLING_FAST;
 
-    console.log(`[Nonbor] Polling boshlandi (${enabledSettings.length} ta tenant, interval: ${this.currentInterval / 1000}s)`);
+    logger.info('[Nonbor] Polling boshlandi', {
+      tenants: enabledSettings.length,
+      intervalSec: this.currentInterval / 1000,
+    });
     this.pollingInterval = setInterval(() => this.syncOrders(), this.currentInterval);
-
-    // Birinchi sync darhol
     this.syncOrders();
   }
 
-  // Pollingni to'xtatish
   stopPolling() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
     }
-    console.log('[Nonbor] Polling to\'xtatildi');
+    logger.info('[Nonbor] Polling to\'xtatildi');
   }
 
-  // Pollingni qayta ishga tushirish
   async restartPolling(io: Server) {
     this.stopPolling();
     await this.startPolling(io);
   }
 
-  // Asosiy sync funksiyasi — barcha tenantlar uchun
   async syncOrders() {
-    if (this.isPolling) return; // O'zaro to'qnashuvni oldini olish
+    if (this.isPolling) return;
     this.isPolling = true;
 
     try {
@@ -114,52 +126,52 @@ class NonborSyncService {
       for (const settings of enabledSettings) {
         try {
           const tenantId = settings.tenantId;
-
-          // Use the new v2 API method to fetch orders
           const nonborOrders = await nonborApiService.syncOrdersFromNonbor(tenantId);
 
-          // Faqat aktiv buyurtmalarni (PENDING, CHECKING, ACCEPTED, PREPARING, READY)
-          const activeOrders = nonborOrders.filter((o) =>
-            ['PENDING', 'CHECKING', 'ACCEPTED', 'PREPARING', 'READY'].includes(o.state)
-          );
+          const activeOrders = nonborOrders.filter((o) => ACTIVE_NONBOR_STATES.has(o.state));
 
           for (const nonborOrder of activeOrders) {
             try {
               await this.processNonborOrder(nonborOrder, tenantId);
             } catch (err) {
-              console.error(`[Nonbor] Buyurtma #${nonborOrder.id} sync xatolik (tenant: ${tenantId}):`, err);
+              logger.error('[Nonbor] Buyurtma sync xatolik', {
+                nonborOrderId: nonborOrder.id,
+                tenantId,
+                error: (err as Error).message,
+              });
             }
           }
         } catch (err) {
-          console.error(`[Nonbor] Tenant ${settings.tenantId} sync xatolik:`, err);
+          logger.error('[Nonbor] Tenant sync xatolik', {
+            tenantId: settings.tenantId,
+            error: (err as Error).message,
+          });
         }
       }
     } catch (err) {
-      console.error('[Nonbor] Sync xatolik:', err);
+      logger.error('[Nonbor] Sync xatolik', { error: (err as Error).message });
     } finally {
       this.isPolling = false;
     }
   }
 
-  // Bitta Nonbor buyurtmani qayta ishlash
   private async processNonborOrder(nonborOrder: NonborOrder, tenantId: string) {
-    // Lokal DB da mavjudmi?
     const existingOrder = await prisma.order.findFirst({
       where: { nonborOrderId: nonborOrder.id, tenantId },
     });
 
     if (existingOrder) {
-      // Status yangilanishini tekshirish (Nonbor → Lokal)
       const expectedLocalStatus = NONBOR_TO_LOCAL_STATUS[nonborOrder.state];
       if (expectedLocalStatus && existingOrder.status !== expectedLocalStatus) {
-        // Nonbor tomondan status o'zgargan — lokalni yangilash
         await prisma.order.update({
           where: { id: existingOrder.id },
           data: { status: expectedLocalStatus },
         });
-        console.log(`[Nonbor] Status yangilandi: #${nonborOrder.id} → ${expectedLocalStatus}`);
+        logger.info('[Nonbor] Status yangilandi', {
+          nonborOrderId: nonborOrder.id,
+          newStatus: expectedLocalStatus,
+        });
 
-        // Socket event yuborish
         if (this.io) {
           const updatedOrder = await prisma.order.findUnique({
             where: { id: existingOrder.id },
@@ -173,35 +185,27 @@ class NonborSyncService {
       return;
     }
 
-    // Yangi buyurtma — import qilish
     await this.importNonborOrder(nonborOrder, tenantId);
   }
 
-  // Nonbor buyurtmani lokal DB ga import qilish
   private async importNonborOrder(nonborOrder: NonborOrder, tenantId: string) {
-    console.log(`[Nonbor] Yangi buyurtma import: #${nonborOrder.id} (tenant: ${tenantId})`);
+    logger.info('[Nonbor] Yangi buyurtma import', {
+      nonborOrderId: nonborOrder.id,
+      tenantId,
+    });
 
-    // 1. System user topish — shu tenant uchun MANAGER yoki ADMIN
+    // 1. System user topish
     let systemUser = await prisma.user.findFirst({
       where: { tenantId, isActive: true, role: { in: ['MANAGER', 'CASHIER'] } },
     });
-
-    // Fallback: shu tenantdagi istalgan aktiv foydalanuvchi
     if (!systemUser) {
-      systemUser = await prisma.user.findFirst({
-        where: { tenantId, isActive: true },
-      });
+      systemUser = await prisma.user.findFirst({ where: { tenantId, isActive: true } });
     }
-
-    // Oxirgi fallback: SUPER_ADMIN (tenantId null)
     if (!systemUser) {
-      systemUser = await prisma.user.findFirst({
-        where: { role: 'SUPER_ADMIN', isActive: true },
-      });
+      systemUser = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', isActive: true } });
     }
-
     if (!systemUser) {
-      console.error('[Nonbor] System user topilmadi!');
+      logger.error('[Nonbor] System user topilmadi', { tenantId });
       return;
     }
 
@@ -225,108 +229,88 @@ class NonborSyncService {
           },
         });
       }
-
       customerId = customer.id;
     }
 
-    // 3. "Nonbor" default kategoriya
+    // 3. "Nonbor" default kategoriya — topish yoki yaratish
     let nonborCategory = await prisma.category.findFirst({
       where: { slug: 'nonbor', tenantId },
     });
-
     if (!nonborCategory) {
       nonborCategory = await prisma.category.create({
-        data: {
-          name: 'Nonbor',
-          slug: 'nonbor',
-          isActive: true,
-          tenantId,
-        },
+        data: { name: 'Nonbor', slug: 'nonbor', isActive: true, tenantId },
       });
     }
 
-    // 4. Mahsulotlarni yaratish/topish va OrderItems tayyorlash
-    const orderItems: Array<{
-      productId: string;
-      quantity: number;
-      price: number;
-      total: number;
-      notes?: string;
-    }> = [];
+    // 4. Mahsulotlarni batch lookup bilan topish (N+1 yo'q)
+    const orderItems = nonborOrder.items;
+    if (!orderItems?.length) {
+      logger.warn('[Nonbor] Buyurtmada mahsulot yo\'q', { nonborOrderId: nonborOrder.id });
+      return;
+    }
 
-    let subtotal = 0;
+    const nonborProductIds = orderItems.map((i) => i.product.id);
 
-    for (const item of nonborOrder.order_item) {
-      const nonborProduct = item.product;
-      const quantity = item.count || 1;
+    // Bitta query bilan barcha mavjud mahsulotlarni topish
+    const existingProducts = await prisma.product.findMany({
+      where: { nonborProductId: { in: nonborProductIds }, tenantId },
+    });
+    const productByNonborId = new Map(existingProducts.map((p) => [p.nonborProductId, p]));
 
-      // Lokal product topish yoki yaratish
-      let product = await prisma.product.findFirst({
-        where: { nonborProductId: nonborProduct.id, tenantId },
-      });
-
-      if (!product) {
-        product = await prisma.product.create({
+    // Topilmagan mahsulotlarni yaratish
+    for (const item of orderItems) {
+      if (!productByNonborId.has(item.product.id)) {
+        const created = await prisma.product.create({
           data: {
-            name: nonborProduct.name,
-            price: nonborProduct.price,
+            name: item.product.name,
+            price: item.product.price,
             categoryId: nonborCategory.id,
-            nonborProductId: nonborProduct.id,
-            image: nonborProduct.images?.[0]?.image || undefined,
+            nonborProductId: item.product.id,
+            image: item.product.images?.[0]?.image || undefined,
             isActive: true,
             tenantId,
           },
         });
-        console.log(`[Nonbor] Yangi mahsulot yaratildi: ${product.name}`);
+        productByNonborId.set(item.product.id, created);
+        logger.info('[Nonbor] Yangi mahsulot yaratildi', { name: created.name });
       }
+    }
 
+    // OrderItems va subtotal hisoblash
+    const localOrderItems: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+      total: number;
+    }> = [];
+    let subtotal = 0;
+
+    for (const item of orderItems) {
+      const product = productByNonborId.get(item.product.id)!;
+      const quantity = item.quantity;
       const price = Number(product.price);
       const total = price * quantity;
       subtotal += total;
-
-      orderItems.push({
-        productId: product.id,
-        quantity,
-        price,
-        total,
-      });
+      localOrderItems.push({ productId: product.id, quantity, price, total });
     }
 
-    // 5. Order type aniqlash
+    // 5. Order type
     const orderType: OrderType =
-      nonborOrder.delivery_method === 'DELIVERY'
-        ? OrderType.DELIVERY
-        : OrderType.TAKEAWAY;
+      nonborOrder.delivery_method === 'DELIVERY' ? OrderType.DELIVERY : OrderType.TAKEAWAY;
 
-    // 6. Order number yaratish
-    const settings = await prisma.settings.findFirst({
-      where: { tenantId },
-    });
-    const prefix = settings?.orderPrefix || 'ORD';
-    const date = new Date();
-    const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-
-    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
-
-    const todayCount = await prisma.order.count({
-      where: { tenantId, createdAt: { gte: startOfDay, lte: endOfDay } },
-    });
-
-    const orderNumber = `${prefix}-${dateStr}-${String(todayCount + 1).padStart(4, '0')}`;
+    // 6. Order number — Redis atomik INCR (race condition yo'q)
+    const orderNumber = await OrderService.generateOrderNumber(tenantId);
 
     // 7. Tax hisoblash
+    const settings = await prisma.settings.findFirst({ where: { tenantId } });
     const taxRate = Number(settings?.taxRate || 0);
     const tax = subtotal * (taxRate / 100);
     const total = subtotal + tax;
 
     // 8. Lokal status
-    const localStatus = NONBOR_TO_LOCAL_STATUS[nonborOrder.state] || OrderStatus.NEW;
+    const localStatus = NONBOR_TO_LOCAL_STATUS[nonborOrder.state] ?? OrderStatus.NEW;
 
-    // 9. Manzil
-    const address = nonborOrder.delivery?.address || undefined;
-
-    // 10. Order yaratish
+    // 9. Order yaratish
     const order = await prisma.order.create({
       data: {
         orderNumber,
@@ -338,14 +322,12 @@ class NonborSyncService {
         discount: 0,
         tax,
         total,
-        address,
+        address: nonborOrder.delivery?.address || undefined,
         nonborOrderId: nonborOrder.id,
         isNonborOrder: true,
         notes: `Nonbor #${nonborOrder.id} | ${nonborOrder.payment_method}`,
         tenantId,
-        items: {
-          create: orderItems,
-        },
+        items: { create: localOrderItems },
       },
       include: {
         items: { include: { product: true } },
@@ -353,38 +335,48 @@ class NonborSyncService {
       },
     });
 
-    console.log(`[Nonbor] Buyurtma import qilindi: ${order.orderNumber} (Nonbor #${nonborOrder.id})`);
+    logger.info('[Nonbor] Buyurtma import qilindi', {
+      orderNumber: order.orderNumber,
+      nonborOrderId: nonborOrder.id,
+    });
 
-    // Integration Hub — barcha integratsiyalarga event dispatch
-    IntegrationService.dispatchEvent('order:new', order).catch(console.error);
+    IntegrationService.dispatchEvent('order:new', order).catch((err: Error) => {
+      logger.warn('[Nonbor] IntegrationService dispatch xatolik', { error: err.message });
+    });
 
-    // 11. PENDING/CHECKING statusli buyurtmani avtomatik ACCEPTED qilish
-    if (nonborOrder.state === 'CHECKING' || nonborOrder.state === 'PENDING') {
+    // 10. PENDING/CHECKING/WAITING_PAYMENT → avtomatik ACCEPTED qilish
+    if (['CHECKING', 'PENDING', 'WAITING_PAYMENT'].includes(nonborOrder.state)) {
       try {
         await nonborApiService.changeOrderStatus(nonborOrder.id, 'ACCEPTED', tenantId);
-        // Lokal statusni ham CONFIRMED qilish
         await prisma.order.update({
           where: { id: order.id },
           data: { status: OrderStatus.CONFIRMED },
         });
-        console.log(`[Nonbor] Buyurtma #${nonborOrder.id} avtomatik ACCEPTED qilindi`);
+        logger.info('[Nonbor] Buyurtma avtomatik ACCEPTED qilindi', {
+          nonborOrderId: nonborOrder.id,
+        });
       } catch (err) {
-        console.error(`[Nonbor] ACCEPTED qilishda xatolik:`, err);
+        logger.error('[Nonbor] ACCEPTED qilishda xatolik', {
+          nonborOrderId: nonborOrder.id,
+          error: (err as Error).message,
+        });
       }
     }
 
-    // 12. DELIVERY buyurtma uchun avtomatik kuryer qidirish
-    if (nonborOrder.delivery_method === 'DELIVERY' && nonborOrder.state !== 'CANCELLED') {
+    // 11. DELIVERY buyurtma — kuryer qidirish
+    if (nonborOrder.delivery_method === 'DELIVERY' && !nonborOrder.state.includes('CANCELLED')) {
       try {
         await nonborApiService.acceptDelivery(nonborOrder.id, tenantId);
-        console.log(`[Nonbor] Buyurtma #${nonborOrder.id} uchun yetkazish boshlandi`);
+        logger.info('[Nonbor] Delivery qabul qilindi', { nonborOrderId: nonborOrder.id });
       } catch (err) {
-        // Delivery already accepted or not available — not critical
-        console.warn(`[Nonbor] Delivery accept: #${nonborOrder.id}`, (err as any)?.response?.data || (err as any)?.message);
+        logger.warn('[Nonbor] Delivery accept', {
+          nonborOrderId: nonborOrder.id,
+          error: (err as any)?.response?.data || (err as Error).message,
+        });
       }
     }
 
-    // 13. Socket.IO event — tenant-scoped rooms
+    // 12. Socket.IO event
     if (this.io) {
       this.io.to(`tenant:${tenantId}:kitchen`).emit('order:new', order);
       this.io.to(`tenant:${tenantId}:pos`).emit('order:new', order);
@@ -395,7 +387,6 @@ class NonborSyncService {
     return order;
   }
 
-  // Lokal status o'zgarganda Nonborga sync
   async syncStatusToNonbor(order: {
     id: string;
     status: OrderStatus;
@@ -413,31 +404,34 @@ class NonborSyncService {
         order.id,
         order.nonborOrderId,
         nonborState,
-        order.tenantId
+        order.tenantId,
       );
-      console.log(
-        `[Nonbor] Status sync: Buyurtma #${order.nonborOrderId} → ${nonborState}`
-      );
+      logger.info('[Nonbor] Status sync', {
+        nonborOrderId: order.nonborOrderId,
+        newState: nonborState,
+      });
     } catch (err) {
-      console.error(
-        `[Nonbor] Status sync xatolik (order #${order.nonborOrderId}):`,
-        err
-      );
+      logger.error('[Nonbor] Status sync xatolik', {
+        nonborOrderId: order.nonborOrderId,
+        error: (err as Error).message,
+      });
     }
   }
 
-  // Manual sync trigger
   async manualSync() {
-    console.log('[Nonbor] Manual sync boshlandi...');
+    logger.info('[Nonbor] Manual sync boshlandi');
     await this.syncOrders();
-    console.log('[Nonbor] Manual sync yakunlandi');
+    logger.info('[Nonbor] Manual sync yakunlandi');
   }
 
-  // Sync products from local POS to Nonbor
   async syncProducts(tenantId: string) {
-    console.log(`[Nonbor] Mahsulotlar sync boshlandi (tenant: ${tenantId})...`);
+    logger.info('[Nonbor] Mahsulotlar sync boshlandi', { tenantId });
     const result = await nonborApiService.syncProductsToNonbor(tenantId);
-    console.log(`[Nonbor] Mahsulotlar sync yakunlandi: ${result.created} yaratildi, ${result.updated} yangilandi, ${result.errors.length} xatolik`);
+    logger.info('[Nonbor] Mahsulotlar sync yakunlandi', {
+      created: result.created,
+      updated: result.updated,
+      errors: result.errors.length,
+    });
     return result;
   }
 }

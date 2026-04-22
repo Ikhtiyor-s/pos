@@ -1,7 +1,11 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import { prisma } from '@oshxona/database';
+import { logger } from '../utils/logger.js';
 
-// ============ TYPES — Nonbor v2 API ============
+// ==========================================
+// TYPES — Nonbor v2 API (test.nonbor.uz)
+// Based on actual OpenAPI schema /api/v2/schema/
+// ==========================================
 
 export interface NonborBusiness {
   id: number;
@@ -32,36 +36,50 @@ export interface NonborProductImage {
   product: number;
 }
 
+export interface NonborProductUnit {
+  id: number;
+  name: string;
+}
+
 export interface NonborProduct {
   id: number;
   name: string;
   state: string;
-  price: number;
+  price: number;       // tiyin hisobida (100 = 1 so'm)
   description?: string;
   category?: number | NonborCategory;
   images: NonborProductImage[];
   is_active?: boolean;
   mxik_code?: string;
   barcode?: string;
+  unit?: NonborProductUnit;
+  netto?: number;
 }
 
+// Nonbor API schema dan: OrderItemList
 export interface NonborOrderItem {
   id: number;
   order: number;
   product: NonborProduct;
+  quantity: number;          // ← aslida shu, "count" emas
+  price: number;
   addon_price: number;
   accepted: boolean;
-  count?: number;
-  total_price?: number;
+  rate?: number | null;
+  comment?: string | null;
+  sale_in_percentage: number;
+  addons: any[];
 }
 
 export interface NonborUser {
+  id?: number;
+  username?: string;
   first_name: string;
   last_name: string;
-  phone: string | null;
-  lat: number | null;
-  long: number | null;
-  lang: string;
+  email?: string | null;
+  phone?: string | null;    // Bu field API'da yo'q, user.username orqali kelishi mumkin
+  lat?: number | null;
+  long?: number | null;
 }
 
 export interface NonborDelivery {
@@ -69,10 +87,10 @@ export interface NonborDelivery {
   lat: number;
   long: number;
   address: string;
-  entrance: string | null;
-  floor: string | null;
-  apartment: string | null;
-  courier_comment: string | null;
+  entrance?: string | null;
+  floor?: string | null;
+  apartment?: string | null;
+  courier_comment?: string | null;
   price: number;
   current_price: number;
   status?: string;
@@ -87,31 +105,44 @@ export interface NonborDelivery {
   updated_at: string;
 }
 
+// Barcha holat: State89bEnum
 export type NonborOrderState =
   | 'PENDING'
+  | 'WAITING_PAYMENT'
   | 'CHECKING'
   | 'ACCEPTED'
-  | 'PREPARING'
   | 'READY'
+  | 'PAYMENT_EXPIRED'
+  | 'ACCEPT_EXPIRED'
+  | 'CANCELLED_CLIENT'
+  | 'CANCELLED_SELLER'
   | 'DELIVERING'
   | 'DELIVERED'
-  | 'CANCELLED';
+  | 'COMPLETED';
 
+// BusinessOrderSerialiazers schema'dan
 export interface NonborOrder {
   id: number;
   business: NonborBusiness;
-  delivery_method: 'PICKUP' | 'DELIVERY';
-  payment_method: 'CASH' | 'CARD' | 'CLICK' | 'PAYME';
+  delivery_method: 'NOT_CHOSEN' | 'PICKUP' | 'DELIVERY';
+  payment_method: 'NOT_CHOSEN' | 'CASH' | 'CLICK' | 'CARD' | null;
   state: NonborOrderState;
-  total_price: number;
-  price: number;
-  items: number[];
-  order_item: NonborOrderItem[];
-  delivery: NonborDelivery | null;
-  user: NonborUser;
-  paid: boolean;
+  type: 'TAYYOR' | 'REJA' | 'BUYURTMA';
+  total_price: string;      // readOnly, computed
+  price: number | null;
+  items: NonborOrderItem[];  // OrderItemList[] — to'liq ob'ektlar, ID emas
   created_at: string;
   updated_at: string;
+  delivery: string | NonborDelivery | null;   // readOnly
+  rate?: number | null;
+  comment?: string | null;
+  user: NonborUser;
+  paid: boolean;
+  pre_comment?: string | null;
+  accepted_at?: string | null;
+  checking_at?: string | null;
+  paid_at?: string | null;
+  ready_at?: string | null;
 }
 
 export interface NonborOrdersResponse {
@@ -121,22 +152,41 @@ export interface NonborOrdersResponse {
   results: NonborOrder[];
 }
 
-export interface NonborCategoriesResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: NonborCategory[];
+// seller-products endpoint response
+export interface NonborSellerProduct {
+  id: number;
+  name: string;
+  state: string;
+  price: number;
+  description?: string;
+  is_active: boolean;
+  images: NonborProductImage[];
+  category?: NonborCategory | null;
+  mxik_code?: string;
+  barcode?: string;
+  unit?: NonborProductUnit;
+  netto?: number;
+  menu_category?: { id: number; name: string } | null;
+  ordering?: number | null;
 }
 
-export interface NonborProductsByCategoryResponse {
+export interface NonborSellerProductsResponse {
   count: number;
   next: string | null;
   previous: string | null;
-  results: Array<{
-    id: number;
-    name: string;
-    products: NonborProduct[];
-  }>;
+  results: NonborSellerProduct[];
+}
+
+// seller-menu endpoint response
+export interface NonborSellerMenu {
+  id: number;
+  name: string;
+  netto?: number;
+  state: string;
+  price: number;
+  images: string;
+  menu_category?: { id: number; name: string } | null;
+  ordering?: number | null;
 }
 
 export interface NonborMenuCategory {
@@ -184,8 +234,6 @@ export interface NonborDeliveryTracking {
   estimated_time?: number;
 }
 
-// ============ PAGINATION HELPER ============
-
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -193,7 +241,9 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-// ============ SETTINGS CACHE ============
+// ==========================================
+// SETTINGS CACHE
+// ==========================================
 
 interface NonborSettings {
   nonborApiUrl: string;
@@ -203,104 +253,82 @@ interface NonborSettings {
   tenantId: string;
 }
 
-// ============ SERVICE ============
+const DEFAULT_API_URL = 'https://test.nonbor.uz/api/v2';
+
+// ==========================================
+// SERVICE
+// ==========================================
 
 class NonborV2Service {
   private clients: Map<string, AxiosInstance> = new Map();
-  private settingsCache: Map<string, { settings: NonborSettings; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private settingsCache: Map<string, { settings: NonborSettings; ts: number }> = new Map();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 daqiqa
 
   // ──────────── Auth & Client ────────────
 
-  /**
-   * Get settings for a tenant (with cache)
-   */
   private async getSettings(tenantId?: string): Promise<NonborSettings> {
     const cacheKey = tenantId || '__default__';
     const cached = this.settingsCache.get(cacheKey);
-
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.settings;
-    }
+    if (cached && Date.now() - cached.ts < this.CACHE_TTL) return cached.settings;
 
     const where = tenantId ? { tenantId } : { nonborEnabled: true };
-    const dbSettings = await prisma.settings.findFirst({ where });
+    const db = await prisma.settings.findFirst({ where });
 
-    if (!dbSettings) {
-      throw new Error(`Nonbor sozlamalari topilmadi${tenantId ? ` (tenant: ${tenantId})` : ''}`);
-    }
+    if (!db) throw new Error(`Nonbor sozlamalari topilmadi${tenantId ? ` (tenant: ${tenantId})` : ''}`);
 
     const settings: NonborSettings = {
-      nonborApiUrl: dbSettings.nonborApiUrl || 'https://prod.nonbor.uz/api/v2',
-      nonborApiSecret: dbSettings.nonborApiSecret || '',
-      nonborSellerId: dbSettings.nonborSellerId,
-      nonborEnabled: dbSettings.nonborEnabled,
-      tenantId: dbSettings.tenantId,
+      nonborApiUrl: (db.nonborApiUrl || DEFAULT_API_URL).replace(/\/+$/, ''),
+      nonborApiSecret: db.nonborApiSecret || '',
+      nonborSellerId: db.nonborSellerId,
+      nonborEnabled: db.nonborEnabled,
+      tenantId: db.tenantId,
     };
 
-    this.settingsCache.set(cacheKey, { settings, timestamp: Date.now() });
+    this.settingsCache.set(cacheKey, { settings, ts: Date.now() });
     return settings;
   }
 
-  /**
-   * Get JWT auth token from settings
-   */
   async getAuthToken(tenantId?: string): Promise<string> {
-    const settings = await this.getSettings(tenantId);
-    if (!settings.nonborApiSecret) {
-      throw new Error('Nonbor JWT token sozlanmagan (nonborApiSecret)');
-    }
-    return settings.nonborApiSecret;
+    const s = await this.getSettings(tenantId);
+    if (!s.nonborApiSecret) throw new Error('Nonbor JWT token sozlanmagan (nonborApiSecret)');
+    return s.nonborApiSecret;
   }
 
-  /**
-   * Get or create Axios client for a tenant
-   */
   private async getClient(tenantId?: string): Promise<AxiosInstance> {
     const settings = await this.getSettings(tenantId);
     const cacheKey = settings.tenantId;
-
     const existing = this.clients.get(cacheKey);
     if (existing) return existing;
 
-    const baseURL = settings.nonborApiUrl.replace(/\/+$/, '');
-    const token = settings.nonborApiSecret;
-
     const client = axios.create({
-      baseURL,
+      baseURL: settings.nonborApiUrl,
       timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(settings.nonborApiSecret ? { Authorization: `Bearer ${settings.nonborApiSecret}` } : {}),
       },
     });
 
-    // Response interceptor for error logging
     client.interceptors.response.use(
-      (response) => response,
+      (r) => r,
       (error: AxiosError) => {
         const status = error.response?.status;
         const url = error.config?.url;
         const method = error.config?.method?.toUpperCase();
-        console.error(`[Nonbor API] ${method} ${url} → ${status}`, error.response?.data || error.message);
+        logger.error('Nonbor API error', { method, url, status, body: error.response?.data });
 
         if (status === 401) {
-          // Token expired — clear cache so next request fetches fresh settings
           this.clients.delete(cacheKey);
           this.settingsCache.delete(cacheKey);
         }
-
         return Promise.reject(error);
-      }
+      },
     );
 
     this.clients.set(cacheKey, client);
     return client;
   }
 
-  /**
-   * Reset client and settings cache (call when settings change)
-   */
   resetClient(tenantId?: string) {
     if (tenantId) {
       this.clients.delete(tenantId);
@@ -311,86 +339,46 @@ class NonborV2Service {
     }
   }
 
-  /**
-   * Get the business ID (seller ID) for a tenant
-   */
   private async getBusinessId(tenantId?: string): Promise<number> {
-    const settings = await this.getSettings(tenantId);
-    if (!settings.nonborSellerId) {
-      throw new Error('Nonbor seller/business ID sozlanmagan');
-    }
-    return settings.nonborSellerId;
+    const s = await this.getSettings(tenantId);
+    if (!s.nonborSellerId) throw new Error('Nonbor seller/business ID sozlanmagan');
+    return s.nonborSellerId;
   }
 
   // ──────────── Business ────────────
 
-  /**
-   * GET /business/{id}/detail/ — business details
-   */
   async getBusinessDetail(businessId: number, tenantId?: string): Promise<NonborBusiness> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<NonborBusiness>(`/business/${businessId}/detail/`);
     return data;
   }
 
-  /**
-   * PATCH /business/{id}/update/ — update business (multipart supported)
-   */
   async updateBusiness(
     businessId: number,
     updateData: Partial<{ title: string; address: string; phone_number: string; description: string; logo: any }>,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<NonborBusiness> {
     const client = await this.getClient(tenantId);
-
-    // If logo is a file, use FormData
     if (updateData.logo && typeof updateData.logo !== 'string') {
-      const formDataModule = await import('form-data') as any;
-      const FormDataCls = formDataModule.default || formDataModule;
-      const form = new FormDataCls();
-      for (const [key, value] of Object.entries(updateData)) {
-        if (value !== undefined && value !== null) {
-          form.append(key, value);
-        }
+      const { default: FormData } = await import('form-data') as any;
+      const form = new FormData();
+      for (const [k, v] of Object.entries(updateData)) {
+        if (v != null) form.append(k, v);
       }
       const { data } = await client.patch<NonborBusiness>(`/business/${businessId}/update/`, form, {
-        headers: { ...form.getHeaders() },
+        headers: form.getHeaders(),
       });
       return data;
     }
-
     const { data } = await client.patch<NonborBusiness>(`/business/${businessId}/update/`, updateData);
     return data;
   }
 
-  /**
-   * PATCH /business/{id}/update_active_status/ — toggle active
-   */
   async toggleBusinessActive(businessId: number, isActive: boolean, tenantId?: string): Promise<void> {
     const client = await this.getClient(tenantId);
     await client.patch(`/business/${businessId}/update_active_status/`, { is_active: isActive });
   }
 
-  /**
-   * GET /business/{id}/products-by-category/ — products grouped by category
-   */
-  async getProductsByCategory(
-    businessId: number,
-    page = 1,
-    pageSize = 50,
-    tenantId?: string
-  ): Promise<NonborProductsByCategoryResponse> {
-    const client = await this.getClient(tenantId);
-    const { data } = await client.get<NonborProductsByCategoryResponse>(
-      `/business/${businessId}/products-by-category/`,
-      { params: { page, page_size: pageSize } }
-    );
-    return data;
-  }
-
-  /**
-   * Convenience: find business by ID (alias for getBusinessDetail)
-   */
   async findBusinessById(businessId: number, tenantId?: string): Promise<NonborBusiness | null> {
     try {
       return await this.getBusinessDetail(businessId, tenantId);
@@ -401,45 +389,46 @@ class NonborV2Service {
 
   // ──────────── Categories ────────────
 
-  /**
-   * GET /categories/?businesses__id={id} — categories for business
-   */
   async getCategories(businessId: number, tenantId?: string): Promise<NonborCategory[]> {
     const client = await this.getClient(tenantId);
-    const { data } = await client.get<NonborCategoriesResponse>('/categories/', {
-      params: { businesses__id: businessId },
+    // GET /business/{id}/products-by-category/ — kategoriyalar bilan mahsulotlar
+    // Lekin kategoriyalar ro'yxati uchun seller-products'dagi category field ishlatiladi
+    // Nonbor'da standalone categories endpoint yo'q, shuning uchun products orqali olamiz
+    const { data } = await client.get<PaginatedResponse<NonborSellerProduct>>('/seller-products/', {
+      params: { business_id: businessId, page_size: 1 },
     });
-    return data.results || [];
+
+    // Kategoriyalarni products'dan yig'amiz
+    const seen = new Set<number>();
+    const categories: NonborCategory[] = [];
+
+    const allProducts = await this.getAllSellerProducts(businessId, tenantId);
+    for (const p of allProducts) {
+      const cat = p.category;
+      if (cat && typeof cat === 'object' && !seen.has(cat.id)) {
+        seen.add(cat.id);
+        categories.push(cat);
+      }
+    }
+    return categories;
   }
 
-  /**
-   * POST /category/create/ — create category
-   */
   async createCategory(name: string, businessId: number, tenantId?: string): Promise<NonborCategory> {
     const client = await this.getClient(tenantId);
-    const { data } = await client.post<NonborCategory>('/category/create/', {
-      name,
-      business: businessId,
-    });
+    const { data } = await client.post<NonborCategory>('/category/create/', { name, business: businessId });
     return data;
   }
 
-  /**
-   * PUT /category/{id}/update/ — update category
-   */
   async updateCategory(
     categoryId: number,
     updateData: Partial<{ name: string; order: number; is_active: boolean }>,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<NonborCategory> {
     const client = await this.getClient(tenantId);
     const { data } = await client.put<NonborCategory>(`/category/${categoryId}/update/`, updateData);
     return data;
   }
 
-  /**
-   * DELETE /category/{id}/delete/
-   */
   async deleteCategory(categoryId: number, tenantId?: string): Promise<void> {
     const client = await this.getClient(tenantId);
     await client.delete(`/category/${categoryId}/delete/`);
@@ -447,9 +436,65 @@ class NonborV2Service {
 
   // ──────────── Products ────────────
 
-  /**
-   * POST /product/create/ — create product
-   */
+  // GET /api/v2/seller-products/ — seller'ning barcha mahsulotlari
+  async getSellerProducts(
+    businessId: number,
+    params: {
+      page?: number;
+      pageSize?: number;
+      categoryId?: number;
+      isActive?: boolean;
+      search?: string;
+    } = {},
+    tenantId?: string,
+  ): Promise<NonborSellerProductsResponse> {
+    const client = await this.getClient(tenantId);
+    const { data } = await client.get<NonborSellerProductsResponse>('/seller-products/', {
+      params: {
+        business_id: businessId,
+        page: params.page || 1,
+        page_size: params.pageSize || 50,
+        ...(params.categoryId != null ? { category_id: params.categoryId } : {}),
+        ...(params.isActive != null ? { is_active: params.isActive } : {}),
+        ...(params.search ? { search: params.search } : {}),
+      },
+    });
+    return data;
+  }
+
+  // Barcha mahsulotlarni pagination bilan olish
+  async getAllSellerProducts(businessId: number, tenantId?: string): Promise<NonborSellerProduct[]> {
+    const all: NonborSellerProduct[] = [];
+    let page = 1;
+    const pageSize = 100;
+
+    while (true) {
+      const resp = await this.getSellerProducts(businessId, { page, pageSize }, tenantId);
+      all.push(...resp.results);
+      if (!resp.next || all.length >= resp.count) break;
+      page++;
+    }
+
+    logger.info('Nonbor all seller products fetched', { businessId, count: all.length });
+    return all;
+  }
+
+  // GET /api/v2/seller-menu — menu kategoriyali mahsulotlar
+  async getSellerMenu(
+    params: { menuCategory?: number[]; page?: number; pageSize?: number } = {},
+    tenantId?: string,
+  ): Promise<PaginatedResponse<NonborSellerMenu>> {
+    const client = await this.getClient(tenantId);
+    const { data } = await client.get<PaginatedResponse<NonborSellerMenu>>('/seller-menu', {
+      params: {
+        page: params.page || 1,
+        page_size: params.pageSize || 50,
+        ...(params.menuCategory?.length ? { menu_category: params.menuCategory } : {}),
+      },
+    });
+    return data;
+  }
+
   async createProduct(
     productData: {
       name: string;
@@ -461,16 +506,13 @@ class NonborV2Service {
       is_active?: boolean;
       [key: string]: any;
     },
-    tenantId?: string
+    tenantId?: string,
   ): Promise<NonborProduct> {
     const client = await this.getClient(tenantId);
-    const { data } = await client.post<NonborProduct>('/product/create/', productData);
+    const { data } = await client.post<NonborProduct>('/product/create_with_images/', productData);
     return data;
   }
 
-  /**
-   * PATCH /product/{id}/update/ — update product
-   */
   async updateProduct(
     productId: number,
     updateData: Partial<{
@@ -482,52 +524,43 @@ class NonborV2Service {
       mxik_code: string;
       is_active: boolean;
     }>,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<NonborProduct> {
     const client = await this.getClient(tenantId);
-    const { data } = await client.patch<NonborProduct>(`/product/${productId}/update/`, updateData);
+    const { data } = await client.patch<NonborProduct>(`/product/${productId}/update_with_images/`, updateData);
     return data;
   }
 
-  /**
-   * DELETE /product/{id}/delete/
-   */
+  async toggleProductActive(productId: number, isActive: boolean, tenantId?: string): Promise<void> {
+    const client = await this.getClient(tenantId);
+    await client.patch(`/products/${productId}/update_active_status/`, { is_active: isActive });
+  }
+
   async deleteProduct(productId: number, tenantId?: string): Promise<void> {
     const client = await this.getClient(tenantId);
     await client.delete(`/product/${productId}/delete/`);
   }
 
-  /**
-   * GET /product/{id}/detail/
-   */
   async getProductDetail(productId: number, tenantId?: string): Promise<NonborProduct> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<NonborProduct>(`/product/${productId}/detail/`);
     return data;
   }
 
-  /**
-   * POST /product-image/add/ — add image (multipart: product, image)
-   */
   async addProductImage(productId: number, imageFile: any, tenantId?: string): Promise<NonborProductImage> {
     const client = await this.getClient(tenantId);
-    const formDataModule = await import('form-data') as any;
-    const FormDataCls = formDataModule.default || formDataModule;
-    const form = new FormDataCls();
+    const { default: FormData } = await import('form-data') as any;
+    const form = new FormData();
     form.append('product', String(productId));
     form.append('image', imageFile);
-
     const { data } = await client.post<NonborProductImage>('/product-image/add/', form, {
-      headers: { ...form.getHeaders() },
+      headers: form.getHeaders(),
     });
     return data;
   }
 
   // ──────────── Menu Categories ────────────
 
-  /**
-   * GET /menu-categories/?business={id}
-   */
   async getMenuCategories(businessId: number, tenantId?: string): Promise<NonborMenuCategory[]> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<NonborMenuCategory[]>('/menu-categories/', {
@@ -536,113 +569,269 @@ class NonborV2Service {
     return Array.isArray(data) ? data : [];
   }
 
-  /**
-   * POST /menu-category-save/?business={id} — save categories order
-   */
   async saveMenuCategoriesOrder(
     businessId: number,
     categories: Array<{ id: number; order: number }>,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<void> {
     const client = await this.getClient(tenantId);
-    await client.post('/menu-category-save/', categories, {
-      params: { business: businessId },
-    });
+    await client.post('/menu-category-save/', categories, { params: { business: businessId } });
   }
 
   // ──────────── Orders (SELLER side) ────────────
 
-  /**
-   * GET /order/business-orders/ — seller's orders
-   */
+  // GET /api/v2/order/business-orders/
+  // states — array (PENDING, CHECKING, ACCEPTED, READY, DELIVERING, DELIVERED, COMPLETED, ...)
   async getBusinessOrders(
-    states = 'PENDING,ACCEPTED',
+    states: NonborOrderState[] = ['PENDING', 'CHECKING', 'ACCEPTED'],
     page = 1,
     pageSize = 20,
-    tenantId?: string
+    tenantId?: string,
   ): Promise<NonborOrdersResponse> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<NonborOrdersResponse>('/order/business-orders/', {
-      params: { states, page, page_size: pageSize },
+      params: {
+        states,
+        page,
+        page_size: pageSize,
+      },
+      // Axios arrays: states[]=PENDING&states[]=ACCEPTED
+      paramsSerializer: (params) => {
+        const parts: string[] = [];
+        for (const [key, val] of Object.entries(params)) {
+          if (Array.isArray(val)) {
+            for (const v of val) parts.push(`${key}=${encodeURIComponent(v)}`);
+          } else if (val != null) {
+            parts.push(`${key}=${encodeURIComponent(val as any)}`);
+          }
+        }
+        return parts.join('&');
+      },
     });
     return data;
   }
 
-  /**
-   * GET /order/order-detail-for-seller/{id}/ — single order detail for seller
-   */
   async getOrderDetail(orderId: number, tenantId?: string): Promise<NonborOrder> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<NonborOrder>(`/order/order-detail-for-seller/${orderId}/`);
     return data;
   }
 
-  /**
-   * PATCH /order/order-status-change/{id}/ — change order status
-   */
+  // PATCH /api/v2/order/order-status-change/{id}/
   async changeOrderStatus(
     orderId: number,
-    state: 'ACCEPTED' | 'READY' | 'CANCELLED' | 'DELIVERED',
-    tenantId?: string
+    state: 'ACCEPTED' | 'READY' | 'CANCELLED_SELLER' | 'DELIVERED' | 'COMPLETED',
+    cancelDescription?: string,
+    tenantId?: string,
   ): Promise<void> {
     const client = await this.getClient(tenantId);
-    await client.patch(`/order/order-status-change/${orderId}/`, { state });
+    await client.patch(`/order/order-status-change/${orderId}/`, {
+      state,
+      ...(cancelDescription ? { cancel_description: cancelDescription } : {}),
+    });
+    logger.info('Nonbor order status changed', { orderId, state });
   }
 
-  /**
-   * Legacy alias for changeOrderStatus (backward compatibility)
-   */
-  async updateOrderState(orderId: number, state: NonborOrderState, tenantId?: string): Promise<void> {
-    await this.changeOrderStatus(orderId, state as any, tenantId);
+  // ──────────── Sync: Nonbor → POS ────────────
+
+  async syncOrdersFromNonbor(tenantId: string): Promise<NonborOrder[]> {
+    const settings = await this.getSettings(tenantId);
+    if (!settings.nonborEnabled || !settings.nonborSellerId) return [];
+
+    const activeStates: NonborOrderState[] = [
+      'PENDING', 'WAITING_PAYMENT', 'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING',
+    ];
+    const response = await this.getBusinessOrders(activeStates, 1, 100, tenantId);
+    return response.results || [];
+  }
+
+  // Nonbordan mahsulotlarni POS'ga import qilish
+  async pullProductsFromNonbor(tenantId: string): Promise<{
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    const settings = await this.getSettings(tenantId);
+    const businessId = settings.nonborSellerId;
+    if (!businessId) throw new Error('Nonbor business ID sozlanmagan');
+
+    const nonborProducts = await this.getAllSellerProducts(businessId, tenantId);
+    let created = 0, updated = 0, skipped = 0;
+    const errors: string[] = [];
+
+    // Batch: mavjud local products'ni olish (nonborProductId bo'yicha)
+    const existingLocal = await prisma.product.findMany({
+      where: { tenantId, nonborProductId: { not: null } },
+      select: { id: true, nonborProductId: true, price: true, name: true, isActive: true },
+    });
+    const localByNonborId = new Map(existingLocal.map((p) => [p.nonborProductId!, p]));
+
+    // Default "Nonbor" kategoriyasini topish yoki yaratish
+    let defaultCategory = await prisma.category.findFirst({ where: { slug: 'nonbor', tenantId } });
+    if (!defaultCategory) {
+      defaultCategory = await prisma.category.create({
+        data: { name: 'Nonbor', slug: 'nonbor', isActive: true, tenantId },
+      });
+    }
+
+    // Nonbor kategoriyalarini local kategoriyalarga map qilish
+    const categoryNameToLocalId = new Map<string, string>();
+    const localCategories = await prisma.category.findMany({ where: { tenantId } });
+    for (const c of localCategories) categoryNameToLocalId.set(c.name.toLowerCase(), c.id);
+
+    for (const np of nonborProducts) {
+      try {
+        const existing = localByNonborId.get(np.id);
+        const localPrice = np.price; // tiyin → so'm (agar kerak bo'lsa / 100)
+
+        // Kategoriya aniqlash
+        let categoryId = defaultCategory.id;
+        const catName = typeof np.category === 'object' && np.category ? (np.category as NonborCategory).name : null;
+        if (catName) {
+          const existingCatId = categoryNameToLocalId.get(catName.toLowerCase());
+          if (existingCatId) {
+            categoryId = existingCatId;
+          } else {
+            const newCat = await prisma.category.create({
+              data: { name: catName, slug: catName.toLowerCase().replace(/\s+/g, '-'), isActive: true, tenantId },
+            });
+            categoryNameToLocalId.set(catName.toLowerCase(), newCat.id);
+            categoryId = newCat.id;
+          }
+        }
+
+        if (existing) {
+          // Faqat o'zgargan narsalarni update qilish
+          const changed =
+            existing.name !== np.name ||
+            Number(existing.price) !== localPrice ||
+            existing.isActive !== np.is_active;
+
+          if (changed) {
+            await prisma.product.update({
+              where: { id: existing.id },
+              data: {
+                name: np.name,
+                price: localPrice,
+                isActive: np.is_active ?? true,
+                categoryId,
+                image: np.images?.[0]?.image || undefined,
+              },
+            });
+            updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          await prisma.product.create({
+            data: {
+              name: np.name,
+              price: localPrice,
+              categoryId,
+              nonborProductId: np.id,
+              image: np.images?.[0]?.image || undefined,
+              isActive: np.is_active ?? true,
+              tenantId,
+            },
+          });
+          created++;
+        }
+      } catch (err: any) {
+        errors.push(`${np.name} (id:${np.id}): ${err.message}`);
+      }
+    }
+
+    logger.info('Nonbor products pull complete', { tenantId, created, updated, skipped, errors: errors.length });
+    return { created, updated, skipped, errors };
+  }
+
+  // POS mahsulotlarini Nonborga push qilish
+  async syncProductsToNonbor(tenantId: string): Promise<{ created: number; updated: number; errors: string[] }> {
+    const settings = await this.getSettings(tenantId);
+    const businessId = settings.nonborSellerId;
+    if (!businessId) throw new Error('Nonbor business ID sozlanmagan');
+
+    const localProducts = await prisma.product.findMany({
+      where: { tenantId, isActive: true },
+      include: { category: true },
+    });
+
+    const nonborCats = await this.getCategories(businessId, tenantId);
+    const catMap = new Map(nonborCats.map((c) => [c.name.toLowerCase(), c.id]));
+
+    let created = 0, updated = 0;
+    const errors: string[] = [];
+
+    for (const product of localProducts) {
+      try {
+        let nonborCategoryId: number | undefined;
+        if (product.category?.name) {
+          const key = product.category.name.toLowerCase();
+          if (catMap.has(key)) {
+            nonborCategoryId = catMap.get(key);
+          } else {
+            const nc = await this.createCategory(product.category.name, businessId, tenantId);
+            catMap.set(key, nc.id);
+            nonborCategoryId = nc.id;
+          }
+        }
+
+        if (product.nonborProductId) {
+          await this.updateProduct(product.nonborProductId, {
+            name: product.name,
+            price: Number(product.price),
+            ...(nonborCategoryId ? { category: nonborCategoryId } : {}),
+            is_active: product.isActive,
+          }, tenantId);
+          updated++;
+        } else {
+          const np = await this.createProduct({
+            name: product.name,
+            price: Number(product.price),
+            ...(nonborCategoryId ? { category: nonborCategoryId } : {}),
+            is_active: product.isActive,
+          }, tenantId);
+
+          await prisma.product.update({
+            where: { id: product.id },
+            data: { nonborProductId: np.id },
+          });
+          created++;
+        }
+      } catch (err: any) {
+        errors.push(`${product.name}: ${err.message}`);
+      }
+    }
+
+    logger.info('Products synced to Nonbor', { tenantId, created, updated, errors: errors.length });
+    return { created, updated, errors };
+  }
+
+  async syncOrderStatusToNonbor(
+    localOrderId: string,
+    nonborOrderId: number,
+    status: 'ACCEPTED' | 'READY' | 'CANCELLED_SELLER' | 'DELIVERED' | 'COMPLETED',
+    tenantId?: string,
+  ): Promise<void> {
+    await this.changeOrderStatus(nonborOrderId, status, undefined, tenantId);
+    logger.info('Nonbor order status synced', { localOrderId, nonborOrderId, status });
   }
 
   // ──────────── Delivery ────────────
 
-  /**
-   * POST /delivery/accept/ — start courier search
-   */
   async acceptDelivery(orderId: number, tenantId?: string): Promise<any> {
     const client = await this.getClient(tenantId);
     const { data } = await client.post('/delivery/accept/', { order_id: orderId });
     return data;
   }
 
-  /**
-   * POST /delivery/cancel/ — cancel delivery
-   */
   async cancelDelivery(orderId: number, reason?: string, tenantId?: string): Promise<any> {
     const client = await this.getClient(tenantId);
-    const { data } = await client.post('/delivery/cancel/', {
-      order_id: orderId,
-      ...(reason ? { reason } : {}),
-    });
+    const { data } = await client.post('/delivery/cancel/', { order_id: orderId, ...(reason ? { reason } : {}) });
     return data;
   }
 
-  /**
-   * POST /delivery/detail/ — delivery details
-   */
-  async getDeliveryDetail(orderId: number, tenantId?: string): Promise<NonborDelivery> {
-    const client = await this.getClient(tenantId);
-    const { data } = await client.post<NonborDelivery>('/delivery/detail/', { order_id: orderId });
-    return data;
-  }
-
-  /**
-   * POST /delivery/calculate-price/ — calculate delivery cost
-   */
-  async calculateDeliveryPrice(
-    params: { from_lat: number; from_long: number; to_lat: number; to_long: number },
-    tenantId?: string
-  ): Promise<{ price: number; distance: number; estimated_time: number }> {
-    const client = await this.getClient(tenantId);
-    const { data } = await client.post('/delivery/calculate-price/', params);
-    return data;
-  }
-
-  /**
-   * GET /delivery/orders/{order_id}/tracking/ — GPS tracking
-   */
   async getDeliveryTracking(orderId: number, tenantId?: string): Promise<NonborDeliveryTracking> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<NonborDeliveryTracking>(`/delivery/orders/${orderId}/tracking/`);
@@ -651,9 +840,6 @@ class NonborV2Service {
 
   // ──────────── MXIK ────────────
 
-  /**
-   * GET /mxik-codes/?search=keyword
-   */
   async searchMxikCodes(keyword: string, tenantId?: string): Promise<NonborMxikCode[]> {
     const client = await this.getClient(tenantId);
     const { data } = await client.get<PaginatedResponse<NonborMxikCode>>('/mxik-codes/', {
@@ -662,49 +848,8 @@ class NonborV2Service {
     return data.results || [];
   }
 
-  /**
-   * POST /mxik-code/validate/ — validate MXIK code
-   */
-  async validateMxikCode(mxikCode: string, tenantId?: string): Promise<{ valid: boolean; name?: string }> {
-    const client = await this.getClient(tenantId);
-    const { data } = await client.post('/mxik-code/validate/', { mxik_code: mxikCode });
-    return data;
-  }
-
-  // ──────────── OFD (Fiscal receipts) ────────────
-
-  /**
-   * POST /ofd/receipts/create/ — create fiscal receipt
-   */
-  async createFiscalReceipt(
-    orderId: number,
-    receiptType = 'SALE',
-    isRefund = false,
-    tenantId?: string
-  ): Promise<NonborFiscalReceipt> {
-    const client = await this.getClient(tenantId);
-    const { data } = await client.post<NonborFiscalReceipt>('/ofd/receipts/create/', {
-      order_id: orderId,
-      receipt_type: receiptType,
-      is_refund: isRefund,
-    });
-    return data;
-  }
-
-  /**
-   * GET /ofd/receipts/{order_id}/status/ — receipt status
-   */
-  async getReceiptStatus(orderId: number, tenantId?: string): Promise<{ status: string; fiscal_sign?: string; qr_code_url?: string }> {
-    const client = await this.getClient(tenantId);
-    const { data } = await client.get(`/ofd/receipts/${orderId}/status/`);
-    return data;
-  }
-
   // ──────────── Notifications ────────────
 
-  /**
-   * GET /notification/notifications/?is_read=false
-   */
   async getNotifications(isRead?: boolean, tenantId?: string): Promise<NonborNotification[]> {
     const client = await this.getClient(tenantId);
     const params: any = {};
@@ -713,172 +858,48 @@ class NonborV2Service {
     return data.results || [];
   }
 
-  /**
-   * POST /notification/notifications/set-all-read/
-   */
   async markAllNotificationsRead(tenantId?: string): Promise<void> {
     const client = await this.getClient(tenantId);
     await client.post('/notification/notifications/set-all-read/');
   }
 
-  // ──────────── Sync (POS <-> Nonbor) ────────────
+  // ──────────── Legacy (backward compat) ────────────
 
-  /**
-   * Push local products to Nonbor
-   */
-  async syncProductsToNonbor(tenantId: string): Promise<{ created: number; updated: number; errors: string[] }> {
-    const settings = await this.getSettings(tenantId);
-    const businessId = settings.nonborSellerId;
-    if (!businessId) throw new Error('Nonbor business ID sozlanmagan');
-
-    // Get all local products for this tenant
-    const localProducts = await prisma.product.findMany({
-      where: { tenantId, isActive: true },
-      include: { category: true },
-    });
-
-    // Get existing Nonbor categories to map
-    const nonborCategories = await this.getCategories(businessId, tenantId);
-    const categoryMap = new Map<string, number>();
-    for (const nc of nonborCategories) {
-      categoryMap.set(nc.name.toLowerCase(), nc.id);
-    }
-
-    let created = 0;
-    let updated = 0;
-    const errors: string[] = [];
-
-    for (const product of localProducts) {
-      try {
-        // Find or create Nonbor category
-        let nonborCategoryId: number | undefined;
-        if (product.category?.name) {
-          const catName = product.category.name.toLowerCase();
-          if (categoryMap.has(catName)) {
-            nonborCategoryId = categoryMap.get(catName);
-          } else {
-            // Create category on Nonbor
-            const newCat = await this.createCategory(product.category.name, businessId, tenantId);
-            categoryMap.set(catName, newCat.id);
-            nonborCategoryId = newCat.id;
-          }
-        }
-
-        if (product.nonborProductId) {
-          // Update existing product on Nonbor
-          await this.updateProduct(
-            product.nonborProductId,
-            {
-              name: product.name,
-              price: Number(product.price),
-              ...(nonborCategoryId ? { category: nonborCategoryId } : {}),
-              is_active: product.isActive,
-            },
-            tenantId
-          );
-          updated++;
-        } else {
-          // Create new product on Nonbor
-          const nonborProduct = await this.createProduct(
-            {
-              name: product.name,
-              price: Number(product.price),
-              ...(nonborCategoryId ? { category: nonborCategoryId } : {}),
-              is_active: product.isActive,
-            },
-            tenantId
-          );
-
-          // Save Nonbor product ID to local DB
-          await prisma.product.update({
-            where: { id: product.id },
-            data: { nonborProductId: nonborProduct.id },
-          });
-          created++;
-        }
-      } catch (err: any) {
-        errors.push(`${product.name}: ${err.message || 'Xatolik'}`);
-      }
-    }
-
-    return { created, updated, errors };
-  }
-
-  /**
-   * Pull Nonbor orders to local POS
-   * Returns the raw orders for the sync service to process
-   */
-  async syncOrdersFromNonbor(tenantId: string): Promise<NonborOrder[]> {
-    const settings = await this.getSettings(tenantId);
-    if (!settings.nonborEnabled || !settings.nonborSellerId) {
-      return [];
-    }
-
-    // Fetch active orders (PENDING + ACCEPTED states)
-    const response = await this.getBusinessOrders('PENDING,ACCEPTED,CHECKING,PREPARING,READY', 1, 100, tenantId);
-    return response.results || [];
-  }
-
-  /**
-   * Push local order status change to Nonbor
-   */
-  async syncOrderStatusToNonbor(
-    localOrderId: string,
-    nonborOrderId: number,
-    status: 'ACCEPTED' | 'READY' | 'CANCELLED' | 'DELIVERED',
-    tenantId?: string
-  ): Promise<void> {
-    await this.changeOrderStatus(nonborOrderId, status, tenantId);
-    console.log(`[Nonbor] Status sync: local=${localOrderId} nonbor=#${nonborOrderId} → ${status}`);
-  }
-
-  // ──────────── Legacy compatibility ────────────
-
-  /**
-   * @deprecated Use getBusinessOrders() instead
-   * Legacy method — fetches orders (backward compatible with old getSellerOrders)
-   */
+  /** @deprecated Use getBusinessOrders() */
   async getSellerOrders(sellerId: number, tenantId?: string): Promise<NonborOrder[]> {
-    const response = await this.getBusinessOrders('PENDING,ACCEPTED,CHECKING,PREPARING,READY,DELIVERING', 1, 100, tenantId);
-    return response.results || [];
+    const r = await this.getBusinessOrders(['PENDING', 'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING'], 1, 100, tenantId);
+    return r.results || [];
   }
 
-  /**
-   * @deprecated Use getBusinessOrders() instead
-   * Legacy method — fetches businesses list
-   */
+  /** @deprecated Use getBusinessDetail() */
   async getBusinesses(tenantId?: string): Promise<NonborBusiness[]> {
     try {
-      const settings = await this.getSettings(tenantId);
-      if (settings.nonborSellerId) {
-        const business = await this.getBusinessDetail(settings.nonborSellerId, tenantId);
-        return business ? [business] : [];
+      const s = await this.getSettings(tenantId);
+      if (s.nonborSellerId) {
+        const b = await this.getBusinessDetail(s.nonborSellerId, tenantId);
+        return b ? [b] : [];
       }
       return [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
 
-  /**
-   * @deprecated Use getBusinessOrders() with status counting instead
-   * Legacy method for order status counts
-   */
-  async getOrderStatusCount(sellerId: number, tenantId?: string): Promise<Record<string, number>> {
+  /** @deprecated */
+  async getOrderStatusCount(_sellerId: number, tenantId?: string): Promise<Record<string, number>> {
     const counts: Record<string, number> = {};
-    const states = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
-
-    // Fetch orders for each state and count
+    const states: NonborOrderState[] = ['PENDING', 'ACCEPTED', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED_SELLER', 'CANCELLED_CLIENT', 'COMPLETED'];
     try {
       for (const state of states) {
-        const response = await this.getBusinessOrders(state, 1, 1, tenantId);
-        counts[state] = response.count || 0;
+        const r = await this.getBusinessOrders([state], 1, 1, tenantId);
+        counts[state] = r.count || 0;
       }
-    } catch {
-      // Return whatever we have
-    }
-
+    } catch { /* ignore */ }
     return counts;
+  }
+
+  /** @deprecated Use changeOrderStatus() */
+  async updateOrderState(orderId: number, state: NonborOrderState, tenantId?: string): Promise<void> {
+    const mapped = state === 'CANCELLED' || state === 'CANCELLED_CLIENT' ? 'CANCELLED_SELLER' : state as any;
+    await this.changeOrderStatus(orderId, mapped, undefined, tenantId);
   }
 }
 
