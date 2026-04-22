@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { logger } from '../utils/logger.js';
 
 interface SocketUser {
   userId: string;
@@ -8,7 +9,6 @@ interface SocketUser {
 }
 
 export function setupSocket(io: Server) {
-  // Socket autentifikatsiya middleware
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) {
@@ -32,39 +32,35 @@ export function setupSocket(io: Server) {
 
   io.on('connection', (socket: Socket) => {
     const tenantId = socket.data.tenantId;
-    console.log(`Client connected: ${socket.id} (tenant: ${tenantId || 'global'})`);
+    logger.info('Socket connected', { socketId: socket.id, tenantId: tenantId || 'global' });
 
-    // Tenant-scoped room helper
-    const getTenantRoom = (room: string) => {
-      return tenantId ? `tenant:${tenantId}:${room}` : room;
-    };
+    const getTenantRoom = (room: string) =>
+      tenantId ? `tenant:${tenantId}:${room}` : room;
 
-    // Join rooms based on user role — tenant-scoped
     socket.on('join:kitchen', () => {
       const room = getTenantRoom('kitchen');
       socket.join(room);
-      console.log(`${socket.id} joined ${room}`);
+      logger.debug('Socket joined room', { socketId: socket.id, room });
     });
 
     socket.on('join:pos', () => {
       const room = getTenantRoom('pos');
       socket.join(room);
-      console.log(`${socket.id} joined ${room}`);
+      logger.debug('Socket joined room', { socketId: socket.id, room });
     });
 
     socket.on('join:admin', () => {
       const room = getTenantRoom('admin');
       socket.join(room);
-      console.log(`${socket.id} joined ${room}`);
+      logger.debug('Socket joined room', { socketId: socket.id, room });
     });
 
     socket.on('join:waiter', () => {
       const room = getTenantRoom('waiter');
       socket.join(room);
-      console.log(`${socket.id} joined ${room}`);
+      logger.debug('Socket joined room', { socketId: socket.id, room });
     });
 
-    // Order events — tenant-scoped
     socket.on('order:new', (order) => {
       if (tenantId) {
         io.to(`tenant:${tenantId}:kitchen`).emit('order:new', order);
@@ -95,7 +91,6 @@ export function setupSocket(io: Server) {
       }
     });
 
-    // Table events — tenant-scoped
     socket.on('table:status', (data) => {
       if (tenantId) {
         emitToTenant(io, tenantId, 'table:status', data);
@@ -104,7 +99,6 @@ export function setupSocket(io: Server) {
       }
     });
 
-    // Inventory alerts — tenant-scoped
     socket.on('inventory:low', (data) => {
       if (tenantId) {
         io.to(`tenant:${tenantId}:admin`).emit('inventory:low', data);
@@ -114,17 +108,15 @@ export function setupSocket(io: Server) {
     });
 
     socket.on('disconnect', () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      logger.info('Socket disconnected', { socketId: socket.id });
     });
   });
 }
 
-// Tenant-scoped room ga emit qilish
 export function emitToTenantRoom(io: Server, tenantId: string, room: string, event: string, data: unknown) {
   io.to(`tenant:${tenantId}:${room}`).emit(event, data);
 }
 
-// Tenant ning barcha roomlariga emit qilish
 export function emitToTenant(io: Server, tenantId: string, event: string, data: unknown) {
   const rooms = ['kitchen', 'pos', 'admin', 'waiter'];
   for (const room of rooms) {
@@ -132,7 +124,6 @@ export function emitToTenant(io: Server, tenantId: string, event: string, data: 
   }
 }
 
-// Legacy helper — backward compat
 export function emitToRoom(io: Server, room: string, event: string, data: unknown) {
   io.to(room).emit(event, data);
 }

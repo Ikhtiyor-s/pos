@@ -1,9 +1,3 @@
-// ==========================================
-// ENV VALIDATION
-// Server ishga tushganda barcha muhim env var larni tekshiradi
-// Agar majburiy o'zgaruvchi yo'q bo'lsa — xato bilan to'xtaydi
-// ==========================================
-
 interface EnvConfig {
   NODE_ENV: string;
   PORT: number;
@@ -14,11 +8,7 @@ interface EnvConfig {
   CLIENT_URL: string[];
 }
 
-const required = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'JWT_REFRESH_SECRET',
-] as const;
+const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
 
 const optional = {
   NODE_ENV: 'development',
@@ -42,6 +32,26 @@ export function validateEnv(): EnvConfig {
     process.exit(1);
   }
 
+  // Production xavfsizlik tekshiruvlari
+  const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+
+  if (isProduction) {
+    // JWT secret minimal uzunlik — 32 belgi
+    if ((process.env.JWT_SECRET?.length ?? 0) < 32) {
+      console.error('❌ JWT_SECRET kamida 32 belgi bo\'lishi kerak (production)');
+      process.exit(1);
+    }
+    if ((process.env.JWT_REFRESH_SECRET?.length ?? 0) < 32) {
+      console.error('❌ JWT_REFRESH_SECRET kamida 32 belgi bo\'lishi kerak (production)');
+      process.exit(1);
+    }
+    // Production'da CLIENT_URL majburiy
+    if (!process.env.CLIENT_URL) {
+      console.error('❌ CLIENT_URL production\'da majburiy (localhost ruxsat etilmaydi)');
+      process.exit(1);
+    }
+  }
+
   // Set defaults for optional vars
   for (const [key, defaultValue] of Object.entries(optional)) {
     if (!process.env[key]) {
@@ -49,7 +59,7 @@ export function validateEnv(): EnvConfig {
     }
   }
 
-  const clientUrl = process.env.CLIENT_URL?.split(',') || [
+  const clientUrl = process.env.CLIENT_URL?.split(',').map((u) => u.trim()) || [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',

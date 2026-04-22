@@ -4,6 +4,8 @@ import { prisma } from '@oshxona/database';
 import { disconnectRedis } from './redis.js';
 import { logger } from '../utils/logger.js';
 
+const SHUTDOWN_TIMEOUT_MS = 30_000;
+
 let isShuttingDown = false;
 
 export function setupGracefulShutdown(httpServer: Server, io: SocketServer): void {
@@ -12,6 +14,13 @@ export function setupGracefulShutdown(httpServer: Server, io: SocketServer): voi
     isShuttingDown = true;
 
     logger.info('Graceful shutdown started', { signal });
+
+    // Majburiy to'xtatish — 30s timeout
+    const forceExit = setTimeout(() => {
+      logger.error('Graceful shutdown timeout — force exit');
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+    forceExit.unref();
 
     // 1. Yangi connectionlarni to'xtatish
     httpServer.close(() => logger.info('HTTP server closed'));
@@ -37,6 +46,7 @@ export function setupGracefulShutdown(httpServer: Server, io: SocketServer): voi
     }
 
     logger.info('Graceful shutdown complete');
+    clearTimeout(forceExit);
     process.exit(0);
   };
 

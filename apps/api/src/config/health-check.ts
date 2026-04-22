@@ -1,11 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '@oshxona/database';
+import { redis } from './redis.js';
 import { isServerShuttingDown } from './graceful-shutdown.js';
-
-// ==========================================
-// HEALTH CHECK — Production-level
-// DB connectivity, uptime, memory usage
-// ==========================================
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -14,6 +10,7 @@ interface HealthStatus {
   version: string;
   checks: {
     database: { status: string; latencyMs?: number; error?: string };
+    redis: { status: string; latencyMs?: number; error?: string };
     memory: { status: string; usedMB: number; totalMB: number; percentUsed: number };
     server: { status: string; shuttingDown: boolean };
   };
@@ -22,6 +19,7 @@ interface HealthStatus {
 export async function healthCheck(_req: Request, res: Response) {
   const checks: HealthStatus['checks'] = {
     database: { status: 'unknown' },
+    redis: { status: 'unknown' },
     memory: { status: 'unknown', usedMB: 0, totalMB: 0, percentUsed: 0 },
     server: { status: 'ok', shuttingDown: isServerShuttingDown() },
   };
@@ -33,16 +31,23 @@ export async function healthCheck(_req: Request, res: Response) {
     const dbStart = Date.now();
     await prisma.$queryRaw`SELECT 1`;
     const dbLatency = Date.now() - dbStart;
-
-    checks.database = {
-      status: dbLatency < 1000 ? 'ok' : 'slow',
-      latencyMs: dbLatency,
-    };
-
+    checks.database = { status: dbLatency < 1000 ? 'ok' : 'slow', latencyMs: dbLatency };
     if (dbLatency > 1000) overallStatus = 'degraded';
-  } catch (error: any) {
-    checks.database = { status: 'error', error: error.message };
+  } catch (error: unknown) {
+    checks.database = { status: 'error', error: (error as Error).message };
     overallStatus = 'unhealthy';
+  }
+
+  // --- Redis check ---
+  try {
+    const redisStart = Date.now();
+    await redis.ping();
+    const redisLatency = Date.now() - redisStart;
+    checks.redis = { status: redisLatency < 500 ? 'ok' : 'slow', latencyMs: redisLatency };
+    if (redisLatency > 500) overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
+  } catch (error: unknown) {
+    checks.redis = { status: 'error', error: (error as Error).message };
+    if (overallStatus === 'healthy') overallStatus = 'degraded';
   }
 
   // --- Memory check ---
@@ -57,10 +62,9 @@ export async function healthCheck(_req: Request, res: Response) {
     totalMB,
     percentUsed,
   };
+  if (percentUsed >= 85) overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
 
-  if (percentUsed >= 85) overallStatus = 'degraded';
-
-  // --- Server shutting down ---
+  // --- Shutting down ---
   if (isServerShuttingDown()) {
     overallStatus = 'unhealthy';
     checks.server.status = 'shutting_down';
@@ -74,11 +78,10 @@ export async function healthCheck(_req: Request, res: Response) {
     checks,
   };
 
-  const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
+  const statusCode = overallStatus === 'unhealthy' ? 503 : 200;
   res.status(statusCode).json(health);
 }
 
-// Lightweight health (k8s liveness probe uchun)
 export async function livenessCheck(_req: Request, res: Response) {
   if (isServerShuttingDown()) {
     return res.status(503).json({ status: 'shutting_down' });
@@ -86,10 +89,12 @@ export async function livenessCheck(_req: Request, res: Response) {
   res.json({ status: 'ok' });
 }
 
-// DB health (k8s readiness probe uchun)
 export async function readinessCheck(_req: Request, res: Response) {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await Promise.all([
+      prisma.$queryRaw`SELECT 1`,
+      redis.ping(),
+    ]);
     res.json({ status: 'ready' });
   } catch {
     res.status(503).json({ status: 'not_ready' });

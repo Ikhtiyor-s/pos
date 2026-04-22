@@ -2,9 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { redis } from '../config/redis.js';
 import { logger } from '../utils/logger.js';
 
-// Redis-backed rate limiter — multi-instance safe
-// In-memory store ishlamaydi horizontal scaling'da
-
 interface RateLimiterConfig {
   windowMs: number;
   maxRequests: number;
@@ -12,13 +9,34 @@ interface RateLimiterConfig {
   message: string;
 }
 
+// In-memory fallback — Redis tushib qolganda DDoS himoyasi davom etadi
+const fallbackStore = new Map<string, { count: number; resetAt: number }>();
+
+function fallbackCheck(key: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now();
+  const entry = fallbackStore.get(key);
+  if (!entry || now > entry.resetAt) {
+    fallbackStore.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= maxRequests;
+}
+
+// Fallback map'ni har 5 daqiqada tozalash (memory leak oldini olish)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of fallbackStore) {
+    if (now > entry.resetAt) fallbackStore.delete(key);
+  }
+}, 300_000).unref();
+
 function createRateLimiter(config: RateLimiterConfig) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const key = `rl:${config.keyGenerator(req)}`;
     const windowSec = Math.ceil(config.windowMs / 1000);
 
     try {
-      // MULTI/EXEC — atomik INCR + EXPIRE
       const pipeline = redis.pipeline();
       pipeline.incr(key);
       pipeline.ttl(key);
@@ -27,7 +45,6 @@ function createRateLimiter(config: RateLimiterConfig) {
       const count = (results?.[0]?.[1] as number) ?? 1;
       const ttl = (results?.[1]?.[1] as number) ?? windowSec;
 
-      // Yangi key — TTL o'rnatish
       if (ttl === -1) await redis.expire(key, windowSec);
 
       const resetAt = Math.ceil(Date.now() / 1000) + (ttl > 0 ? ttl : windowSec);
@@ -47,8 +64,18 @@ function createRateLimiter(config: RateLimiterConfig) {
 
       next();
     } catch (err) {
-      // Redis ishlamasa — so'rovni o'tkazib yuboramiz (fail-open)
-      logger.error('Rate limiter Redis error', { error: (err as Error).message });
+      // Redis ishlamasa — in-memory fallback bilan cheklaymiz (fail-closed)
+      logger.warn('Rate limiter Redis error — using in-memory fallback', {
+        error: (err as Error).message,
+      });
+      if (!fallbackCheck(key, config.maxRequests, config.windowMs)) {
+        return res.status(429).json({
+          success: false,
+          code: 'RATE_LIMITED',
+          message: config.message,
+          retryAfter: windowSec,
+        });
+      }
       next();
     }
   };
