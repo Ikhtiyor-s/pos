@@ -1,14 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '../../../lib/utils';
 import { useAuthStore } from '../../../store/auth';
 import { useCartStore } from '../../../store/cart';
-import { orderService } from '../../../services/order.service';
-import { LogOut, Clock, User, ChevronLeft, Search, X, ScanBarcode } from 'lucide-react';
+import { orderService, type Order } from '../../../services/order.service';
+import { socketService } from '../../../services/socket.service';
+import { LogOut, Clock, User, ChevronLeft, Search, X, ScanBarcode, Truck } from 'lucide-react';
 import TouchButton from '../shared/TouchButton';
 import TableView from './TableView';
 import ProductGrid from './ProductGrid';
 import CartPanel from './CartPanel';
 import PaymentScreen from './PaymentScreen';
+import OnlineOrdersPanel from './OnlineOrdersPanel';
 import { BarcodeScanner, useBarcodeScannerListener } from '../../BarcodeScanner';
 
 type Screen = 'tables' | 'products' | 'payment';
@@ -27,6 +29,8 @@ export default function TabletLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanToast, setScanToast] = useState<string | null>(null);
+  const [onlineOrders, setOnlineOrders] = useState<Order[]>([]);
+  const [showOnlinePanel, setShowOnlinePanel] = useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Background barcode listener — USB/Bluetooth skaner uchun
@@ -54,6 +58,37 @@ export default function TabletLayout() {
   React.useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 60000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Socket — onlayn buyurtmalarni eshitish
+  useEffect(() => {
+    const unsub = socketService.onNewOrder((data) => {
+      const order = data as Order;
+      if (order?.isNonborOrder) {
+        setOnlineOrders((prev) => {
+          if (prev.some((o) => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
+        setShowOnlinePanel(true);
+      }
+    });
+
+    // Mavjud faol Nonbor buyurtmalarni yuklash
+    orderService
+      .getAll({ status: 'NEW,CONFIRMED' })
+      .then((orders) => {
+        const nonborOrders = orders.filter((o) => o.isNonborOrder);
+        if (nonborOrders.length > 0) {
+          setOnlineOrders(nonborOrders);
+        }
+      })
+      .catch(() => {});
+
+    return unsub;
+  }, []);
+
+  const handleDismissOnlineOrder = useCallback((orderId: string) => {
+    setOnlineOrders((prev) => prev.filter((o) => o.id !== orderId));
   }, []);
 
   const handleSelectTable = useCallback(
@@ -220,6 +255,25 @@ export default function TabletLayout() {
             )
           )}
 
+          {/* Onlayn buyurtmalar notification */}
+          <button
+            onClick={() => setShowOnlinePanel(true)}
+            className={cn(
+              'relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              onlineOrders.length > 0
+                ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+            )}
+          >
+            <Truck size={16} />
+            <span>Onlayn</span>
+            {onlineOrders.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {onlineOrders.length}
+              </span>
+            )}
+          </button>
+
           {/* Time */}
           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
             <Clock size={16} />
@@ -266,6 +320,15 @@ export default function TabletLayout() {
             {scanToast}
           </div>
         </div>
+      )}
+
+      {/* Onlayn buyurtmalar paneli */}
+      {showOnlinePanel && (
+        <OnlineOrdersPanel
+          orders={onlineOrders}
+          onDismiss={handleDismissOnlineOrder}
+          onClose={() => setShowOnlinePanel(false)}
+        />
       )}
 
       {/* Main Content */}

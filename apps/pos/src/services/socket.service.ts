@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { useAuthStore } from '../store/auth';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -6,11 +7,12 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    // Docker: nginx same-origin proxyi orqali ulanish
+    const token = useAuthStore.getState().accessToken;
     const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
     this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       path: '/socket.io',
+      auth: { token },
     });
 
     this.socket.on('connect', () => {

@@ -8,9 +8,18 @@ import {
   Smartphone,
   Printer,
   CheckCircle,
+  Truck,
+  ShoppingBag,
+  UtensilsCrossed,
 } from 'lucide-react';
 import TouchButton from '../shared/TouchButton';
 import NumPad from '../shared/NumPad';
+
+const DELIVERY_LABEL: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+  DELIVERY: { label: 'Yetkazib berish', icon: <Truck size={14} />, className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  TAKEAWAY: { label: 'Olib ketish', icon: <ShoppingBag size={14} />, className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  DINE_IN: { label: 'Zalda', icon: <UtensilsCrossed size={14} />, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+};
 
 type PaymentMethod = 'CASH' | 'CARD' | 'PAYME' | 'CLICK' | 'UZUM';
 
@@ -55,7 +64,7 @@ const paymentMethods: { key: PaymentMethod; label: string; icon: React.ReactNode
 ];
 
 export default function PaymentScreen({ orderId, total, onComplete, onBack }: PaymentScreenProps) {
-  const { items } = useCartStore();
+  const { items, orderType } = useCartStore();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [cashAmount, setCashAmount] = useState('');
   const [paid, setPaid] = useState(false);
@@ -112,6 +121,31 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
         {/* Left: Order Summary */}
         <div className="w-[300px] flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
           <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Buyurtma tafsilotlari</h3>
+
+          {/* Yetkazib berish turi */}
+          {(() => {
+            const cfg = DELIVERY_LABEL[orderType];
+            return cfg ? (
+              <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Buyurtma turi</span>
+                <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', cfg.className)}>
+                  {cfg.icon}
+                  {cfg.label}
+                </span>
+              </div>
+            ) : null;
+          })()}
+
+          {/* To'lov usuli (tanlangandan keyin) */}
+          {selectedMethod && (
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-xs text-gray-500 dark:text-gray-400">To'lov usuli</span>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                {paymentMethods.find((m) => m.key === selectedMethod)?.label}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2">
             {items.map((item) => (
               <div

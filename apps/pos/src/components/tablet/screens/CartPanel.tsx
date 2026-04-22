@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../../lib/utils';
 import { useCartStore } from '../../../store/cart';
-import { Minus, Plus, Trash2, ShoppingCart, ChefHat, CreditCard, XCircle } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, ChefHat, CreditCard, XCircle, Truck, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import TouchButton from '../shared/TouchButton';
 
 interface CartPanelProps {
@@ -10,8 +10,14 @@ interface CartPanelProps {
   onCloseTable: () => void;
 }
 
+const ORDER_TYPE_CONFIG = {
+  DELIVERY: { label: 'Yetkazib berish', icon: <Truck size={13} />, className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  TAKEAWAY: { label: 'Olib ketish', icon: <ShoppingBag size={13} />, className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  DINE_IN: { label: 'Zalda', icon: <UtensilsCrossed size={13} />, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+};
+
 export default function CartPanel({ onSendToKitchen, onPayment, onCloseTable }: CartPanelProps) {
-  const { items, removeItem, updateQuantity, getSubtotal, getTotal, getItemCount, discount, discountPercent } =
+  const { items, removeItem, updateQuantity, getSubtotal, getTotal, getItemCount, discount, discountPercent, orderType } =
     useCartStore();
 
   const subtotal = getSubtotal();
@@ -27,21 +33,34 @@ export default function CartPanel({ onSendToKitchen, onPayment, onCloseTable }: 
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <ShoppingCart size={20} className="text-gray-600 dark:text-gray-400" />
-          <h3 className="font-bold text-gray-900 dark:text-gray-100">Buyurtma</h3>
+      <div className="px-4 pt-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingCart size={20} className="text-gray-600 dark:text-gray-400" />
+            <h3 className="font-bold text-gray-900 dark:text-gray-100">Buyurtma</h3>
+          </div>
+          {itemCount > 0 && (
+            <span
+              className={cn(
+                'min-w-[28px] h-7 px-2 flex items-center justify-center rounded-full',
+                'bg-blue-600 text-white text-sm font-bold dark:bg-blue-500'
+              )}
+            >
+              {itemCount}
+            </span>
+          )}
         </div>
-        {itemCount > 0 && (
-          <span
-            className={cn(
-              'min-w-[28px] h-7 px-2 flex items-center justify-center rounded-full',
-              'bg-blue-600 text-white text-sm font-bold dark:bg-blue-500'
-            )}
-          >
-            {itemCount}
-          </span>
-        )}
+        {/* Buyurtma turi badge */}
+        {(() => {
+          const cfg = ORDER_TYPE_CONFIG[orderType as keyof typeof ORDER_TYPE_CONFIG];
+          if (!cfg) return null;
+          return (
+            <span className={cn('inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium', cfg.className)}>
+              {cfg.icon}
+              {cfg.label}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Cart Items */}

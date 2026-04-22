@@ -23,6 +23,7 @@ export interface Order {
   status: string;
   tableId?: string;
   table?: { id: string; number: number; name?: string };
+  customer?: { id: string; firstName?: string; lastName?: string; phone?: string } | null;
   items: OrderItem[];
   subtotal: number;
   discount: number;
@@ -30,6 +31,9 @@ export interface Order {
   tax: number;
   total: number;
   notes?: string;
+  address?: string | null;
+  isNonborOrder?: boolean;
+  nonborOrderId?: number | null;
   createdAt: string;
   payments?: { id: string; method: string; amount: number }[];
 }
