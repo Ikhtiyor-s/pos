@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Server } from 'socket.io';
+import { prisma } from '@oshxona/database';
 import { SyncService } from './sync.service.js';
 import { successResponse, errorResponse } from '../../utils/response.js';
 
@@ -56,6 +57,52 @@ const ItemStatusSyncSchema = z.object({
 const TableStatusSyncSchema = z.object({
   tableId: z.string().uuid(),
   status: z.enum(['FREE', 'OCCUPIED', 'RESERVED', 'CLEANING']),
+});
+
+// ==========================================
+// BATCH SYNC SCHEMA
+// ==========================================
+
+const BatchItemSchema = z.discriminatedUnion('operation', [
+  z.object({
+    queueId: z.string().min(1),
+    operation: z.literal('CREATE_ORDER'),
+    body: SyncOrderSchema,
+  }),
+  z.object({
+    queueId: z.string().min(1),
+    operation: z.literal('UPDATE_ORDER'),
+    body: z.object({
+      orderId: z.string().uuid(),
+      status: z.enum(['NEW', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING', 'COMPLETED', 'CANCELLED']),
+      version: z.number().int().nonnegative(),
+    }),
+  }),
+  z.object({
+    queueId: z.string().min(1),
+    operation: z.literal('CREATE_PAYMENT'),
+    body: z.object({
+      orderId: z.string().uuid(),
+      method: z.enum(['CASH', 'CARD', 'PAYME', 'CLICK', 'UZUM', 'HUMO', 'OTHER']),
+      amount: z.number().positive(),
+      reference: z.string().optional(),
+    }),
+  }),
+  z.object({
+    queueId: z.string().min(1),
+    operation: z.literal('UPDATE_STATUS'),
+    body: OrderStatusSyncSchema,
+  }),
+  z.object({
+    queueId: z.string().min(1),
+    operation: z.literal('UPDATE_TABLE'),
+    body: TableStatusSyncSchema,
+  }),
+]);
+
+const BatchSyncSchema = z.object({
+  deviceId: z.string().min(1),
+  items: z.array(BatchItemSchema).min(1).max(100),
 });
 
 // ==========================================
@@ -176,6 +223,162 @@ export class SyncController {
     try {
       const health = await SyncService.healthCheck();
       return res.status(health.status === 'ok' ? 200 : 503).json(health);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // POST /sync/batch — universal batch endpoint (IndexedDB queue items)
+  static async batchSync(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return errorResponse(res, 'Tenant ID topilmadi', 400);
+
+      const parsed = BatchSyncSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return errorResponse(res, parsed.error.errors[0]?.message || 'Noto\'g\'ri ma\'lumot', 400);
+      }
+
+      const io = req.app.get('io') as Server | undefined;
+      const results: Array<{
+        queueId: string;
+        success: boolean;
+        conflict: boolean;
+        message: string;
+        data?: any;
+      }> = [];
+
+      for (const item of parsed.data.items) {
+        try {
+          if (item.operation === 'CREATE_ORDER') {
+            const result = await SyncService.syncOrder(tenantId, item.body, io);
+            results.push({
+              queueId: item.queueId,
+              success: result.success,
+              conflict: result.action === 'conflict',
+              message: result.message,
+              data: result,
+            });
+
+          } else if (item.operation === 'UPDATE_ORDER' || item.operation === 'UPDATE_STATUS') {
+            const b = item.body as { orderId: string; status: string; version: number };
+            const result = await SyncService.syncOrderStatus(tenantId, b.orderId, b.status, b.version, io);
+            results.push({
+              queueId: item.queueId,
+              success: result.success,
+              conflict: result.action === 'conflict',
+              message: result.message,
+              data: result,
+            });
+
+          } else if (item.operation === 'CREATE_PAYMENT') {
+            const b = item.body as { orderId: string; method: string; amount: number; reference?: string };
+
+            const order = await prisma.order.findFirst({
+              where: { id: b.orderId, tenantId },
+              select: { id: true },
+            });
+
+            if (!order) {
+              results.push({
+                queueId: item.queueId,
+                success: false,
+                conflict: false,
+                message: 'Buyurtma topilmadi',
+              });
+              continue;
+            }
+
+            const payment = await prisma.payment.create({
+              data: {
+                orderId: b.orderId,
+                method: b.method as any,
+                amount: b.amount,
+                status: 'COMPLETED',
+                reference: b.reference || null,
+              },
+            });
+
+            if (io) {
+              io.to(`tenant:${tenantId}:pos`).emit('payment:new', {
+                orderId: b.orderId,
+                paymentId: payment.id,
+                method: b.method,
+                amount: b.amount,
+              });
+            }
+
+            results.push({
+              queueId: item.queueId,
+              success: true,
+              conflict: false,
+              message: "To'lov saqlandi",
+              data: { paymentId: payment.id },
+            });
+
+          } else if (item.operation === 'UPDATE_TABLE') {
+            const b = item.body as { tableId: string; status: string };
+            const result = await SyncService.syncTableStatus(tenantId, b.tableId, b.status, io);
+            results.push({
+              queueId: item.queueId,
+              success: result.success,
+              conflict: result.action === 'conflict',
+              message: result.message,
+              data: result,
+            });
+          }
+        } catch (err) {
+          results.push({
+            queueId: item.queueId,
+            success: false,
+            conflict: false,
+            message: err instanceof Error ? err.message : 'Server xatosi',
+          });
+        }
+      }
+
+      const synced = results.filter(r => r.success).length;
+      const conflicts = results.filter(r => r.conflict).length;
+
+      return successResponse(res, { results, synced, conflicts, total: results.length },
+        `${synced}/${results.length} item sync qilindi`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // GET /sync/pending?deviceId=xxx — device uchun pending queue summary
+  static async getPendingQueue(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return errorResponse(res, 'Tenant ID topilmadi', 400);
+
+      const deviceId = req.query.deviceId as string | undefined;
+
+      // Active orders (server side) to detect what's already synced
+      const [activeOrdersCount, pendingPaymentsCount] = await Promise.all([
+        prisma.order.count({
+          where: {
+            tenantId,
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+          },
+        }),
+        prisma.payment.count({
+          where: {
+            status: 'PENDING',
+            order: { tenantId },
+          },
+        }),
+      ]);
+
+      return successResponse(res, {
+        deviceId: deviceId || null,
+        serverStats: {
+          activeOrders: activeOrdersCount,
+          pendingPayments: pendingPaymentsCount,
+        },
+        serverTime: new Date().toISOString(),
+      }, 'Sync holati');
     } catch (error) {
       next(error);
     }

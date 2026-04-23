@@ -10,10 +10,14 @@ router.get('/health', SyncController.healthCheck);
 // Qolgan barcha route lar auth talab qiladi
 router.use(authenticate);
 
-// Buyurtmalarni sync qilish (offline → server)
-router.post('/orders', SyncController.syncOrders);
+// Universal batch endpoint (IndexedDB queue → server)
+router.post('/batch', SyncController.batchSync);
 
-// Status o'zgarishlarni sync qilish
+// Device pending queue summary
+router.get('/pending', SyncController.getPendingQueue);
+
+// Legacy individual endpoints
+router.post('/orders', SyncController.syncOrders);
 router.post('/order-status', SyncController.syncOrderStatus);
 router.post('/item-status', SyncController.syncItemStatus);
 router.post('/table-status', SyncController.syncTableStatus);

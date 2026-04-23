@@ -36,51 +36,37 @@ export interface CachedTable {
 }
 
 // ==========================================
-// STORE
+// STORE — lightweight display state only
+// Real data is in IndexedDB (offlineDB)
 // ==========================================
 
 interface OfflineState {
-  // Meta
   deviceId: string;
   connectionStatus: ConnectionStatus;
   lastSyncAt: string | null;
   lastPullAt: string | null;
 
-  // Cached data (server → local)
-  products: CachedProduct[];
-  categories: CachedCategory[];
-  tables: CachedTable[];
-  settings: any | null;
-
-  // Sync stats (display only — real queue is in syncService)
+  // Display counters (synced from syncService)
   pendingCount: number;
+  syncProgress: number;
   conflictCount: number;
   lastSyncError: string | null;
+
+  // Settings cache (small, ok in localStorage)
+  settings: any | null;
 
   // Actions
   setConnectionStatus: (status: ConnectionStatus) => void;
   setPendingCount: (count: number) => void;
+  setSyncProgress: (progress: number) => void;
   setConflictCount: (count: number) => void;
   setLastSyncError: (error: string | null) => void;
+  setLastSyncAt: (at: string) => void;
+  setLastPullAt: (at: string) => void;
+  setSettings: (settings: any) => void;
 
-  // Cache update actions (from pullData)
-  applyPullData: (data: {
-    products: any[];
-    categories: any[];
-    tables: any[];
-    settings: any;
-    syncedAt: string;
-  }) => void;
+  applyPullData: (data: { settings?: any; syncedAt: string }) => void;
 
-  // Table status local update (optimistic)
-  updateTableStatus: (tableId: string, status: string) => void;
-
-  // Product local update (optimistic)
-  updateProductStock: (productId: string, delta: number) => void;
-
-  // Getters
-  getProductById: (id: string) => CachedProduct | undefined;
-  getTableById: (id: string) => CachedTable | undefined;
   isOffline: () => boolean;
   hasPending: () => boolean;
 }
@@ -89,84 +75,38 @@ export const useOfflineStore = create<OfflineState>()(
   persist(
     (set, get) => ({
       deviceId: DEVICE_ID,
-      connectionStatus: navigator.onLine ? 'online' : 'offline',
+      connectionStatus: (navigator?.onLine ?? true) ? 'online' : 'offline',
       lastSyncAt: null,
       lastPullAt: null,
-      products: [],
-      categories: [],
-      tables: [],
-      settings: null,
       pendingCount: 0,
+      syncProgress: 0,
       conflictCount: 0,
       lastSyncError: null,
+      settings: null,
 
       setConnectionStatus: (status) => set({ connectionStatus: status }),
       setPendingCount: (count) => set({ pendingCount: count }),
+      setSyncProgress: (progress) => set({ syncProgress: progress }),
       setConflictCount: (count) => set({ conflictCount: count }),
       setLastSyncError: (error) => set({ lastSyncError: error }),
+      setLastSyncAt: (at) => set({ lastSyncAt: at }),
+      setLastPullAt: (at) => set({ lastPullAt: at }),
+      setSettings: (settings) => set({ settings }),
 
       applyPullData: (data) => {
-        const products: CachedProduct[] = data.products.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: Number(p.price),
-          image: p.image || undefined,
-          categoryId: p.categoryId,
-          categoryName: p.category?.name || '',
-          isActive: p.isActive,
-          mxikCode: p.mxikCode || null,
-          sortOrder: p.sortOrder || 0,
-        }));
-
-        const categories: CachedCategory[] = data.categories.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          slug: c.slug,
-          sortOrder: c.sortOrder || 0,
-        }));
-
-        const tables: CachedTable[] = data.tables.map((t: any) => ({
-          id: t.id,
-          number: t.number,
-          name: t.name || undefined,
-          capacity: t.capacity,
-          status: t.status,
-        }));
-
         set({
-          products,
-          categories,
-          tables,
-          settings: data.settings || null,
+          settings: data.settings || get().settings,
           lastPullAt: data.syncedAt,
           lastSyncAt: data.syncedAt,
         });
       },
 
-      updateTableStatus: (tableId, status) => {
-        set((state) => ({
-          tables: state.tables.map(t => t.id === tableId ? { ...t, status } : t),
-        }));
-      },
-
-      updateProductStock: (productId, delta) => {
-        // Mahalliy ko'rsatish uchun (if stock tracking enabled)
-        set((state) => ({
-          products: state.products.map(p => p.id === productId ? { ...p } : p),
-        }));
-      },
-
-      getProductById: (id) => get().products.find(p => p.id === id),
-      getTableById: (id) => get().tables.find(t => t.id === id),
       isOffline: () => get().connectionStatus === 'offline',
       hasPending: () => get().pendingCount > 0,
     }),
     {
-      name: 'pos-offline-v2',
+      name: 'pos-offline-v3',
       partialize: (state) => ({
-        products: state.products,
-        categories: state.categories,
-        tables: state.tables,
         settings: state.settings,
         lastSyncAt: state.lastSyncAt,
         lastPullAt: state.lastPullAt,

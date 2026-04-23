@@ -1,10 +1,11 @@
 import api from './api';
+import { offlineDB, type QueueItem, type OperationType } from './offline-db';
 
 // ==========================================
-// TYPES
+// RE-EXPORT types for backward compatibility
 // ==========================================
 
-export type SyncAction = 'created' | 'updated' | 'conflict' | 'duplicate' | 'skipped' | 'error';
+export type { QueueItem, OperationType };
 
 export interface SyncOrderItem {
   id: string;
@@ -35,21 +36,18 @@ export interface SyncOrderPayload {
   createdAt: string;
 }
 
-export interface StatusUpdatePayload {
-  type: 'order' | 'item' | 'table';
-  orderId?: string;
-  itemId?: string;
-  tableId?: string;
-  status: string;
-  version?: number;
-  queuedAt: string;
+export interface ConflictRecord {
+  queueId: string;
+  operation: OperationType;
+  body: any;
+  serverData: any;
+  detectedAt: string;
 }
 
 export interface SyncResult {
   success: boolean;
-  action: SyncAction;
+  action: 'created' | 'updated' | 'conflict' | 'duplicate' | 'skipped' | 'error';
   serverId?: string;
-  serverVersion?: number;
   conflictData?: any;
   message: string;
 }
@@ -58,7 +56,6 @@ export interface BulkSyncResult {
   total: number;
   synced: number;
   conflicts: number;
-  duplicates: number;
   errors: number;
   results: Array<{ clientId: string; result: SyncResult }>;
 }
@@ -71,12 +68,6 @@ export interface PullDataResult {
   settings: any;
   syncedAt: string;
   counts: { products: number; categories: number; tables: number; activeOrders: number };
-}
-
-export interface ConflictRecord {
-  clientOrder: SyncOrderPayload;
-  serverData: any;
-  detectedAt: string;
 }
 
 // ==========================================
@@ -95,37 +86,91 @@ function getDeviceId(): string {
 export const DEVICE_ID = getDeviceId();
 
 // ==========================================
-// SYNC STATE (lightweight — store'ga bog'lanmaydi)
+// SYNC STATE
 // ==========================================
 
-type SyncListener = (state: SyncState) => void;
-
-interface SyncState {
+export interface SyncState {
   isSyncing: boolean;
   lastSyncAt: string | null;
-  pendingOrdersCount: number;
-  pendingStatusCount: number;
+  pendingCount: number;
+  syncProgress: number;
   conflicts: ConflictRecord[];
   lastError: string | null;
 }
 
+type SyncListener = (state: SyncState) => void;
+
 // ==========================================
-// OFFLINE SYNC SERVICE
+// OFFLINE SYNC SERVICE (IndexedDB)
 // ==========================================
 
 class OfflineSyncService {
   private listeners: SyncListener[] = [];
   private syncTimer: ReturnType<typeof setInterval> | null = null;
   private isSyncing = false;
+  private syncProgress = 0;
   private conflicts: ConflictRecord[] = [];
   private lastError: string | null = null;
+  private pendingCount = 0;
+  private swRegistration: ServiceWorkerRegistration | null = null;
 
   // ==========================================
-  // OBSERVER PATTERN — React hook bilan ishlatish uchun
+  // INIT
+  // ==========================================
+
+  async init(): Promise<void> {
+    await offlineDB.init();
+    this.pendingCount = await offlineDB.getPendingCount();
+    this.notify();
+    this.registerServiceWorker();
+  }
+
+  private async registerServiceWorker(): Promise<void> {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      this.swRegistration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+      // SW dan kelgan xabarlar
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        this.handleSwMessage(event.data);
+      });
+    } catch {
+      // SW ishlamasa ham davom etamiz
+    }
+  }
+
+  private handleSwMessage(msg: any) {
+    if (!msg?.type) return;
+    switch (msg.type) {
+      case 'SYNC_STARTED':
+        this.isSyncing = true;
+        this.syncProgress = 0;
+        this.notify();
+        break;
+      case 'SYNC_COMPLETE':
+        this.isSyncing = false;
+        this.syncProgress = 100;
+        if (msg.synced > 0) {
+          offlineDB.setLastSyncAt(new Date().toISOString());
+        }
+        this.refreshPendingCount();
+        break;
+      case 'SYNC_ERROR':
+        this.isSyncing = false;
+        this.lastError = msg.error;
+        this.notify();
+        break;
+    }
+  }
+
+  // ==========================================
+  // OBSERVER PATTERN
   // ==========================================
 
   subscribe(listener: SyncListener): () => void {
     this.listeners.push(listener);
+    // Darhol joriy state bilan chaqirish
+    listener(this.getState());
     return () => {
       this.listeners = this.listeners.filter(l => l !== listener);
     };
@@ -139,95 +184,164 @@ class OfflineSyncService {
   getState(): SyncState {
     return {
       isSyncing: this.isSyncing,
-      lastSyncAt: localStorage.getItem('pos-last-sync-at'),
-      pendingOrdersCount: this.getPendingOrders().length,
-      pendingStatusCount: this.getPendingStatuses().length,
+      lastSyncAt: null,
+      pendingCount: this.pendingCount,
+      syncProgress: this.syncProgress,
       conflicts: this.conflicts,
       lastError: this.lastError,
     };
   }
 
-  // ==========================================
-  // QUEUE MANAGEMENT (localStorage)
-  // ==========================================
-
-  getPendingOrders(): SyncOrderPayload[] {
-    try {
-      return JSON.parse(localStorage.getItem('pos-sync-orders') || '[]');
-    } catch {
-      return [];
-    }
-  }
-
-  private savePendingOrders(orders: SyncOrderPayload[]) {
-    localStorage.setItem('pos-sync-orders', JSON.stringify(orders));
+  private async refreshPendingCount() {
+    this.pendingCount = await offlineDB.getPendingCount();
     this.notify();
   }
 
-  getPendingStatuses(): StatusUpdatePayload[] {
-    try {
-      return JSON.parse(localStorage.getItem('pos-sync-statuses') || '[]');
-    } catch {
-      return [];
-    }
+  // ==========================================
+  // ENQUEUE OPERATIONS
+  // ==========================================
+
+  async enqueueOrder(order: SyncOrderPayload): Promise<void> {
+    const existing = await offlineDB.getQueueItem(order.id);
+    if (existing && existing.status !== 'failed') return;
+
+    await offlineDB.enqueue({
+      id: order.id,
+      operation: 'CREATE_ORDER',
+      url: '/api/sync/orders',
+      method: 'POST',
+      body: { ...order, deviceId: DEVICE_ID },
+      timestamp: Date.now(),
+      maxRetries: 5,
+      deviceId: DEVICE_ID,
+    });
+
+    // Optimistic: local IDB ga ham saqlash
+    await offlineDB.upsertOrder({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      total: order.total,
+      tableId: order.tableId,
+      items: order.items,
+      createdAt: order.createdAt,
+      updatedAt: order.createdAt,
+    });
+
+    await this.refreshPendingCount();
+    this.triggerBackgroundSync();
   }
 
-  private savePendingStatuses(statuses: StatusUpdatePayload[]) {
-    localStorage.setItem('pos-sync-statuses', JSON.stringify(statuses));
-    this.notify();
+  async enqueueOrderUpdate(orderId: string, updates: Partial<SyncOrderPayload>, version: number): Promise<void> {
+    const id = `update-${orderId}-${Date.now()}`;
+    await offlineDB.enqueue({
+      id,
+      operation: 'UPDATE_ORDER',
+      url: `/api/orders/${orderId}`,
+      method: 'PUT',
+      body: { ...updates, version, deviceId: DEVICE_ID },
+      timestamp: Date.now(),
+      maxRetries: 5,
+      deviceId: DEVICE_ID,
+    });
+    await this.refreshPendingCount();
+    this.triggerBackgroundSync();
   }
 
-  // Yangi buyurtmani queue ga qo'shish
-  enqueueOrder(order: SyncOrderPayload) {
-    const orders = this.getPendingOrders();
-    const exists = orders.find(o => o.id === order.id);
-    if (!exists) {
-      orders.push({ ...order, deviceId: DEVICE_ID });
-      this.savePendingOrders(orders);
-    }
+  async enqueuePayment(orderId: string, paymentData: {
+    method: string;
+    amount: number;
+    reference?: string;
+  }): Promise<void> {
+    const id = `payment-${orderId}-${Date.now()}`;
+    await offlineDB.enqueue({
+      id,
+      operation: 'CREATE_PAYMENT',
+      url: `/api/payments`,
+      method: 'POST',
+      body: { orderId, ...paymentData, deviceId: DEVICE_ID },
+      timestamp: Date.now(),
+      maxRetries: 5,
+      deviceId: DEVICE_ID,
+    });
+    await this.refreshPendingCount();
+    this.triggerBackgroundSync();
   }
 
-  // Order status ni queue ga qo'shish
-  enqueueOrderStatus(orderId: string, status: string, version: number) {
-    const statuses = this.getPendingStatuses();
-    // Existing status for same order ni yozib chiqamiz (last-write-wins)
-    const filtered = statuses.filter(
-      s => !(s.type === 'order' && s.orderId === orderId)
+  async enqueueOrderStatus(orderId: string, status: string, version: number): Promise<void> {
+    // Bir xil order uchun eskilarni olib tashlaymiz (last-write-wins)
+    const all = await offlineDB.getAllQueue();
+    const old = all.find(
+      i => i.operation === 'UPDATE_STATUS' && i.body?.orderId === orderId && i.status === 'pending'
     );
-    filtered.push({ type: 'order', orderId, status, version, queuedAt: new Date().toISOString() });
-    this.savePendingStatuses(filtered);
+    if (old) await offlineDB.removeQueueItem(old.id);
+
+    const id = `status-order-${orderId}-${Date.now()}`;
+    await offlineDB.enqueue({
+      id,
+      operation: 'UPDATE_STATUS',
+      url: `/api/sync/order-status`,
+      method: 'POST',
+      body: { orderId, status, version, deviceId: DEVICE_ID },
+      timestamp: Date.now(),
+      maxRetries: 5,
+      deviceId: DEVICE_ID,
+    });
+
+    await offlineDB.updateOrderStatus(orderId, status);
+    await this.refreshPendingCount();
+    this.triggerBackgroundSync();
   }
 
-  // Item status ni queue ga qo'shish
-  enqueueItemStatus(orderId: string, itemId: string, status: string) {
-    const statuses = this.getPendingStatuses();
-    const filtered = statuses.filter(
-      s => !(s.type === 'item' && s.itemId === itemId)
+  async enqueueTableStatus(tableId: string, status: string): Promise<void> {
+    const all = await offlineDB.getAllQueue();
+    const old = all.find(
+      i => i.operation === 'UPDATE_TABLE' && i.body?.tableId === tableId && i.status === 'pending'
     );
-    filtered.push({ type: 'item', orderId, itemId, status, queuedAt: new Date().toISOString() });
-    this.savePendingStatuses(filtered);
-  }
+    if (old) await offlineDB.removeQueueItem(old.id);
 
-  // Table status ni queue ga qo'shish
-  enqueueTableStatus(tableId: string, status: string) {
-    const statuses = this.getPendingStatuses();
-    const filtered = statuses.filter(
-      s => !(s.type === 'table' && s.tableId === tableId)
-    );
-    filtered.push({ type: 'table', tableId, status, queuedAt: new Date().toISOString() });
-    this.savePendingStatuses(filtered);
+    const id = `status-table-${tableId}-${Date.now()}`;
+    await offlineDB.enqueue({
+      id,
+      operation: 'UPDATE_TABLE',
+      url: `/api/sync/table-status`,
+      method: 'POST',
+      body: { tableId, status, deviceId: DEVICE_ID },
+      timestamp: Date.now(),
+      maxRetries: 5,
+      deviceId: DEVICE_ID,
+    });
+
+    await offlineDB.updateTableStatus(tableId, status);
+    await this.refreshPendingCount();
+    this.triggerBackgroundSync();
   }
 
   // ==========================================
-  // SYNC
+  // BACKGROUND SYNC TRIGGER
+  // ==========================================
+
+  private triggerBackgroundSync() {
+    const reg = this.swRegistration as any;
+    if (reg?.sync) {
+      reg.sync.register(SYNC_TAG).catch(() => {
+        // Background Sync qo'llab-quvvatlanmasa — manual sync
+        if (navigator.onLine) {
+          setTimeout(() => this.sync(), 500);
+        }
+      });
+    } else if (navigator.onLine) {
+      setTimeout(() => this.sync(), 500);
+    }
+  }
+
+  // ==========================================
+  // MANUAL SYNC (fallback)
   // ==========================================
 
   async sync(): Promise<{ synced: number; conflicts: number; errors: number }> {
-    if (this.isSyncing || !navigator.onLine) {
-      return { synced: 0, conflicts: 0, errors: 0 };
-    }
+    if (this.isSyncing || !navigator.onLine) return { synced: 0, conflicts: 0, errors: 0 };
 
-    // Server tirik ekanini tekshirish
     try {
       await api.get('/sync/health');
     } catch {
@@ -235,6 +349,7 @@ class OfflineSyncService {
     }
 
     this.isSyncing = true;
+    this.syncProgress = 0;
     this.lastError = null;
     this.notify();
 
@@ -243,145 +358,77 @@ class OfflineSyncService {
     let errors = 0;
 
     try {
-      // 1. Buyurtmalarni sync qilish
-      const orders = this.getPendingOrders();
-      if (orders.length > 0) {
-        const batchResult = await this.syncOrdersBatch(orders);
-        synced += batchResult.synced;
-        conflicts += batchResult.conflicts;
-        errors += batchResult.errors;
+      const pending = await offlineDB.getPendingQueue();
+      const total = pending.length;
+      if (total === 0) return { synced: 0, conflicts: 0, errors: 0 };
 
-        // Muvaffaqiyatli sync bo'lganlarni olib tashlaymiz
-        const failedIds = new Set(
-          batchResult.results
-            .filter(r => r.result.action === 'error')
-            .map(r => r.clientId)
-        );
-        const conflictIds = new Set(
-          batchResult.results
-            .filter(r => r.result.action === 'conflict')
-            .map(r => r.clientId)
-        );
+      const BATCH_SIZE = 20;
+      let processed = 0;
 
-        // Conflict larni saqlaymiz
-        for (const r of batchResult.results) {
-          if (r.result.action === 'conflict') {
-            const clientOrder = orders.find(o => o.id === r.clientId);
-            if (clientOrder) {
+      for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+        const batch = pending.slice(i, i + BATCH_SIZE);
+
+        const res = await api.post('/sync/batch', {
+          operations: batch.map(item => ({
+            queueId: item.id,
+            operation: item.operation,
+            url: item.url,
+            method: item.method,
+            body: item.body,
+            deviceId: item.deviceId,
+          })),
+        });
+
+        const results: Array<{ queueId: string; success: boolean; conflict: boolean; message: string; data?: any }> =
+          res.data?.data?.results || [];
+
+        for (const r of results) {
+          if (r.success) {
+            await offlineDB.markQueueDone(r.queueId);
+            synced++;
+          } else if (r.conflict) {
+            await offlineDB.markQueueConflict(r.queueId, r.message);
+            const item = batch.find(b => b.id === r.queueId);
+            if (item) {
               this.conflicts.push({
-                clientOrder,
-                serverData: r.result.conflictData,
+                queueId: r.queueId,
+                operation: item.operation,
+                body: item.body,
+                serverData: r.data,
                 detectedAt: new Date().toISOString(),
               });
             }
+            conflicts++;
+          } else {
+            const item = batch.find(b => b.id === r.queueId);
+            if (item) {
+              await offlineDB.markQueueFailed(r.queueId, r.message, item.retryCount + 1);
+            }
+            errors++;
           }
         }
 
-        // Faqat muvaffaqiyatli va conflict bo'lmaganlarni olib tashlaymiz
-        const remaining = orders.filter(o => failedIds.has(o.id));
-        this.savePendingOrders(remaining);
-
-        // Conflict larni ham olib tashlaymiz (user hal qilishi kerak)
-        if (conflictIds.size > 0) {
-          const withoutConflicts = orders.filter(o => !conflictIds.has(o.id));
-          this.savePendingOrders(withoutConflicts);
-        }
+        processed += batch.length;
+        this.syncProgress = Math.round((processed / total) * 100);
+        this.notify();
       }
 
-      // 2. Status o'zgarishlarini sync qilish
-      const statuses = this.getPendingStatuses();
-      if (statuses.length > 0) {
-        const statusResults = await this.syncStatusesBatch(statuses);
-        synced += statusResults.synced;
-        errors += statusResults.errors;
-
-        const failedStatuses = statuses.filter((_, i) => statusResults.failedIndexes.has(i));
-        this.savePendingStatuses(failedStatuses);
-      }
-
-      // 3. lastSyncAt ni yangilash
-      if (synced > 0 || orders.length === 0) {
-        localStorage.setItem('pos-last-sync-at', new Date().toISOString());
-      }
+      await offlineDB.setLastSyncAt(new Date().toISOString());
+      await offlineDB.purgeDoneQueue();
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : 'Sync xatosi';
       errors++;
     } finally {
       this.isSyncing = false;
-      this.notify();
+      this.syncProgress = 100;
+      await this.refreshPendingCount();
     }
 
     return { synced, conflicts, errors };
   }
 
-  private async syncOrdersBatch(orders: SyncOrderPayload[]): Promise<BulkSyncResult & { results: Array<{ clientId: string; result: SyncResult }> }> {
-    const BATCH_SIZE = 20;
-    const allResults: Array<{ clientId: string; result: SyncResult }> = [];
-    let totalSynced = 0, totalConflicts = 0, totalErrors = 0;
-
-    for (let i = 0; i < orders.length; i += BATCH_SIZE) {
-      const batch = orders.slice(i, i + BATCH_SIZE);
-      const res = await api.post('/sync/orders', { orders: batch });
-      const data: BulkSyncResult = res.data?.data || { total: 0, synced: 0, conflicts: 0, duplicates: 0, errors: 0, results: [] };
-      totalSynced += data.synced;
-      totalConflicts += data.conflicts;
-      totalErrors += data.errors;
-      allResults.push(...(data.results || []));
-    }
-
-    return {
-      total: orders.length,
-      synced: totalSynced,
-      conflicts: totalConflicts,
-      duplicates: 0,
-      errors: totalErrors,
-      results: allResults,
-    };
-  }
-
-  private async syncStatusesBatch(statuses: StatusUpdatePayload[]): Promise<{ synced: number; errors: number; failedIndexes: Set<number> }> {
-    let synced = 0;
-    let errors = 0;
-    const failedIndexes = new Set<number>();
-
-    for (let i = 0; i < statuses.length; i++) {
-      const s = statuses[i];
-      try {
-        if (s.type === 'order' && s.orderId) {
-          await api.post('/sync/order-status', {
-            orderId: s.orderId,
-            status: s.status,
-            version: s.version || 0,
-          });
-          synced++;
-        } else if (s.type === 'item' && s.orderId && s.itemId) {
-          await api.post('/sync/item-status', {
-            orderId: s.orderId,
-            itemId: s.itemId,
-            status: s.status,
-          });
-          synced++;
-        } else if (s.type === 'table' && s.tableId) {
-          await api.post('/sync/table-status', {
-            tableId: s.tableId,
-            status: s.status,
-          });
-          synced++;
-        }
-      } catch (err: any) {
-        // 409 Conflict — serverda allaqachon yangi versiya bor, client versiyasini tashlaymiz
-        if (err?.response?.status !== 409) {
-          failedIndexes.add(i);
-          errors++;
-        }
-      }
-    }
-
-    return { synced, errors, failedIndexes };
-  }
-
   // ==========================================
-  // PULL (server → local cache)
+  // PULL (server → IDB cache)
   // ==========================================
 
   async pull(since?: string): Promise<PullDataResult | null> {
@@ -394,7 +441,63 @@ class OfflineSyncService {
       const data: PullDataResult = res.data?.data;
 
       if (data) {
-        localStorage.setItem('pos-last-sync-at', data.syncedAt);
+        // IDB ga saqlash
+        if (data.products?.length) {
+          await offlineDB.saveProducts(data.products.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: Number(p.price),
+            image: p.image || undefined,
+            categoryId: p.categoryId,
+            categoryName: p.category?.name || '',
+            isActive: p.isActive,
+            mxikCode: p.mxikCode || null,
+            sortOrder: p.sortOrder || 0,
+            updatedAt: p.updatedAt,
+          })));
+        }
+
+        if (data.categories?.length) {
+          await offlineDB.saveCategories(data.categories.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            sortOrder: c.sortOrder || 0,
+          })));
+        }
+
+        if (data.tables?.length) {
+          await offlineDB.saveTables(data.tables.map((t: any) => ({
+            id: t.id,
+            number: t.number,
+            name: t.name || undefined,
+            capacity: t.capacity,
+            status: t.status,
+          })));
+        }
+
+        if (data.recentOrders?.length) {
+          await offlineDB.saveOrders(data.recentOrders.map((o: any) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            status: o.status,
+            total: Number(o.total),
+            tableId: o.tableId || undefined,
+            tableNumber: o.table?.number,
+            items: o.items || [],
+            createdAt: o.createdAt,
+            updatedAt: o.updatedAt,
+          })));
+        }
+
+        // Auth token ni SW uchun IDB ga saqlash
+        const stored = localStorage.getItem('pos-auth');
+        if (stored) {
+          const token = JSON.parse(stored)?.state?.accessToken;
+          if (token) await offlineDB.setMeta('authToken', token);
+        }
+
+        await offlineDB.setLastSyncAt(data.syncedAt);
       }
 
       return data;
@@ -404,23 +507,41 @@ class OfflineSyncService {
   }
 
   // ==========================================
+  // OFFLINE DATA ACCESS (IDB dan)
+  // ==========================================
+
+  async getOfflineProducts() {
+    return offlineDB.getProducts(true);
+  }
+
+  async getOfflineCategories() {
+    return offlineDB.getCategories();
+  }
+
+  async getOfflineTables() {
+    return offlineDB.getTables();
+  }
+
+  async getOfflineOrders() {
+    return offlineDB.getActiveOrders();
+  }
+
+  // ==========================================
   // AUTO SYNC
   // ==========================================
 
   startAutoSync(intervalMs = 30_000) {
     if (this.syncTimer) return;
 
-    // Online/offline events
     window.addEventListener('online', this.handleOnline);
     window.addEventListener('offline', this.handleOffline);
 
-    // Dastlab bir sync qilish
     if (navigator.onLine) {
       setTimeout(() => this.sync(), 2000);
     }
 
-    this.syncTimer = setInterval(() => {
-      if (navigator.onLine && this.getPendingTotalCount() > 0) {
+    this.syncTimer = setInterval(async () => {
+      if (navigator.onLine && (await offlineDB.getPendingCount()) > 0) {
         this.sync();
       }
     }, intervalMs);
@@ -437,7 +558,6 @@ class OfflineSyncService {
 
   private handleOnline = () => {
     this.notify();
-    // Internet qayta kelganda darhol sync qilish
     setTimeout(() => this.sync(), 1000);
   };
 
@@ -449,28 +569,37 @@ class OfflineSyncService {
   // CONFLICT RESOLUTION
   // ==========================================
 
-  resolveConflict(clientOrderId: string, strategy: 'keep-server' | 'keep-client') {
-    const conflictIndex = this.conflicts.findIndex(c => c.clientOrder.id === clientOrderId);
-    if (conflictIndex === -1) return;
+  resolveConflict(queueId: string, strategy: 'keep-server' | 'keep-client') {
+    const idx = this.conflicts.findIndex(c => c.queueId === queueId);
+    if (idx === -1) return;
 
-    const conflict = this.conflicts[conflictIndex];
+    const conflict = this.conflicts[idx];
 
     if (strategy === 'keep-client') {
-      // Client versiyasini force push qilish (version ni serverdan yuqori qilamiz)
-      const forceOrder = {
-        ...conflict.clientOrder,
-        version: Date.now(),
-      };
-      this.enqueueOrder(forceOrder);
-      this.sync();
+      // Re-queue with higher version
+      offlineDB.enqueue({
+        id: `force-${queueId}-${Date.now()}`,
+        operation: conflict.operation,
+        url: conflict.body.url || '/api/sync/batch',
+        method: 'POST',
+        body: { ...conflict.body, version: Date.now(), _forceOverwrite: true },
+        timestamp: Date.now(),
+        maxRetries: 3,
+        deviceId: DEVICE_ID,
+      });
+      this.refreshPendingCount();
     }
-    // keep-server — faqat conflict ni olib tashlaymiz
 
-    this.conflicts.splice(conflictIndex, 1);
+    // keep-server — conflict ni olib tashlaymiz, server versiyasi qoladi
+    offlineDB.markQueueDone(queueId);
+    this.conflicts.splice(idx, 1);
     this.notify();
   }
 
   clearAllConflicts() {
+    for (const c of this.conflicts) {
+      offlineDB.markQueueDone(c.queueId);
+    }
     this.conflicts = [];
     this.notify();
   }
@@ -479,20 +608,21 @@ class OfflineSyncService {
   // HELPERS
   // ==========================================
 
-  getPendingTotalCount(): number {
-    return this.getPendingOrders().length + this.getPendingStatuses().length;
+  async getPendingTotalCount(): Promise<number> {
+    return offlineDB.getPendingCount();
   }
 
   isOnline(): boolean {
     return navigator.onLine;
   }
 
-  clearAll() {
-    localStorage.removeItem('pos-sync-orders');
-    localStorage.removeItem('pos-sync-statuses');
+  async clearAll(): Promise<void> {
+    await offlineDB.clearAll();
     this.conflicts = [];
+    this.pendingCount = 0;
     this.notify();
   }
 }
 
+const SYNC_TAG = 'pos-sync';
 export const syncService = new OfflineSyncService();

@@ -2,11 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useOfflineStore } from '../store/offline';
 import { syncService } from '../services/sync.service';
 
-// ==========================================
-// NETWORK STATUS HOOK
-// Internet/LAN holatini kuzatadi va cache yangilaydi
-// ==========================================
-
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const PING_INTERVAL = 15000;
 
@@ -23,13 +18,10 @@ export function useNetworkStatus() {
   const checkConnection = async (): Promise<'online' | 'offline'> => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const response = await fetch(`${API_BASE}/healthz`, {
-        signal: controller.signal,
-        cache: 'no-store',
-      });
-      clearTimeout(timeoutId);
-      return response.ok ? 'online' : 'offline';
+      const id = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(`${API_BASE}/healthz`, { signal: controller.signal, cache: 'no-store' });
+      clearTimeout(id);
+      return res.ok ? 'online' : 'offline';
     } catch {
       return 'offline';
     }
@@ -37,13 +29,10 @@ export function useNetworkStatus() {
 
   const refreshCache = async () => {
     try {
-      const since = lastPullAt || undefined;
-      const data = await syncService.pull(since);
-      if (data) {
-        applyPullData(data);
-      }
-    } catch (error) {
-      console.error('[Offline] Cache yangilashda xatolik:', error);
+      const data = await syncService.pull(lastPullAt || undefined);
+      if (data) applyPullData({ settings: data.settings, syncedAt: data.syncedAt });
+    } catch (err) {
+      console.error('[Network] Cache yangilashda xatolik:', err);
     }
   };
 
@@ -53,10 +42,7 @@ export function useNetworkStatus() {
       if (status === 'online') refreshCache();
     });
 
-    const handleOnline = () => {
-      setConnectionStatus('online');
-      refreshCache();
-    };
+    const handleOnline = () => { setConnectionStatus('online'); refreshCache(); };
     const handleOffline = () => setConnectionStatus('offline');
 
     window.addEventListener('online', handleOnline);
@@ -65,12 +51,9 @@ export function useNetworkStatus() {
     intervalRef.current = setInterval(async () => {
       const status = await checkConnection();
       setConnectionStatus(status);
-
       if (status === 'online') {
         const last = lastPullAt ? new Date(lastPullAt).getTime() : 0;
-        if (Date.now() - last > 5 * 60 * 1000) {
-          refreshCache();
-        }
+        if (Date.now() - last > 5 * 60 * 1000) refreshCache();
       }
     }, PING_INTERVAL);
 
