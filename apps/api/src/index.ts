@@ -18,6 +18,7 @@ import { realtimeSyncManager } from './modules/order-lifecycle/realtime-sync.js'
 import { nonborSyncService } from './services/nonbor-sync.service.js';
 import { startWorker } from './integration/index.js';
 import { connectRedis } from './config/redis.js';
+import { processRetryQueue } from './modules/webhook-provider/webhook-provider.service.js';
 import { logger } from './utils/logger.js';
 
 const env = validateEnv();
@@ -153,6 +154,13 @@ async function bootstrap() {
     nonborSyncService.startPolling(io).catch((err: Error) => {
       logger.error('Nonbor polling failed to start', { error: err.message });
     });
+
+    // Webhook retry queue — har 5 daqiqada
+    setInterval(() => {
+      processRetryQueue().catch((err: Error) => {
+        logger.warn('Webhook retry queue xatosi', { error: err.message });
+      });
+    }, 5 * 60 * 1000);
   });
 }
 

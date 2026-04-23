@@ -71,6 +71,7 @@ model Tenant {
   payrolls              Payroll[]
   telegramUsers         TelegramUser[]
   smsLogs               SmsLog[]
+  webhookProviders      WebhookProvider[]
 
   @@index([parentId])
   @@index([slug])
@@ -326,6 +327,7 @@ enum OrderSource {
   TELEGRAM_ORDER
   WEBSITE_ORDER
   API_ORDER
+  WEBHOOK_ORDER
 }
 
 enum OrderType {
@@ -1541,4 +1543,53 @@ model SmsLog {
   @@index([tenantId, type])
   @@index([phone, tenantId])
   @@map("sms_logs")
+}
+
+// ==========================================
+// UNIVERSAL WEBHOOK PROVIDER (Tashqi yetkazib berish xizmatlari)
+// ==========================================
+
+enum WebhookProviderName {
+  YANDEX_EATS
+  DELIVERY_CLUB
+  EXPRESS24
+  OLX_FOOD
+  CUSTOM
+}
+
+model WebhookProvider {
+  id           String              @id @default(uuid())
+  tenantId     String              @map("tenant_id")
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  providerName WebhookProviderName @map("provider_name")
+  isActive     Boolean             @default(true) @map("is_active")
+  secret       String?
+  fieldMapping Json?               @map("field_mapping")
+  statusMapping Json?              @map("status_mapping")
+  notes        String?
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  retryQueue   WebhookRetryQueue[]
+
+  @@unique([tenantId, providerName])
+  @@index([tenantId, isActive])
+  @@map("webhook_providers")
+}
+
+model WebhookRetryQueue {
+  id          String          @id @default(uuid())
+  providerId  String          @map("provider_id")
+  provider    WebhookProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  payload     Json
+  attempts    Int             @default(0)
+  maxAttempts Int             @default(5) @map("max_attempts")
+  lastError   String?         @map("last_error")
+  nextRetryAt DateTime        @map("next_retry_at")
+  resolved    Boolean         @default(false)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([resolved, nextRetryAt])
+  @@index([providerId])
+  @@map("webhook_retry_queue")
 }
