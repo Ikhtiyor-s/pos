@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { DEVICE_ID } from '../services/sync.service';
 
 // ==========================================
-// OFFLINE STORE — POS Offline Mode
-// Internet yo'qda ishlash uchun lokal ma'lumotlar
+// TYPES
 // ==========================================
 
-export type ConnectionStatus = 'online' | 'local' | 'offline';
+export type ConnectionStatus = 'online' | 'offline' | 'syncing';
 
-interface CachedProduct {
+export interface CachedProduct {
   id: string;
   name: string;
   price: number;
@@ -16,9 +16,18 @@ interface CachedProduct {
   categoryId: string;
   categoryName: string;
   isActive: boolean;
+  mxikCode?: string | null;
+  sortOrder?: number;
 }
 
-interface CachedTable {
+export interface CachedCategory {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+}
+
+export interface CachedTable {
   id: string;
   number: number;
   name?: string;
@@ -26,84 +35,113 @@ interface CachedTable {
   status: string;
 }
 
-interface CachedCategory {
-  id: string;
-  name: string;
-  slug: string;
-  sortOrder: number;
-}
-
-interface OfflineOrder {
-  id: string;
-  orderNumber: string;
-  tableId?: string;
-  items: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    price: number;
-  }>;
-  total: number;
-  status: string;
-  source: string;
-  createdAt: string;
-  synced: boolean;
-}
+// ==========================================
+// STORE
+// ==========================================
 
 interface OfflineState {
-  // Connection
+  // Meta
+  deviceId: string;
   connectionStatus: ConnectionStatus;
   lastSyncAt: string | null;
-  serverUrl: string;
+  lastPullAt: string | null;
 
-  // Cached data
+  // Cached data (server → local)
   products: CachedProduct[];
   categories: CachedCategory[];
   tables: CachedTable[];
+  settings: any | null;
 
-  // Offline orders (sync queue)
-  pendingOrders: OfflineOrder[];
-  pendingStatusUpdates: Array<{ orderId: string; status: string; createdAt: string }>;
+  // Sync stats (display only — real queue is in syncService)
+  pendingCount: number;
+  conflictCount: number;
+  lastSyncError: string | null;
 
   // Actions
   setConnectionStatus: (status: ConnectionStatus) => void;
-  setServerUrl: (url: string) => void;
+  setPendingCount: (count: number) => void;
+  setConflictCount: (count: number) => void;
+  setLastSyncError: (error: string | null) => void;
 
-  // Cache actions
-  cacheProducts: (products: CachedProduct[]) => void;
-  cacheCategories: (categories: CachedCategory[]) => void;
-  cacheTables: (tables: CachedTable[]) => void;
+  // Cache update actions (from pullData)
+  applyPullData: (data: {
+    products: any[];
+    categories: any[];
+    tables: any[];
+    settings: any;
+    syncedAt: string;
+  }) => void;
+
+  // Table status local update (optimistic)
   updateTableStatus: (tableId: string, status: string) => void;
 
-  // Offline order actions
-  addPendingOrder: (order: OfflineOrder) => void;
-  markOrderSynced: (orderId: string) => void;
-  addPendingStatusUpdate: (orderId: string, status: string) => void;
-  clearSyncedOrders: () => void;
+  // Product local update (optimistic)
+  updateProductStock: (productId: string, delta: number) => void;
 
   // Getters
-  getPendingCount: () => number;
+  getProductById: (id: string) => CachedProduct | undefined;
+  getTableById: (id: string) => CachedTable | undefined;
   isOffline: () => boolean;
+  hasPending: () => boolean;
 }
 
 export const useOfflineStore = create<OfflineState>()(
   persist(
     (set, get) => ({
-      connectionStatus: 'online',
+      deviceId: DEVICE_ID,
+      connectionStatus: navigator.onLine ? 'online' : 'offline',
       lastSyncAt: null,
-      serverUrl: '',
+      lastPullAt: null,
       products: [],
       categories: [],
       tables: [],
-      pendingOrders: [],
-      pendingStatusUpdates: [],
+      settings: null,
+      pendingCount: 0,
+      conflictCount: 0,
+      lastSyncError: null,
 
       setConnectionStatus: (status) => set({ connectionStatus: status }),
-      setServerUrl: (url) => set({ serverUrl: url }),
+      setPendingCount: (count) => set({ pendingCount: count }),
+      setConflictCount: (count) => set({ conflictCount: count }),
+      setLastSyncError: (error) => set({ lastSyncError: error }),
 
-      cacheProducts: (products) => set({ products, lastSyncAt: new Date().toISOString() }),
-      cacheCategories: (categories) => set({ categories }),
-      cacheTables: (tables) => set({ tables }),
+      applyPullData: (data) => {
+        const products: CachedProduct[] = data.products.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          price: Number(p.price),
+          image: p.image || undefined,
+          categoryId: p.categoryId,
+          categoryName: p.category?.name || '',
+          isActive: p.isActive,
+          mxikCode: p.mxikCode || null,
+          sortOrder: p.sortOrder || 0,
+        }));
+
+        const categories: CachedCategory[] = data.categories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          sortOrder: c.sortOrder || 0,
+        }));
+
+        const tables: CachedTable[] = data.tables.map((t: any) => ({
+          id: t.id,
+          number: t.number,
+          name: t.name || undefined,
+          capacity: t.capacity,
+          status: t.status,
+        }));
+
+        set({
+          products,
+          categories,
+          tables,
+          settings: data.settings || null,
+          lastPullAt: data.syncedAt,
+          lastSyncAt: data.syncedAt,
+        });
+      },
 
       updateTableStatus: (tableId, status) => {
         set((state) => ({
@@ -111,45 +149,28 @@ export const useOfflineStore = create<OfflineState>()(
         }));
       },
 
-      addPendingOrder: (order) => {
+      updateProductStock: (productId, delta) => {
+        // Mahalliy ko'rsatish uchun (if stock tracking enabled)
         set((state) => ({
-          pendingOrders: [...state.pendingOrders, order],
+          products: state.products.map(p => p.id === productId ? { ...p } : p),
         }));
       },
 
-      markOrderSynced: (orderId) => {
-        set((state) => ({
-          pendingOrders: state.pendingOrders.map(o =>
-            o.id === orderId ? { ...o, synced: true } : o
-          ),
-        }));
-      },
-
-      addPendingStatusUpdate: (orderId, status) => {
-        set((state) => ({
-          pendingStatusUpdates: [
-            ...state.pendingStatusUpdates,
-            { orderId, status, createdAt: new Date().toISOString() },
-          ],
-        }));
-      },
-
-      clearSyncedOrders: () => {
-        set((state) => ({
-          pendingOrders: state.pendingOrders.filter(o => !o.synced),
-          pendingStatusUpdates: [],
-        }));
-      },
-
-      getPendingCount: () => {
-        const { pendingOrders, pendingStatusUpdates } = get();
-        return pendingOrders.filter(o => !o.synced).length + pendingStatusUpdates.length;
-      },
-
+      getProductById: (id) => get().products.find(p => p.id === id),
+      getTableById: (id) => get().tables.find(t => t.id === id),
       isOffline: () => get().connectionStatus === 'offline',
+      hasPending: () => get().pendingCount > 0,
     }),
     {
-      name: 'pos-offline-cache',
+      name: 'pos-offline-v2',
+      partialize: (state) => ({
+        products: state.products,
+        categories: state.categories,
+        tables: state.tables,
+        settings: state.settings,
+        lastSyncAt: state.lastSyncAt,
+        lastPullAt: state.lastPullAt,
+      }),
     }
   )
 );

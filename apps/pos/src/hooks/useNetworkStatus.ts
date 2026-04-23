@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useOfflineStore, type ConnectionStatus } from '../store/offline';
-import { productService, categoryService } from '../services/product.service';
-import { tableService } from '../services/table.service';
+import { useOfflineStore } from '../store/offline';
+import { syncService } from '../services/sync.service';
 
 // ==========================================
 // NETWORK STATUS HOOK
@@ -15,15 +14,13 @@ export function useNetworkStatus() {
   const {
     connectionStatus,
     setConnectionStatus,
-    cacheProducts,
-    cacheCategories,
-    cacheTables,
-    lastSyncAt,
+    applyPullData,
+    lastPullAt,
   } = useOfflineStore();
 
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
-  const checkConnection = async (): Promise<ConnectionStatus> => {
+  const checkConnection = async (): Promise<'online' | 'offline'> => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -40,44 +37,11 @@ export function useNetworkStatus() {
 
   const refreshCache = async () => {
     try {
-      const [products, categories, tables] = await Promise.all([
-        productService.getAll(),
-        categoryService.getAll(),
-        tableService.getAll(),
-      ]);
-
-      cacheProducts(
-        (products || []).map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: Number(p.price),
-          image: p.image,
-          categoryId: p.categoryId,
-          categoryName: p.category?.name || '',
-          isActive: p.isActive,
-        }))
-      );
-
-      cacheCategories(
-        (categories || []).map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          slug: c.slug,
-          sortOrder: c.sortOrder || 0,
-        }))
-      );
-
-      cacheTables(
-        (tables || []).map((t: any) => ({
-          id: t.id,
-          number: t.number,
-          name: t.name,
-          capacity: t.capacity,
-          status: t.status?.toLowerCase() || 'free',
-        }))
-      );
-
-      console.log(`[Offline] Cache yangilandi: ${products?.length || 0} product, ${categories?.length || 0} category, ${tables?.length || 0} table`);
+      const since = lastPullAt || undefined;
+      const data = await syncService.pull(since);
+      if (data) {
+        applyPullData(data);
+      }
     } catch (error) {
       console.error('[Offline] Cache yangilashda xatolik:', error);
     }
@@ -103,8 +67,8 @@ export function useNetworkStatus() {
       setConnectionStatus(status);
 
       if (status === 'online') {
-        const lastSync = lastSyncAt ? new Date(lastSyncAt).getTime() : 0;
-        if (Date.now() - lastSync > 5 * 60 * 1000) {
+        const last = lastPullAt ? new Date(lastPullAt).getTime() : 0;
+        if (Date.now() - last > 5 * 60 * 1000) {
           refreshCache();
         }
       }
@@ -117,5 +81,10 @@ export function useNetworkStatus() {
     };
   }, []);
 
-  return { connectionStatus, isOnline: connectionStatus === 'online', isOffline: connectionStatus === 'offline', refreshCache };
+  return {
+    connectionStatus,
+    isOnline: connectionStatus === 'online',
+    isOffline: connectionStatus === 'offline',
+    refreshCache,
+  };
 }

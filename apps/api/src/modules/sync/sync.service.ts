@@ -1,28 +1,29 @@
-import { prisma, OrderStatus, ItemStatus, TableStatus } from '@oshxona/database';
+import { prisma, OrderStatus, ItemStatus, TableStatus, OrderSource, OrderType } from '@oshxona/database';
+import { Server } from 'socket.io';
 
 // ==========================================
-// SYNC SERVICE — Backend
-// Offline qurilmalardan kelgan ma'lumotlarni qabul qiladi
-// Conflict detection + resolution
+// TYPES
 // ==========================================
 
-interface SyncOrderPayload {
-  id: string;            // Client-generated UUID
-  orderNumber: string;   // Offline order number (OFF-xxx)
+export interface SyncOrderItem {
+  id: string;
+  productId: string;
+  quantity: number;
+  price: number;
+  total: number;
+  notes?: string;
+  status: string;
+}
+
+export interface SyncOrderPayload {
+  id: string;
+  orderNumber: string;
   source: string;
   type: string;
   status: string;
   tableId?: string;
   userId: string;
-  items: Array<{
-    id: string;
-    productId: string;
-    quantity: number;
-    price: number;
-    total: number;
-    notes?: string;
-    status: string;
-  }>;
+  items: SyncOrderItem[];
   subtotal: number;
   discount: number;
   tax: number;
@@ -33,15 +34,16 @@ interface SyncOrderPayload {
   createdAt: string;
 }
 
-interface SyncResult {
+export interface SyncResult {
   success: boolean;
-  action: 'created' | 'updated' | 'conflict' | 'duplicate' | 'error';
+  action: 'created' | 'updated' | 'conflict' | 'duplicate' | 'skipped' | 'error';
   serverId?: string;
   serverVersion?: number;
+  conflictData?: any;
   message: string;
 }
 
-interface BulkSyncResult {
+export interface BulkSyncResult {
   total: number;
   synced: number;
   conflicts: number;
@@ -50,15 +52,22 @@ interface BulkSyncResult {
   results: Array<{ clientId: string; result: SyncResult }>;
 }
 
+// ==========================================
+// SYNC SERVICE
+// ==========================================
+
 export class SyncService {
 
   // ==========================================
   // SINGLE ORDER SYNC
   // ==========================================
 
-  static async syncOrder(tenantId: string, payload: SyncOrderPayload): Promise<SyncResult> {
+  static async syncOrder(
+    tenantId: string,
+    payload: SyncOrderPayload,
+    io?: Server,
+  ): Promise<SyncResult> {
     try {
-      // 1. Duplicate check — same id or orderNumber
       const existing = await prisma.order.findFirst({
         where: {
           tenantId,
@@ -67,28 +76,39 @@ export class SyncService {
             { orderNumber: payload.orderNumber },
           ],
         },
-        select: { id: true, status: true, updatedAt: true },
+        select: {
+          id: true,
+          status: true,
+          updatedAt: true,
+          items: { select: { id: true, status: true } },
+        },
       });
 
       if (existing) {
-        // Same ID — check version for conflict
         if (existing.id === payload.id) {
           const serverVersion = existing.updatedAt.getTime();
+
+          // Client version eski → conflict
           if (payload.version < serverVersion) {
+            const serverOrder = await prisma.order.findUnique({
+              where: { id: existing.id },
+              include: { items: { include: { product: { select: { id: true, name: true } } } } },
+            });
             return {
               success: false,
               action: 'conflict',
               serverId: existing.id,
               serverVersion,
-              message: 'Server versiyasi yangi. Conflict resolution kerak.',
+              conflictData: serverOrder,
+              message: 'Conflict: server versiyasi yangi. Client ma\'lumotni yangilashi kerak.',
             };
           }
 
           // Client yangi — update
-          return this.updateExistingOrder(tenantId, existing.id, payload);
+          return this.updateExistingOrder(tenantId, existing.id, payload, io);
         }
 
-        // Same orderNumber but different ID — duplicate from another device
+        // Boshqa qurilmadan xuddi shu orderNumber
         return {
           success: false,
           action: 'duplicate',
@@ -97,27 +117,27 @@ export class SyncService {
         };
       }
 
-      // 2. Create new order
-      return this.createOrderFromSync(tenantId, payload);
-    } catch (error: any) {
-      return {
-        success: false,
-        action: 'error',
-        message: error.message,
-      };
+      return this.createOrderFromSync(tenantId, payload, io);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, action: 'error', message };
     }
   }
 
   // ==========================================
-  // BULK SYNC — Bir nechta buyurtmani sync qilish
+  // BULK SYNC
   // ==========================================
 
-  static async bulkSync(tenantId: string, orders: SyncOrderPayload[]): Promise<BulkSyncResult> {
+  static async bulkSync(
+    tenantId: string,
+    orders: SyncOrderPayload[],
+    io?: Server,
+  ): Promise<BulkSyncResult> {
     const results: BulkSyncResult['results'] = [];
     let synced = 0, conflicts = 0, duplicates = 0, errors = 0;
 
     for (const order of orders) {
-      const result = await this.syncOrder(tenantId, order);
+      const result = await this.syncOrder(tenantId, order, io);
       results.push({ clientId: order.id, result });
 
       switch (result.action) {
@@ -131,16 +151,27 @@ export class SyncService {
         case 'duplicate':
           duplicates++;
           break;
-        default:
+        case 'error':
           errors++;
+          break;
       }
+    }
+
+    // Bulk sync natijasini broadcast qilish
+    if (io && synced > 0) {
+      io.to(`tenant:${tenantId}:pos`).emit('sync:completed', {
+        tenantId,
+        synced,
+        conflicts,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     return { total: orders.length, synced, conflicts, duplicates, errors, results };
   }
 
   // ==========================================
-  // SYNC ORDER STATUS UPDATE
+  // ORDER STATUS SYNC
   // ==========================================
 
   static async syncOrderStatus(
@@ -148,6 +179,7 @@ export class SyncService {
     orderId: string,
     status: string,
     version: number,
+    io?: Server,
   ): Promise<SyncResult> {
     const existing = await prisma.order.findFirst({
       where: { id: orderId, tenantId },
@@ -159,26 +191,43 @@ export class SyncService {
     }
 
     const serverVersion = existing.updatedAt.getTime();
-    if (version < serverVersion) {
+    if (version < serverVersion && existing.status !== status) {
       return {
         success: false,
         action: 'conflict',
         serverId: existing.id,
         serverVersion,
-        message: 'Server versiyasi yangi',
+        conflictData: { currentStatus: existing.status },
+        message: 'Status konflikti: server versiyasi yangi',
       };
     }
 
-    await prisma.order.update({
+    // Idempotent — agar status bir xil bo'lsa skip
+    if (existing.status === status) {
+      return { success: true, action: 'skipped', serverId: orderId, message: 'Status allaqachon bir xil' };
+    }
+
+    const updated = await prisma.order.update({
       where: { id: orderId },
       data: { status: status as OrderStatus },
     });
 
-    return { success: true, action: 'updated', serverId: orderId, message: 'Status yangilandi' };
+    if (io) {
+      io.to(`tenant:${tenantId}:pos`).emit('order:status', { orderId, status });
+      io.to(`tenant:${tenantId}:kitchen`).emit('order:status', { orderId, status });
+    }
+
+    return {
+      success: true,
+      action: 'updated',
+      serverId: orderId,
+      serverVersion: updated.updatedAt.getTime(),
+      message: 'Status yangilandi',
+    };
   }
 
   // ==========================================
-  // SYNC ITEM STATUS UPDATE
+  // ITEM STATUS SYNC
   // ==========================================
 
   static async syncItemStatus(
@@ -186,13 +235,18 @@ export class SyncService {
     orderId: string,
     itemId: string,
     status: string,
+    io?: Server,
   ): Promise<SyncResult> {
     const item = await prisma.orderItem.findFirst({
-      where: { id: itemId, order: { tenantId } },
+      where: { id: itemId, order: { tenantId, id: orderId } },
     });
 
     if (!item) {
       return { success: false, action: 'error', message: 'Item topilmadi' };
+    }
+
+    if (item.status === status) {
+      return { success: true, action: 'skipped', serverId: itemId, message: 'Status bir xil' };
     }
 
     await prisma.orderItem.update({
@@ -200,14 +254,23 @@ export class SyncService {
       data: { status: status as ItemStatus },
     });
 
+    if (io) {
+      io.to(`tenant:${tenantId}:kitchen`).emit('item:status', { orderId, itemId, status });
+    }
+
     return { success: true, action: 'updated', serverId: itemId, message: 'Item status yangilandi' };
   }
 
   // ==========================================
-  // SYNC TABLE STATUS
+  // TABLE STATUS SYNC
   // ==========================================
 
-  static async syncTableStatus(tenantId: string, tableId: string, status: string): Promise<SyncResult> {
+  static async syncTableStatus(
+    tenantId: string,
+    tableId: string,
+    status: string,
+    io?: Server,
+  ): Promise<SyncResult> {
     const table = await prisma.table.findFirst({
       where: { id: tableId, tenantId },
     });
@@ -216,46 +279,72 @@ export class SyncService {
       return { success: false, action: 'error', message: 'Stol topilmadi' };
     }
 
+    if (table.status === status) {
+      return { success: true, action: 'skipped', serverId: tableId, message: 'Status bir xil' };
+    }
+
     await prisma.table.update({
       where: { id: tableId },
       data: { status: status as TableStatus },
     });
 
+    if (io) {
+      io.to(`tenant:${tenantId}:pos`).emit('table:status', { tableId, status });
+    }
+
     return { success: true, action: 'updated', serverId: tableId, message: 'Stol statusi yangilandi' };
   }
 
   // ==========================================
-  // PULL DATA — Qurilma uchun so'nggi ma'lumotlar
+  // PULL DATA
   // ==========================================
 
-  static async pullData(tenantId: string, since?: string) {
+  static async pullData(tenantId: string, since?: string, deviceId?: string) {
     const sinceDate = since ? new Date(since) : new Date(0);
 
     const [products, categories, tables, recentOrders, settings] = await Promise.all([
       prisma.product.findMany({
-        where: { tenantId, isActive: true },
-        include: { category: true },
+        where: {
+          tenantId,
+          isActive: true,
+          updatedAt: since ? { gte: sinceDate } : undefined,
+        },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+        },
+        orderBy: { sortOrder: 'asc' },
       }),
       prisma.category.findMany({
-        where: { tenantId, isActive: true },
+        where: {
+          tenantId,
+          isActive: true,
+          updatedAt: since ? { gte: sinceDate } : undefined,
+        },
+        orderBy: { sortOrder: 'asc' },
       }),
       prisma.table.findMany({
-        where: { tenantId },
+        where: { tenantId, isActive: true },
+        orderBy: { number: 'asc' },
       }),
       prisma.order.findMany({
         where: {
           tenantId,
           updatedAt: { gte: sinceDate },
-          status: { notIn: ['COMPLETED', 'CANCELLED'] },
+          status: { notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] },
         },
         include: {
           table: { select: { number: true, name: true } },
-          items: { include: { product: { select: { id: true, name: true } } } },
+          items: {
+            include: {
+              product: { select: { id: true, name: true, price: true } },
+            },
+          },
+          payments: { select: { method: true, amount: true, status: true } },
         },
         orderBy: { createdAt: 'desc' },
-        take: 50,
+        take: 100,
       }),
-      prisma.settings.findFirst({ where: { tenantId } }),
+      prisma.settings.findUnique({ where: { tenantId } }),
     ]);
 
     return {
@@ -264,17 +353,26 @@ export class SyncService {
       tables,
       recentOrders,
       settings,
+      deviceId,
       syncedAt: new Date().toISOString(),
+      counts: {
+        products: products.length,
+        categories: categories.length,
+        tables: tables.length,
+        activeOrders: recentOrders.length,
+      },
     };
   }
 
   // ==========================================
-  // HEALTH CHECK — Qurilmalar uchun server tekshirish
+  // HEALTH CHECK
   // ==========================================
 
   static async healthCheck() {
+    const dbOk = await prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
     return {
-      status: 'ok',
+      status: dbOk ? 'ok' : 'degraded',
+      db: dbOk ? 'connected' : 'error',
       timestamp: new Date().toISOString(),
       version: '3.0.0',
     };
@@ -287,53 +385,76 @@ export class SyncService {
   private static async createOrderFromSync(
     tenantId: string,
     payload: SyncOrderPayload,
+    io?: Server,
   ): Promise<SyncResult> {
-    // Product narxlarini tekshirish
-    const productIds = payload.items.map(i => i.productId);
+    // Mahsulotlarni tekshirish
+    const productIds = [...new Set(payload.items.map(i => i.productId))];
     const products = await prisma.product.findMany({
       where: { id: { in: productIds }, tenantId },
+      select: { id: true, price: true },
     });
 
-    if (products.length !== productIds.length) {
-      return { success: false, action: 'error', message: 'Ba\'zi mahsulotlar topilmadi' };
+    const productMap = new Map(products.map(p => [p.id, p]));
+    const missingIds = productIds.filter(id => !productMap.has(id));
+    if (missingIds.length > 0) {
+      return {
+        success: false,
+        action: 'error',
+        message: `Mahsulotlar topilmadi: ${missingIds.join(', ')}`,
+      };
     }
 
-    const order = await prisma.order.create({
-      data: {
-        id: payload.id, // Client UUID ni saqlaymiz
-        tenantId,
-        orderNumber: payload.orderNumber,
-        source: payload.source as any,
-        type: payload.type as any,
-        status: payload.status as OrderStatus,
-        tableId: payload.tableId || null,
-        userId: payload.userId,
-        subtotal: payload.subtotal,
-        discount: payload.discount,
-        tax: payload.tax,
-        total: payload.total,
-        notes: payload.notes,
-        createdAt: new Date(payload.createdAt),
-        items: {
-          create: payload.items.map(item => ({
-            id: item.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-            total: item.total,
-            notes: item.notes,
-            status: item.status as ItemStatus,
-          })),
+    // Prisma transaction — atomik yaratish
+    const order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          id: payload.id,
+          tenantId,
+          orderNumber: payload.orderNumber,
+          source: payload.source as OrderSource,
+          type: payload.type as OrderType,
+          status: payload.status as OrderStatus,
+          tableId: payload.tableId || null,
+          userId: payload.userId,
+          subtotal: payload.subtotal,
+          discount: payload.discount,
+          tax: payload.tax,
+          total: payload.total,
+          notes: payload.notes || null,
+          createdAt: new Date(payload.createdAt),
+          items: {
+            create: payload.items.map(item => ({
+              id: item.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.total,
+              notes: item.notes || null,
+              status: item.status as ItemStatus,
+            })),
+          },
         },
-      },
+        include: {
+          items: { include: { product: { select: { id: true, name: true } } } },
+          table: { select: { number: true, name: true } },
+        },
+      });
+
+      // Stol statusini yangilash
+      if (payload.tableId && payload.type === 'DINE_IN') {
+        await tx.table.updateMany({
+          where: { id: payload.tableId, tenantId },
+          data: { status: TableStatus.OCCUPIED },
+        });
+      }
+
+      return created;
     });
 
-    // Table status
-    if (payload.tableId && payload.type === 'DINE_IN') {
-      await prisma.table.update({
-        where: { id: payload.tableId },
-        data: { status: 'OCCUPIED' },
-      }).catch(() => {});
+    // Socket.IO broadcast
+    if (io) {
+      io.to(`tenant:${tenantId}:pos`).emit('order:new', order);
+      io.to(`tenant:${tenantId}:kitchen`).emit('order:new', order);
     }
 
     return {
@@ -349,16 +470,21 @@ export class SyncService {
     tenantId: string,
     orderId: string,
     payload: SyncOrderPayload,
+    io?: Server,
   ): Promise<SyncResult> {
     const order = await prisma.order.update({
-      where: { id: orderId, tenantId },
+      where: { id: orderId },
       data: {
         status: payload.status as OrderStatus,
-        notes: payload.notes,
+        notes: payload.notes || null,
         discount: payload.discount,
         total: payload.total,
       },
     });
+
+    if (io) {
+      io.to(`tenant:${tenantId}:pos`).emit('order:updated', { id: orderId });
+    }
 
     return {
       success: true,
