@@ -14,5 +14,7 @@ router.post('/disconnect', NonborController.disconnect);
 router.post('/sync', NonborController.sync);
 router.post('/pull-products', NonborController.pullProducts);
 router.get('/businesses', NonborController.listBusinesses);
+router.get('/monitoring', NonborController.monitoring);
+router.post('/batch-sync-products', NonborController.batchSyncProducts);
 
 export default router;

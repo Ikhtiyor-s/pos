@@ -233,4 +233,58 @@ export class NonborController {
       next(error);
     }
   }
+
+  // GET /nonbor/monitoring — monitoring paneli uchun to'liq holat
+  static async monitoring(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+
+      const stats = nonborSyncService.getMonitoringStats();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [settings, nonborOrdersToday, totalNonborOrders] = await Promise.all([
+        prisma.settings.findUnique({
+          where: { tenantId },
+          select: { nonborEnabled: true, nonborSellerId: true, name: true },
+        }),
+        prisma.order.count({ where: { isNonborOrder: true, tenantId, createdAt: { gte: today } } }),
+        prisma.order.count({ where: { isNonborOrder: true, tenantId } }),
+      ]);
+
+      return successResponse(res, {
+        ...stats,
+        enabled:           settings?.nonborEnabled ?? false,
+        sellerId:          settings?.nonborSellerId ?? null,
+        businessName:      settings?.name ?? null,
+        nonborOrdersToday,
+        totalNonborOrders,
+      }, 'Monitoring ma\'lumotlari');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // POST /nonbor/batch-sync-products — manual batch mahsulot sync
+  static async batchSyncProducts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+
+      const settings = await prisma.settings.findUnique({ where: { tenantId } });
+      if (!settings?.nonborEnabled || !settings.nonborSellerId) {
+        return res.status(400).json({ success: false, message: 'Nonbor integratsiya yoqilmagan' });
+      }
+
+      const result = await nonborSyncService.manualBatchSync(tenantId);
+
+      return successResponse(
+        res,
+        result,
+        `Mahsulotlar yangilandi: ${result.updated} ta, o'tkazib yuborildi: ${result.skipped} ta`,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
