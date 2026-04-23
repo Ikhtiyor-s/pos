@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Search, Plus, Package, Grid3X3, UtensilsCrossed, Eye, EyeOff, Edit3, Trash2, X, ScanLine, Camera, Keyboard, Loader2, Info, AlertTriangle, Tag, CheckCircle, Save } from 'lucide-react';
+import { Search, Plus, Package, Grid3X3, UtensilsCrossed, Eye, EyeOff, Edit3, Trash2, X, ScanLine, Camera, Keyboard, Loader2, Info, AlertTriangle, Tag, CheckCircle, Save, FileCode } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { formatPrice } from '../../lib/helpers';
 import api from '../../services/api';
 import type { AdminProduct, ProductFormData, BarcodeResult, CategoryItem } from '../../types';
+import MxikTab from './MxikTab';
+import { useAuthStore } from '../../store/auth';
 
 const INITIAL_FORM: ProductFormData = {
   name: '', price: '', costPrice: '', categoryId: '', description: '',
@@ -38,6 +40,8 @@ export default function ProductsTab({ adminProducts, categories, onRefreshProduc
   const [barcodeResult, setBarcodeResult] = useState<BarcodeResult | null>(null);
   const [mxikLoading, setMxikLoading] = useState(false);
   const [mxikResult, setMxikResult] = useState<MxikResult | null>(null);
+  const [activeTab, setActiveTab] = useState<'main' | 'mxik'>('main');
+  const userRole = useAuthStore((s) => s.user?.role);
 
   const filtered = adminProducts.filter((p) => {
     const matchCat = categoryFilter === 'all' || p.categoryId === categoryFilter;
@@ -50,11 +54,13 @@ export default function ProductsTab({ adminProducts, categories, onRefreshProduc
     setForm(INITIAL_FORM);
     setBarcodeResult(null);
     setMxikResult(null);
+    setActiveTab('main');
     setShowModal(true);
   };
 
   const openEdit = (p: AdminProduct) => {
     setEditing(p);
+    setActiveTab('main');
     setForm({
       name: p.name, price: String(p.price), costPrice: String(p.costPrice || ''),
       categoryId: p.categoryId || '', description: p.description || '',
@@ -218,12 +224,46 @@ export default function ProductsTab({ adminProducts, categories, onRefreshProduc
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowModal(false); setEditing(null); }}>
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white border border-gray-200 shadow-2xl mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between bg-white border-b border-gray-100 px-6 py-4 rounded-t-2xl">
-              <h3 className="text-xl font-bold text-gray-900">{editing ? 'Mahsulotni tahrirlash' : "Yangi mahsulot qo'shish"}</h3>
-              <button onClick={() => { setShowModal(false); setEditing(null); }} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"><X size={20} /></button>
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-100 rounded-t-2xl">
+              <div className="flex items-center justify-between px-6 py-4">
+                <h3 className="text-xl font-bold text-gray-900">{editing ? 'Mahsulotni tahrirlash' : "Yangi mahsulot qo'shish"}</h3>
+                <button onClick={() => { setShowModal(false); setEditing(null); }} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"><X size={20} /></button>
+              </div>
+              {/* Tab switcher — faqat tahrirlashda (yangi mahsulotda MXIK uchun ID kerak) */}
+              {editing && (
+                <div className="flex px-6 pb-0 gap-1">
+                  {([
+                    { id: 'main', label: 'Asosiy', icon: Package },
+                    { id: 'mxik', label: 'MXIK', icon: FileCode },
+                  ] as const).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+                        activeTab === tab.id
+                          ? 'border-orange-500 text-orange-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700',
+                      )}
+                    >
+                      <tab.icon size={14} /> {tab.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="p-6 space-y-5">
+              {/* MXIK tab kontenti */}
+              {activeTab === 'mxik' && editing && (
+                <MxikTab
+                  productId={editing.id}
+                  productName={editing.name}
+                  userRole={userRole || ''}
+                />
+              )}
+              {/* Asosiy tab — faqat activeTab === 'main' yoki yangi mahsulotda */}
+              {(activeTab === 'main' || !editing) && (<>
               {/* Barcode */}
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700"><ScanLine size={16} className="text-orange-500" /> Shtrix kod (Barcode)</label>
@@ -374,8 +414,11 @@ export default function ProductsTab({ adminProducts, categories, onRefreshProduc
                   <div><p className="text-sm font-medium text-gray-700">Barcode orqali topilgan rasm</p><p className="text-xs text-gray-400 mt-0.5">Rasm avtomatik saqlangan</p></div>
                 </div>
               )}
+            </>)}
             </div>
 
+            {/* Footer — faqat asosiy tabda */}
+            {(activeTab === 'main' || !editing) && (
             <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 rounded-b-2xl flex gap-3">
               <button onClick={() => { setShowModal(false); setEditing(null); }} className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">Bekor qilish</button>
               <button onClick={handleSave} disabled={!form.name || !form.price || saving}
@@ -383,6 +426,7 @@ export default function ProductsTab({ adminProducts, categories, onRefreshProduc
                 {saving ? 'Saqlanmoqda...' : editing ? 'Saqlash' : "Qo'shish"}
               </button>
             </div>
+            )}
           </div>
         </div>
       )}

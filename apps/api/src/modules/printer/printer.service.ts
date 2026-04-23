@@ -53,7 +53,7 @@ export class PrinterService {
           customer: { select: { firstName: true, lastName: true, phone: true } },
           user: { select: { firstName: true, lastName: true } },
           items: {
-            include: { product: { select: { id: true, name: true, price: true } } },
+            include: { product: { select: { id: true, name: true, price: true, mxikCode: true, mxikName: true, mxikVatRate: true, mxikVerified: true } } },
           },
         },
       });
@@ -103,7 +103,7 @@ export class PrinterService {
           customer: { select: { firstName: true, lastName: true, phone: true } },
           user: { select: { firstName: true, lastName: true } },
           items: {
-            include: { product: { select: { id: true, name: true, price: true } } },
+            include: { product: { select: { id: true, name: true, price: true, mxikCode: true, mxikName: true, mxikVatRate: true, mxikVerified: true } } },
           },
           payments: {
             where: { status: 'COMPLETED' },
@@ -149,7 +149,7 @@ export class PrinterService {
         customer: { select: { firstName: true, lastName: true, phone: true } },
         user: { select: { firstName: true, lastName: true } },
         items: {
-          include: { product: { select: { id: true, name: true, price: true } } },
+          include: { product: { select: { id: true, name: true, price: true, mxikCode: true, mxikName: true, mxikVatRate: true, mxikVerified: true } } },
         },
       },
     });
@@ -174,7 +174,7 @@ export class PrinterService {
         customer: { select: { firstName: true, lastName: true, phone: true } },
         user: { select: { firstName: true, lastName: true } },
         items: {
-          include: { product: { select: { id: true, name: true, price: true } } },
+          include: { product: { select: { id: true, name: true, price: true, mxikCode: true, mxikName: true, mxikVatRate: true, mxikVerified: true } } },
         },
         payments: {
           where: { status: 'COMPLETED' },

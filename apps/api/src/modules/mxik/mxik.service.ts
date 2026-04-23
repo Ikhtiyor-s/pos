@@ -343,40 +343,178 @@ export class MxikService {
   // MAHSULOTGA MXIK KOD BIRIKTIRISH
   // ==========================================
 
-  static async assignMxikToProduct(
+  // ==========================================
+  // VALIDATSIYA: O'zbekiston MXIK standart
+  // 10–14 ta raqam
+  // ==========================================
+
+  static validateMxikCode(code: string): { valid: boolean; message?: string } {
+    const clean = code.trim().replace(/\s/g, '');
+    if (!/^\d{10,14}$/.test(clean)) {
+      return {
+        valid: false,
+        message: `MXIK kod 10–14 ta raqamdan iborat bo'lishi kerak. "${code}" noto'g'ri format.`,
+      };
+    }
+    return { valid: true };
+  }
+
+  // ==========================================
+  // MAHSULOT MXIK MA'LUMOTLARINI OLISH
+  // ==========================================
+
+  static async getProductMxik(tenantId: string, productId: string) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId, tenantId },
+      select: {
+        id: true,
+        name: true,
+        mxikCode: true,
+        mxikName: true,
+        mxikVatRate: true,
+        mxikExcise: true,
+        mxikVerified: true,
+      },
+    });
+
+    if (!product) return null;
+    return {
+      productId: product.id,
+      productName: product.name,
+      mxikCode: product.mxikCode,
+      mxikName: product.mxikName,
+      mxikVatRate: product.mxikVatRate,
+      mxikExcise: product.mxikExcise ? Number(product.mxikExcise) : null,
+      mxikVerified: product.mxikVerified,
+    };
+  }
+
+  // ==========================================
+  // MAHSULOT MXIK MA'LUMOTLARINI SAQLASH
+  // ==========================================
+
+  static async saveProductMxik(
     tenantId: string,
     productId: string,
-    mxikCode: string,
-  ): Promise<any> {
-    // MXIK kodni tekshirish
-    const mxikResult = await this.lookupMxikCode(mxikCode);
-
-    if (!mxikResult.found) {
-      // Ogohlantirishni qaytarish — topilmadi, lekin admin o'zi bilsa kiritishi mumkin
-      console.warn(`[MXIK] "${mxikCode}" Soliq bazasida topilmadi. Admin tomonidan kiritildi.`);
+    data: {
+      mxikCode: string;
+      mxikName?: string;
+      mxikVatRate?: number;
+      mxikExcise?: number;
+      verifiedByAdmin?: boolean;
+    },
+  ) {
+    // 1. Validatsiya
+    const validation = this.validateMxikCode(data.mxikCode);
+    if (!validation.valid) {
+      throw new Error(validation.message);
     }
 
-    // Mahsulotni yangilash
+    // 2. Soliq bazasida tekshirish (natijaga qarab mxikVerified o'rnatiladi)
+    const lookup = await this.lookupMxikCode(data.mxikCode);
+
+    const mxikName = data.mxikName || (lookup.found ? lookup.name : undefined);
+    const isVerified = lookup.found || (data.verifiedByAdmin === true);
+
+    // 3. Mahsulotni yangilash
     const product = await prisma.product.update({
       where: { id: productId, tenantId },
       data: {
-        sku: mxikCode,
-        tags: {
-          push: mxikResult.found ? `mxik:${mxikCode}` : `mxik:custom:${mxikCode}`,
-        },
+        mxikCode: data.mxikCode.trim(),
+        mxikName: mxikName || undefined,
+        mxikVatRate: data.mxikVatRate ?? (lookup.found ? 12 : undefined),
+        mxikExcise: data.mxikExcise ?? undefined,
+        mxikVerified: isVerified,
       },
-      include: {
-        category: { select: { id: true, name: true } },
+      select: {
+        id: true,
+        name: true,
+        mxikCode: true,
+        mxikName: true,
+        mxikVatRate: true,
+        mxikExcise: true,
+        mxikVerified: true,
       },
     });
 
     return {
       product,
-      mxikResult,
-      verified: mxikResult.found,
-      warning: !mxikResult.found
-        ? 'MXIK kod Soliq bazasida topilmadi. Tasnif soliq bazasidan to\'g\'ri MXIK kodni topib kiriting.'
+      lookedUp: lookup,
+      verified: isVerified,
+      warning: !lookup.found && !data.verifiedByAdmin
+        ? "MXIK kod Soliq bazasida topilmadi. Tasnif.soliq.uz dan tekshiring."
         : null,
     };
+  }
+
+  // ==========================================
+  // MAHSULOT MXIK KODINI O'CHIRISH
+  // ==========================================
+
+  static async clearProductMxik(tenantId: string, productId: string) {
+    return prisma.product.update({
+      where: { id: productId, tenantId },
+      data: {
+        mxikCode: null,
+        mxikName: null,
+        mxikVatRate: null,
+        mxikExcise: null,
+        mxikVerified: false,
+      },
+    });
+  }
+
+  // ==========================================
+  // MXIK KODI BO'YICHA MAHSULOT QIDIRISH
+  // GET /api/mxik/search?code=...
+  // ==========================================
+
+  static async findProductsByMxikCode(tenantId: string, mxikCode: string) {
+    return prisma.product.findMany({
+      where: { mxikCode: { contains: mxikCode }, tenantId },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        mxikCode: true,
+        mxikName: true,
+        mxikVatRate: true,
+        mxikVerified: true,
+        category: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  // ==========================================
+  // TENANT MXIK STATISTIKASI
+  // ==========================================
+
+  static async getMxikStats(tenantId: string) {
+    const [total, withMxik, verified] = await Promise.all([
+      prisma.product.count({ where: { tenantId, isActive: true } }),
+      prisma.product.count({ where: { tenantId, mxikCode: { not: null } } }),
+      prisma.product.count({ where: { tenantId, mxikVerified: true } }),
+    ]);
+
+    return {
+      totalProducts: total,
+      withMxikCode: withMxik,
+      verifiedMxik: verified,
+      withoutMxik: total - withMxik,
+      coveragePercent: total > 0 ? Math.round((withMxik / total) * 100) : 0,
+    };
+  }
+
+  // ==========================================
+  // ESKI: assignMxikToProduct (deprecated, saveProductMxik ishlatilsin)
+  // ==========================================
+
+  /** @deprecated saveProductMxik() ishlatilsin */
+  static async assignMxikToProduct(
+    tenantId: string,
+    productId: string,
+    mxikCode: string,
+  ) {
+    return this.saveProductMxik(tenantId, productId, { mxikCode });
   }
 }

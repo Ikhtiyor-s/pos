@@ -13,7 +13,15 @@ interface POSOrderData {
   user?: { firstName: string; lastName: string } | null;
   items: Array<{
     id: string;
-    product: { id: string; name: string; price?: any };
+    product: {
+      id: string;
+      name: string;
+      price?: any;
+      mxikCode?: string | null;
+      mxikName?: string | null;
+      mxikVatRate?: number | null;
+      mxikVerified?: boolean;
+    };
     quantity: number;
     price: any;
     total: any;
@@ -25,11 +33,7 @@ interface POSOrderData {
   tax: any;
   total: any;
   notes?: string | null;
-  payments?: Array<{
-    method: string;
-    amount: any;
-    status: string;
-  }>;
+  payments?: Array<{ method: string; amount: any; status: string }>;
   createdAt: string | Date;
 }
 
@@ -88,18 +92,16 @@ export function formatKitchenTicket(
     : order.type === 'TAKEAWAY' ? 'OLIB KETISH' : 'YETKAZISH';
 
   const time = new Date(order.createdAt).toLocaleTimeString('uz-UZ', {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: '2-digit', minute: '2-digit',
   });
 
-  // Faqat tayyorlanishi kerak bo'lgan itemlar
   const kitchenItems = order.items
     .filter(item => item.status === 'PENDING' || item.status === 'PREPARING')
     .map(item => ({
       id: item.id,
       name: item.product.name,
       quantity: item.quantity,
-      price: 0, // Oshxona uchun narx ko'rsatilmaydi
+      price: 0,
       total_price: 0,
       comment: item.notes || undefined,
     }));
@@ -121,7 +123,7 @@ export function formatKitchenTicket(
 }
 
 // ==========================================
-// CUSTOMER RECEIPT FORMATTER
+// CUSTOMER RECEIPT FORMATTER (MXIK bilan)
 // ==========================================
 
 export function formatCustomerReceipt(
@@ -139,34 +141,64 @@ export function formatCustomerReceipt(
     .join(', ') || '';
 
   const sourceLabels: Record<string, string> = {
-    POS_ORDER: 'POS',
-    WAITER_ORDER: 'Ofitsiant',
-    QR_ORDER: 'QR Menyu',
-    NONBOR_ORDER: 'Nonbor',
-    TELEGRAM_ORDER: 'Telegram',
-    WEBSITE_ORDER: 'Veb-sayt',
-    API_ORDER: 'API',
+    POS_ORDER: 'POS', WAITER_ORDER: 'Ofitsiant', QR_ORDER: 'QR Menyu',
+    NONBOR_ORDER: 'Nonbor', TELEGRAM_ORDER: 'Telegram',
+    WEBSITE_ORDER: 'Veb-sayt', API_ORDER: 'API',
   };
 
   const typeLabels: Record<string, string> = {
-    DINE_IN: 'Stolda',
-    TAKEAWAY: 'Olib ketish',
-    DELIVERY: 'Yetkazib berish',
+    DINE_IN: 'Stolda', TAKEAWAY: 'Olib ketish', DELIVERY: 'Yetkazib berish',
   };
 
-  const items = order.items.map(item => ({
-    id: item.id,
-    name: item.product.name,
-    quantity: item.quantity,
-    price: Number(item.price),
-    total_price: Number(item.total),
-    comment: item.notes || undefined,
-  }));
+  // MXIK ma'lumoti bor itemlar ro'yxatini to'playmiz (chek oxirida hisobot uchun)
+  const mxikLines: string[] = [];
+
+  const items = order.items.map(item => {
+    const mxikCode = item.product.mxikCode;
+    const vatRate = item.product.mxikVatRate;
+
+    // Item nomida MXIK kodi qisqacha ko'rsatiladi
+    const name = mxikCode
+      ? `${item.product.name} [${mxikCode}]`
+      : item.product.name;
+
+    // Chek oxiri uchun MXIK hisobot satri
+    if (mxikCode) {
+      const vatStr = vatRate !== null && vatRate !== undefined ? ` QQS ${vatRate}%` : '';
+      mxikLines.push(
+        `${mxikCode}${vatStr} — ${item.product.name} x${item.quantity} = ${Number(item.total).toLocaleString()} so'm`
+      );
+    }
+
+    return {
+      id: item.id,
+      name,
+      quantity: item.quantity,
+      price: Number(item.price),
+      total_price: Number(item.total),
+      comment: item.notes || undefined,
+    };
+  });
 
   const tableStr = order.table ? `Stol: ${order.table.number}` : '';
-  const sourceStr = sourceLabels[order.source] || order.source;
   const typeStr = typeLabels[order.type] || order.type;
+  const sourceStr = sourceLabels[order.source] || order.source;
   const orderTypeStr = [typeStr, tableStr, sourceStr].filter(Boolean).join(' | ');
+
+  // Chek oxiri: asosiy ma'lumotlar + MXIK hisobot bo'limi
+  const commentParts: string[] = [
+    order.notes || '',
+    `Jami: ${Number(order.total).toLocaleString()} so'm`,
+    Number(order.discount) > 0 ? `Chegirma: ${Number(order.discount).toLocaleString()} so'm` : '',
+    Number(order.tax) > 0 ? `Soliq: ${Number(order.tax).toLocaleString()} so'm` : '',
+  ];
+
+  if (mxikLines.length > 0) {
+    commentParts.push('');
+    commentParts.push('=== MXIK HISOBOT ===');
+    commentParts.push(...mxikLines);
+    commentParts.push('===================');
+  }
 
   return {
     order_id: order.id,
@@ -178,12 +210,7 @@ export function formatCustomerReceipt(
     delivery_method: typeStr,
     payment_method: paymentMethods,
     order_type: orderTypeStr,
-    comment: [
-      order.notes || '',
-      `Jami: ${Number(order.total).toLocaleString()} so'm`,
-      Number(order.discount) > 0 ? `Chegirma: ${Number(order.discount).toLocaleString()} so'm` : '',
-      Number(order.tax) > 0 ? `Soliq: ${Number(order.tax).toLocaleString()} so'm` : '',
-    ].filter(Boolean).join('\n'),
+    comment: commentParts.filter(l => l !== undefined && l !== '').join('\n'),
     items,
     business_id: businessId,
   };
@@ -197,42 +224,13 @@ export function formatDailyReport(
   report: DailyReportData,
   businessId: number,
 ): XPrinterOrderPayload {
-  // Kunlik hisobotni maxsus item lar sifatida formatlash
   const items: XPrinterOrderPayload['items'] = [];
 
-  // Umumiy ma'lumot
-  items.push({
-    id: 'summary',
-    name: '═══ UMUMIY ═══',
-    quantity: 1,
-    price: 0,
-    total_price: 0,
-  });
+  items.push({ id: 'summary', name: '═══ UMUMIY ═══', quantity: 1, price: 0, total_price: 0 });
+  items.push({ id: 'orders', name: `Buyurtmalar soni`, quantity: report.totalOrders, price: 0, total_price: 0 });
+  items.push({ id: 'revenue', name: `Jami daromad`, quantity: 1, price: report.totalRevenue, total_price: report.totalRevenue });
 
-  items.push({
-    id: 'orders',
-    name: `Buyurtmalar soni`,
-    quantity: report.totalOrders,
-    price: 0,
-    total_price: 0,
-  });
-
-  items.push({
-    id: 'revenue',
-    name: `Jami daromad`,
-    quantity: 1,
-    price: report.totalRevenue,
-    total_price: report.totalRevenue,
-  });
-
-  // To'lov usullari
-  items.push({
-    id: 'payment-header',
-    name: '═══ TO\'LOVLAR ═══',
-    quantity: 1,
-    price: 0,
-    total_price: 0,
-  });
+  items.push({ id: 'payment-header', name: "═══ TO'LOVLAR ═══", quantity: 1, price: 0, total_price: 0 });
 
   if (report.totalCash > 0) {
     items.push({ id: 'cash', name: 'Naqd', quantity: 1, price: report.totalCash, total_price: report.totalCash });
@@ -243,8 +241,6 @@ export function formatDailyReport(
   if (report.totalOnline > 0) {
     items.push({ id: 'online', name: 'Online', quantity: 1, price: report.totalOnline, total_price: report.totalOnline });
   }
-
-  // Chegirmalar va qaytarishlar
   if (report.totalDiscount > 0) {
     items.push({ id: 'discount', name: 'Chegirmalar', quantity: 1, price: -report.totalDiscount, total_price: -report.totalDiscount });
   }
@@ -252,35 +248,20 @@ export function formatDailyReport(
     items.push({ id: 'refund', name: 'Qaytarishlar', quantity: 1, price: -report.totalRefunds, total_price: -report.totalRefunds });
   }
 
-  // Source bo'yicha
   if (report.bySource.length > 0) {
     items.push({ id: 'source-header', name: '═══ MANBALAR ═══', quantity: 1, price: 0, total_price: 0 });
     for (const src of report.bySource) {
-      items.push({
-        id: `src-${src.source}`,
-        name: `${src.source} (${src.orders})`,
-        quantity: src.orders,
-        price: src.revenue,
-        total_price: src.revenue,
-      });
+      items.push({ id: `src-${src.source}`, name: `${src.source} (${src.orders})`, quantity: src.orders, price: src.revenue, total_price: src.revenue });
     }
   }
 
-  // Top mahsulotlar
   if (report.topProducts.length > 0) {
     items.push({ id: 'top-header', name: '═══ TOP TAOMLAR ═══', quantity: 1, price: 0, total_price: 0 });
     for (const prod of report.topProducts.slice(0, 5)) {
-      items.push({
-        id: `top-${prod.name}`,
-        name: prod.name,
-        quantity: prod.quantity,
-        price: prod.revenue / prod.quantity,
-        total_price: prod.revenue,
-      });
+      items.push({ id: `top-${prod.name}`, name: prod.name, quantity: prod.quantity, price: prod.revenue / prod.quantity, total_price: prod.revenue });
     }
   }
 
-  // Kassa
   const kassaComment = [
     report.openingCash !== undefined ? `Ochilish: ${report.openingCash.toLocaleString()} so'm` : '',
     report.closingCash !== undefined ? `Yopilish: ${report.closingCash.toLocaleString()} so'm` : '',
