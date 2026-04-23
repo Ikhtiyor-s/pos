@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user, accessToken, refreshToken, isAuthenticated: true,
-            currentShift: { id: `shift-${Date.now()}`, startTime: new Date().toISOString(), startingCash: 0 },
+            currentShift: { id: `shift-${Date.now()}`, userId: user.id, startTime: new Date().toISOString(), startingCash: 0 },
           });
           return true;
         } catch (error) {
@@ -106,7 +106,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user, accessToken, refreshToken, isAuthenticated: true,
-            currentShift: { id: `shift-${Date.now()}`, startTime: new Date().toISOString(), startingCash: 0 },
+            currentShift: { id: `shift-${Date.now()}`, userId: user.id, startTime: new Date().toISOString(), startingCash: 0 },
           });
           return true;
         } catch (error) {

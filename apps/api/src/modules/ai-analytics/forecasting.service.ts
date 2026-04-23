@@ -445,7 +445,11 @@ export class ForecastingService {
       take: 60,
     });
 
-    const results = [];
+    const results: Array<{
+      id: string; type: any; targetDate: Date; predicted: number;
+      actual: number | null; error: number | null; errorPercent: number | null;
+      accuracy: number | null; confidence: number;
+    }> = [];
 
     for (const forecast of pastForecasts) {
       let actualValue = forecast.actualValue ? Number(forecast.actualValue) : null;

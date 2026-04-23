@@ -900,7 +900,7 @@ class NonborV2Service {
 
   /** @deprecated Use changeOrderStatus() */
   async updateOrderState(orderId: number, state: NonborOrderState, tenantId?: string): Promise<void> {
-    const mapped = state === 'CANCELLED' || state === 'CANCELLED_CLIENT' ? 'CANCELLED_SELLER' : state as any;
+    const mapped = state === 'CANCELLED_CLIENT' ? 'CANCELLED_SELLER' : state as any;
     await this.changeOrderStatus(orderId, mapped, undefined, tenantId);
   }
 }

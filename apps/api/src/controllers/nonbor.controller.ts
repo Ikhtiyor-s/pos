@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '@oshxona/database';
 import { successResponse } from '../utils/response.js';
-import { nonborApiService } from '../services/nonbor.service.js';
+import { nonborApiService, type NonborBusiness } from '../services/nonbor.service.js';
 import { nonborSyncService } from '../services/nonbor-sync.service.js';
 import { logger } from '../utils/logger.js';
 import { Server } from 'socket.io';
@@ -40,7 +40,7 @@ export class NonborController {
         nonborApiService.resetClient();
       }
 
-      let businessInfo = null;
+      let businessInfo: NonborBusiness | null = null;
       try {
         businessInfo = await nonborApiService.findBusinessById(sellerId);
       } catch (err) {
@@ -59,12 +59,12 @@ export class NonborController {
         update: {
           nonborEnabled: true,
           nonborSellerId: sellerId,
-          ...(businessInfo && {
+          ...(businessInfo ? {
             name: businessInfo.title || undefined,
             address: businessInfo.address || undefined,
             phone: businessInfo.phone_number || undefined,
             logo: businessInfo.logo || undefined,
-          }),
+          } : {}),
         },
         create: {
           tenantId,
@@ -115,7 +115,7 @@ export class NonborController {
         return successResponse(res, { enabled: false, sellerId: null, businessName: null });
       }
 
-      let statusCount = null;
+      let statusCount: Record<string, number> | null = null;
       try {
         if (settings.nonborSellerId) {
           statusCount = await nonborApiService.getOrderStatusCount(settings.nonborSellerId);

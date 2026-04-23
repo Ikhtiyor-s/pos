@@ -247,7 +247,7 @@ export class OrderSourceAnalyticsService {
       sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
     }
 
-    const result = [];
+    const result: Array<{ hour: number; sources: Record<string, number>; total: number }> = [];
     for (const [hour, sourceMap] of hourMap) {
       const sources: Record<string, number> = {};
       let total = 0;

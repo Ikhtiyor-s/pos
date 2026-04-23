@@ -2,7 +2,7 @@ import { useState, ReactNode } from 'react';
 import { Utensils, Clock, Plus, Users, Check, CheckCircle, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { formatPrice } from '../../lib/helpers';
-import type { TableData, ActiveOrderData } from '../../types';
+import type { TableData, ActiveOrderData, OrderType } from '../../types';
 
 interface WaiterViewProps {
   tables: TableData[];

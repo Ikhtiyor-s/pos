@@ -30,15 +30,15 @@ export function transformNonborOrder(nonborOrder: any): {
   const customerPhone = order.user?.phone || '';
 
   // Yetkazib berish manzili
-  const deliveryAddress = order.delivery?.address || '';
+  const deliveryAddress = (typeof order.delivery === 'object' && order.delivery !== null ? order.delivery.address : '') || '';
 
   // Buyurtma elementlarini map qilish
-  const items = (order.order_item || []).map((item) => ({
+  const items = (order.items || []).map((item) => ({
     externalProductId: String(item.product?.id || item.id),
     name: item.product?.name || `Mahsulot #${item.id}`,
-    quantity: item.count || 1,
+    quantity: item.quantity || 1,
     price: Number(item.product?.price || 0),
-    total: Number(item.product?.price || 0) * (item.count || 1) + Number(item.addon_price || 0),
+    total: Number(item.product?.price || 0) * (item.quantity || 1),
   }));
 
   return {

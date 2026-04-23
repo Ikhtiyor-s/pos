@@ -57,8 +57,9 @@ function statusBadge(status: string) {
 }
 
 export default function DashboardTab({ dashboardData, dashboardPeriod, onPeriodChange, dashboardLoading }: DashboardTabProps) {
-  const revenueTotal = dashboardData?.revenue?.total ?? (typeof dashboardData?.revenue === 'number' ? dashboardData.revenue : 0);
-  const avgCheck = dashboardData?.revenue?.averageCheck ?? dashboardData?.averageCheck ?? 0;
+  const revenueObj = typeof dashboardData?.revenue === 'object' ? dashboardData.revenue : null;
+  const revenueTotal = revenueObj?.total ?? (typeof dashboardData?.revenue === 'number' ? dashboardData.revenue : 0);
+  const avgCheck = revenueObj?.averageCheck ?? dashboardData?.averageCheck ?? 0;
   const ordersTotal = dashboardData?.orders?.total ?? 0;
   const ordersCompleted = dashboardData?.orders?.completed ?? 0;
 

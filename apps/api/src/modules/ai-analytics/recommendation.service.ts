@@ -91,7 +91,7 @@ export class RecommendationService {
     scored.sort((a, b) => b.compositeScore - a.compositeScore);
 
     // Tavsiyalar yaratish
-    const recommendations = [];
+    const recommendations: Array<{ type: string; title: string; description: string; products: any[] }> = [];
 
     // 1. Yuqori margin + yuqori ommaboplik — "Yulduz mahsulotlar" (targ'ib qiling)
     const stars = scored.filter(
@@ -371,7 +371,11 @@ export class RecommendationService {
       ])
     );
 
-    const recommendations = [];
+    const recommendations: Array<{
+      productId: string; name: string; category: string; currentPrice: number; costPrice: number;
+      currentMargin: number; suggestedPrice: number; suggestedMargin: number;
+      reason: string; description: string; recentQuantity: number; trend: number;
+    }> = [];
 
     for (const product of products) {
       const price = Number(product.price);

@@ -27,7 +27,7 @@ export class ForecastAlertsService {
       select: { id: true },
     });
 
-    const results = [];
+    const results: Array<{ tenantId: string; result: AlertResult }> = [];
     for (const tenant of tenants) {
       const result = await this.checkAndCreateAlerts(tenant.id);
       results.push({ tenantId: tenant.id, result });

@@ -74,6 +74,7 @@ export interface RecentOrder {
   source?: string;
   table?: { number: number; name: string };
   user?: { firstName: string; lastName: string };
+  items?: Array<{ id: string; quantity: number; price: number }>;
   createdAt: string;
 }
 
@@ -122,6 +123,7 @@ export interface StaffMember {
 
 export interface BarcodeResult {
   name?: string;
+  product_name?: string;
   brand?: string;
   image?: string;
   description?: string;

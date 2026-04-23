@@ -346,7 +346,7 @@ export class WarehouseService {
         AND quantity <= min_quantity
     ` as any[];
 
-    const createdAlerts = [];
+    const createdAlerts: Awaited<ReturnType<typeof prisma.stockAlert.create>>[] = [];
 
     for (const item of lowStockItems) {
       const currentQty = Number(item.quantity);

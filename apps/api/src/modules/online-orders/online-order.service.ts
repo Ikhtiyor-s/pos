@@ -150,7 +150,7 @@ export class OnlineOrderService {
       // Tashqi mahsulot IDlarini mahalliy mahsulotlarga map qilish
       for (const item of onlineItems) {
         // Avval nonborProductId bo'yicha, keyin nomi bo'yicha qidirish
-        let localProduct = null;
+        let localProduct: Awaited<ReturnType<typeof prisma.product.findFirst>> = null;
 
         if (item.externalProductId) {
           localProduct = await prisma.product.findFirst({
@@ -184,7 +184,7 @@ export class OnlineOrderService {
     }
 
     // Agar hech qanday element map qilinmagan bo'lsa, faqat statusni o'zgartirish
-    let localOrder = null;
+    let localOrder: Awaited<ReturnType<typeof OrderService.create>> | null = null;
 
     if (mappedItems.length > 0) {
       // Mahalliy buyurtma yaratish

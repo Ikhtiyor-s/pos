@@ -267,7 +267,7 @@ export class ProductService {
   // ==========================================
 
   static async bulkPriceUpdate(tenantId: string, updates: Array<{ productId: string; price: number; costPrice?: number }>) {
-    const results = [];
+    const results: Array<{ id: string; name: string; price: number }> = [];
     for (const update of updates) {
       const product = await prisma.product.update({
         where: { id: update.productId, tenantId },

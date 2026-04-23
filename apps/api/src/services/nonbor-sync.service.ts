@@ -322,7 +322,7 @@ class NonborSyncService {
         discount: 0,
         tax,
         total,
-        address: nonborOrder.delivery?.address || undefined,
+        address: (typeof nonborOrder.delivery === 'object' && nonborOrder.delivery !== null ? nonborOrder.delivery.address : undefined) || undefined,
         nonborOrderId: nonborOrder.id,
         isNonborOrder: true,
         notes: `Nonbor #${nonborOrder.id} | ${nonborOrder.payment_method}`,
