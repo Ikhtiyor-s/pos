@@ -37,6 +37,7 @@ import telegramBotRoutes from '../modules/telegram-bot/telegram-bot.routes.js';
 import smsRoutes from '../modules/sms/sms.routes.js';
 import mxikRoutes from '../modules/mxik/mxik.routes.js';
 import webhookProviderRoutes from '../modules/webhook-provider/webhook-provider.routes.js';
+import reportsRoutes from '../modules/reports/reports.routes.js';
 
 const router = Router();
 
@@ -79,6 +80,7 @@ router.use('/telegram', telegramBotRoutes);
 router.use('/sms', smsRoutes);
 router.use('/mxik', mxikRoutes);
 router.use('/webhook-providers', webhookProviderRoutes);
+router.use('/reports', reportsRoutes);
 
 // API info
 router.get('/', (_req, res) => {

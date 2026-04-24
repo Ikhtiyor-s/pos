@@ -58,6 +58,7 @@ model Tenant {
   notificationSettings  NotificationSetting[]
   analyticsSnapshots    AnalyticsSnapshot[]
   forecasts             Forecast[]
+  generatedReports      GeneratedReport[]
 
   // Yangi modullar v3.1
   loyaltyProgram        LoyaltyProgram?
@@ -121,6 +122,7 @@ model User {
   shifts                Shift[]
   attendances           Attendance[]
   payrolls              Payroll[]
+  generatedReports      GeneratedReport[]
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -944,6 +946,55 @@ model FinancialReport {
 
   @@unique([tenantId, period, periodStart])
   @@map("financial_reports")
+}
+
+// ==========================================
+// GENERATED REPORTS MODULE
+// ==========================================
+
+enum ReportType {
+  SALES_DAILY
+  SALES_WEEKLY
+  SALES_MONTHLY
+  FINANCIAL
+  PRODUCT_RATING
+  STAFF
+  WAREHOUSE
+  TAX
+}
+
+enum ReportFormat {
+  EXCEL
+  PDF
+  CSV
+}
+
+enum ReportStatus {
+  PENDING
+  GENERATING
+  DONE
+  ERROR
+}
+
+model GeneratedReport {
+  id        String       @id @default(uuid())
+  type      ReportType
+  format    ReportFormat
+  params    Json?
+  fileUrl   String?      @map("file_url")
+  fileName  String?      @map("file_name")
+  status    ReportStatus @default(PENDING)
+  error     String?
+  tenantId  String       @map("tenant_id")
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  userId    String?      @map("user_id")
+  user      User?        @relation(fields: [userId], references: [id])
+  expiresAt DateTime     @map("expires_at")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([expiresAt])
+  @@map("generated_reports")
 }
 
 // ==========================================
