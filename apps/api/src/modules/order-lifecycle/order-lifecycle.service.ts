@@ -259,6 +259,12 @@ export class OrderLifecycleService {
             }
             break;
 
+          case 'INVENTORY_RESTORE':
+            if (hook.orderId) {
+              await InventoryService.restoreForOrder(hook.orderId, order.userId || '', tenantId);
+            }
+            break;
+
           case 'TABLE_FREE':
             if (hook.tableId) {
               await prisma.table.update({

@@ -105,10 +105,66 @@ export class InventoryController {
       const tenantId = req.user!.tenantId!;
       const { page, limit } = req.query;
       const result = await InventoryService.getTransactions(req.params.id, tenantId, {
-        page: page ? parseInt(page as string) : undefined,
+        page:  page  ? parseInt(page  as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
       });
       return paginatedResponse(res, result.transactions, result.page, result.limit, result.total);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==========================================
+  // RECIPE (ProductIngredient)
+  // ==========================================
+
+  static async getProductIngredients(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const result   = await InventoryService.getProductIngredients(req.params.productId, tenantId);
+      return successResponse(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async setProductIngredients(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const items    = req.body.ingredients as { inventoryItemId: string; quantity: number }[];
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ success: false, message: 'ingredients [] massiv bo\'lishi kerak' });
+      }
+      const result = await InventoryService.setProductIngredients(req.params.productId, tenantId, items);
+      return successResponse(res, result, 'Retsept saqlandi');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async upsertProductIngredient(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const { inventoryItemId, quantity } = req.body;
+      if (!inventoryItemId || !quantity) {
+        return res.status(400).json({ success: false, message: 'inventoryItemId va quantity kerak' });
+      }
+      const result = await InventoryService.upsertProductIngredient(
+        req.params.productId, tenantId, { inventoryItemId, quantity: Number(quantity) },
+      );
+      return successResponse(res, result, 'Ingredient saqlandi');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async removeProductIngredient(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      await InventoryService.removeProductIngredient(
+        req.params.productId, req.params.inventoryItemId, tenantId,
+      );
+      return successResponse(res, null, 'Ingredient o\'chirildi');
     } catch (error) {
       next(error);
     }

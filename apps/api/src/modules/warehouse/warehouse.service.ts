@@ -1,9 +1,77 @@
+import { Server } from 'socket.io';
 import { prisma, Prisma, PurchaseOrderStatus, AlertSeverity } from '@oshxona/database';
 import { AppError } from '../../middleware/errorHandler.js';
+import { StockAlertNotifier } from './stock-alert.notifier.js';
 
 export class WarehouseService {
+
   // ==========================================
-  // PURCHASE ORDERS
+  // SUPPLIERS (Yetkazib beruvchilar)
+  // ==========================================
+
+  static async getSuppliers(tenantId: string, options: {
+    search?: string; isActive?: boolean; page?: number; limit?: number;
+  } = {}) {
+    const page  = options.page  || 1;
+    const limit = Math.min(options.limit || 50, 200);
+    const skip  = (page - 1) * limit;
+
+    const where: Prisma.SupplierWhereInput = { tenantId };
+    if (options.isActive !== undefined) where.isActive = options.isActive;
+    if (options.search) {
+      where.OR = [
+        { name:  { contains: options.search, mode: 'insensitive' } },
+        { phone: { contains: options.search, mode: 'insensitive' } },
+        { email: { contains: options.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [suppliers, total] = await Promise.all([
+      prisma.supplier.findMany({ where, orderBy: { name: 'asc' }, skip, take: limit }),
+      prisma.supplier.count({ where }),
+    ]);
+
+    return { suppliers, total, page, limit };
+  }
+
+  static async getSupplierById(id: string, tenantId: string) {
+    const supplier = await prisma.supplier.findFirst({
+      where: { id, tenantId },
+      include: {
+        _count: { select: { purchaseOrders: true } },
+      },
+    });
+    if (!supplier) throw new AppError('Yetkazib beruvchi topilmadi', 404);
+    const itemCount = await prisma.inventoryItem.count({ where: { supplierId: id } });
+    return { ...supplier, itemCount };
+  }
+
+  static async createSupplier(tenantId: string, data: {
+    name: string; phone?: string; email?: string; address?: string; notes?: string;
+  }) {
+    return prisma.supplier.create({
+      data: { ...data, tenantId },
+    });
+  }
+
+  static async updateSupplier(id: string, tenantId: string, data: {
+    name?: string; phone?: string; email?: string; address?: string; notes?: string; isActive?: boolean;
+  }) {
+    await this.getSupplierById(id, tenantId);
+    return prisma.supplier.update({ where: { id }, data });
+  }
+
+  static async deleteSupplier(id: string, tenantId: string) {
+    await this.getSupplierById(id, tenantId);
+    const itemCount = await prisma.inventoryItem.count({ where: { supplierId: id } });
+    if (itemCount > 0) {
+      throw new AppError(`Yetkazib beruvchiga ${itemCount} ta mahsulot bog'liq, o'chirish mumkin emas`, 409);
+    }
+    await prisma.supplier.delete({ where: { id } });
+  }
+
+  // ==========================================
+  // PURCHASE ORDERS (Xarid buyurtmalari)
   // ==========================================
 
   static async createPurchaseOrder(data: {
@@ -14,45 +82,35 @@ export class WarehouseService {
     userId: string;
     tenantId: string;
   }) {
-    // Yetkazib beruvchi tekshirish
     const supplier = await prisma.supplier.findFirst({
       where: { id: data.supplierId, tenantId: data.tenantId },
     });
+    if (!supplier) throw new AppError('Yetkazib beruvchi topilmadi', 404);
 
-    if (!supplier) {
-      throw new AppError('Yetkazib beruvchi topilmadi', 404);
-    }
-
-    // Buyurtma raqamini generatsiya qilish
     const orderNumber = await this.generateOrderNumber(data.tenantId);
+    const totalAmount = data.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
 
-    // Umumiy summani hisoblash
-    const totalAmount = data.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    );
-
-    const purchaseOrder = await prisma.purchaseOrder.create({
+    return prisma.purchaseOrder.create({
       data: {
         orderNumber,
-        supplierId: data.supplierId,
+        supplierId:   data.supplierId,
         totalAmount,
-        expectedAt: data.expectedAt ? new Date(data.expectedAt) : undefined,
-        notes: data.notes,
-        userId: data.userId,
-        tenantId: data.tenantId,
+        expectedAt:   data.expectedAt ? new Date(data.expectedAt) : undefined,
+        notes:        data.notes,
+        userId:       data.userId,
+        tenantId:     data.tenantId,
         items: {
-          create: data.items.map((item) => ({
+          create: data.items.map(item => ({
             inventoryItemId: item.inventoryItemId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.quantity * item.unitPrice,
+            quantity:        item.quantity,
+            unitPrice:       item.unitPrice,
+            total:           item.quantity * item.unitPrice,
           })),
         },
       },
       include: {
         supplier: { select: { id: true, name: true } },
-        user: { select: { id: true, firstName: true, lastName: true } },
+        user:     { select: { id: true, firstName: true, lastName: true } },
         items: {
           include: {
             inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
@@ -60,40 +118,26 @@ export class WarehouseService {
         },
       },
     });
-
-    return purchaseOrder;
   }
 
-  static async getPurchaseOrders(
-    tenantId: string,
-    options: {
-      status?: PurchaseOrderStatus;
-      supplierId?: string;
-      page?: number;
-      limit?: number;
-    }
-  ) {
-    const page = options.page || 1;
+  static async getPurchaseOrders(tenantId: string, options: {
+    status?: PurchaseOrderStatus; supplierId?: string; page?: number; limit?: number;
+  }) {
+    const page  = options.page  || 1;
     const limit = options.limit || 20;
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
     const where: Prisma.PurchaseOrderWhereInput = { tenantId };
-
-    if (options.status) {
-      where.status = options.status;
-    }
-
-    if (options.supplierId) {
-      where.supplierId = options.supplierId;
-    }
+    if (options.status)     where.status     = options.status;
+    if (options.supplierId) where.supplierId = options.supplierId;
 
     const [orders, total] = await Promise.all([
       prisma.purchaseOrder.findMany({
         where,
         include: {
           supplier: { select: { id: true, name: true } },
-          user: { select: { id: true, firstName: true, lastName: true } },
-          _count: { select: { items: true } },
+          user:     { select: { id: true, firstName: true, lastName: true } },
+          _count:   { select: { items: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -113,54 +157,36 @@ export class WarehouseService {
         user: { select: { id: true, firstName: true, lastName: true } },
         items: {
           include: {
-            inventoryItem: {
-              select: { id: true, name: true, sku: true, unit: true, quantity: true },
-            },
+            inventoryItem: { select: { id: true, name: true, sku: true, unit: true, quantity: true } },
           },
         },
       },
     });
-
-    if (!order) {
-      throw new AppError('Xarid buyurtmasi topilmadi', 404);
-    }
-
+    if (!order) throw new AppError('Xarid buyurtmasi topilmadi', 404);
     return order;
   }
 
-  static async updatePurchaseOrderStatus(
-    id: string,
-    status: PurchaseOrderStatus,
-    tenantId: string
-  ) {
+  static async updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus, tenantId: string) {
     const order = await this.getPurchaseOrderById(id, tenantId);
 
-    // Status o'tish qoidalari
-    const allowedTransitions: Record<string, string[]> = {
-      DRAFT: ['SENT', 'CANCELLED'],
-      SENT: ['PARTIAL', 'RECEIVED', 'CANCELLED'],
-      PARTIAL: ['RECEIVED', 'CANCELLED'],
+    const allowed: Record<string, string[]> = {
+      DRAFT:    ['SENT', 'CANCELLED'],
+      SENT:     ['PARTIAL', 'RECEIVED', 'CANCELLED'],
+      PARTIAL:  ['RECEIVED', 'CANCELLED'],
       RECEIVED: [],
-      CANCELLED: [],
+      CANCELLED:[],
     };
 
-    const currentStatus = order.status as string;
-    if (!allowedTransitions[currentStatus]?.includes(status)) {
-      throw new AppError(
-        `Statusni ${currentStatus} dan ${status} ga o'zgartirish mumkin emas`,
-        400
-      );
+    if (!allowed[order.status]?.includes(status)) {
+      throw new AppError(`${order.status} → ${status} o'tish mumkin emas`, 400);
     }
 
-    const updated = await prisma.purchaseOrder.update({
+    return prisma.purchaseOrder.update({
       where: { id },
-      data: {
-        status,
-        ...(status === 'RECEIVED' ? { receivedAt: new Date() } : {}),
-      },
+      data: { status, ...(status === 'RECEIVED' ? { receivedAt: new Date() } : {}) },
       include: {
         supplier: { select: { id: true, name: true } },
-        user: { select: { id: true, firstName: true, lastName: true } },
+        user:     { select: { id: true, firstName: true, lastName: true } },
         items: {
           include: {
             inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
@@ -168,96 +194,70 @@ export class WarehouseService {
         },
       },
     });
-
-    return updated;
   }
 
   static async receivePurchaseOrder(
     id: string,
     receivedItems: { itemId: string; receivedQty: number }[],
-    tenantId: string
+    tenantId: string,
+    io?: Server,
   ) {
     const order = await this.getPurchaseOrderById(id, tenantId);
 
-    if (order.status === 'RECEIVED' || order.status === 'CANCELLED') {
-      throw new AppError(
-        `Bu buyurtma allaqachon ${order.status === 'RECEIVED' ? 'qabul qilingan' : 'bekor qilingan'}`,
-        400
-      );
+    if (['RECEIVED', 'CANCELLED'].includes(order.status)) {
+      throw new AppError(`Buyurtma allaqachon ${order.status}`, 400);
     }
 
-    // Tranzaksiya ichida barcha o'zgarishlarni bajarish
     const result = await prisma.$transaction(async (tx) => {
       let allFullyReceived = true;
 
       for (const received of receivedItems) {
-        const orderItem = order.items.find((i) => i.id === received.itemId);
-        if (!orderItem) {
-          throw new AppError(`Buyurtma elementi topilmadi: ${received.itemId}`, 404);
-        }
+        const orderItem = order.items.find(i => i.id === received.itemId);
+        if (!orderItem) throw new AppError(`Element topilmadi: ${received.itemId}`, 404);
 
-        const newReceivedQty = Number(orderItem.receivedQty) + received.receivedQty;
-
-        if (newReceivedQty > Number(orderItem.quantity)) {
+        const newQty = Number(orderItem.receivedQty) + received.receivedQty;
+        if (newQty > Number(orderItem.quantity)) {
           throw new AppError(
-            `Qabul qilingan miqdor (${newReceivedQty}) buyurtma miqdoridan (${orderItem.quantity}) oshib ketdi: ${orderItem.inventoryItem.name}`,
-            400
+            `${orderItem.inventoryItem.name}: qabul miqdori (${newQty}) buyurtmadan (${orderItem.quantity}) ko'p`,
+            400,
           );
         }
 
-        // PurchaseOrderItem ni yangilash
         await tx.purchaseOrderItem.update({
           where: { id: received.itemId },
-          data: { receivedQty: newReceivedQty },
+          data:  { receivedQty: newQty },
         });
 
-        // Inventoryga qo'shish
         await tx.inventoryItem.update({
           where: { id: orderItem.inventoryItemId },
-          data: {
-            quantity: { increment: received.receivedQty },
-          },
+          data:  { quantity: { increment: received.receivedQty } },
         });
 
-        // Tranzaksiya yaratish
         await tx.inventoryTransaction.create({
           data: {
-            itemId: orderItem.inventoryItemId,
-            type: 'IN',
+            itemId:   orderItem.inventoryItemId,
+            type:     'IN',
             quantity: received.receivedQty,
-            notes: `Xarid buyurtmasi ${order.orderNumber} dan qabul qilindi`,
-            userId: order.userId,
+            notes:    `Xarid buyurtmasi ${order.orderNumber}`,
+            userId:   order.userId,
           },
         });
 
-        if (newReceivedQty < Number(orderItem.quantity)) {
-          allFullyReceived = false;
-        }
+        if (newQty < Number(orderItem.quantity)) allFullyReceived = false;
       }
 
-      // Qabul qilinmagan elementlarni tekshirish
-      for (const orderItem of order.items) {
-        const received = receivedItems.find((r) => r.itemId === orderItem.id);
-        if (!received) {
-          const currentReceived = Number(orderItem.receivedQty);
-          if (currentReceived < Number(orderItem.quantity)) {
-            allFullyReceived = false;
-          }
-        }
+      for (const oi of order.items) {
+        const r = receivedItems.find(r => r.itemId === oi.id);
+        if (!r && Number(oi.receivedQty) < Number(oi.quantity)) allFullyReceived = false;
       }
 
-      // Statusni yangilash
       const newStatus: PurchaseOrderStatus = allFullyReceived ? 'RECEIVED' : 'PARTIAL';
-
-      const updated = await tx.purchaseOrder.update({
+      return tx.purchaseOrder.update({
         where: { id },
-        data: {
-          status: newStatus,
-          ...(allFullyReceived ? { receivedAt: new Date() } : {}),
-        },
+        data:  { status: newStatus, ...(allFullyReceived ? { receivedAt: new Date() } : {}) },
         include: {
           supplier: { select: { id: true, name: true } },
-          user: { select: { id: true, firstName: true, lastName: true } },
+          user:     { select: { id: true, firstName: true, lastName: true } },
           items: {
             include: {
               inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
@@ -265,57 +265,42 @@ export class WarehouseService {
           },
         },
       });
-
-      return updated;
     });
+
+    // Yangi zaxira qo'shilganda alertlarni tekshirish
+    await this.checkAndNotifyAlerts(tenantId, io);
 
     return result;
   }
 
   private static async generateOrderNumber(tenantId: string): Promise<string> {
-    const lastOrder = await prisma.purchaseOrder.findFirst({
-      where: { tenantId },
+    const last = await prisma.purchaseOrder.findFirst({
+      where:   { tenantId },
       orderBy: { createdAt: 'desc' },
-      select: { orderNumber: true },
+      select:  { orderNumber: true },
     });
-
-    let nextNum = 1;
-    if (lastOrder) {
-      const match = lastOrder.orderNumber.match(/PO-(\d+)/);
-      if (match) {
-        nextNum = parseInt(match[1], 10) + 1;
-      }
+    let next = 1;
+    if (last) {
+      const m = last.orderNumber.match(/PO-(\d+)/);
+      if (m) next = parseInt(m[1], 10) + 1;
     }
-
-    return `PO-${String(nextNum).padStart(3, '0')}`;
+    return `PO-${String(next).padStart(3, '0')}`;
   }
 
   // ==========================================
   // STOCK ALERTS
   // ==========================================
 
-  static async getStockAlerts(
-    tenantId: string,
-    options: {
-      isResolved?: boolean;
-      severity?: AlertSeverity;
-      page?: number;
-      limit?: number;
-    }
-  ) {
-    const page = options.page || 1;
+  static async getStockAlerts(tenantId: string, options: {
+    isResolved?: boolean; severity?: AlertSeverity; page?: number; limit?: number;
+  }) {
+    const page  = options.page  || 1;
     const limit = options.limit || 20;
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
     const where: Prisma.StockAlertWhereInput = { tenantId };
-
-    if (options.isResolved !== undefined) {
-      where.isResolved = options.isResolved;
-    }
-
-    if (options.severity) {
-      where.severity = options.severity;
-    }
+    if (options.isResolved !== undefined) where.isResolved = options.isResolved;
+    if (options.severity)                  where.severity  = options.severity;
 
     const [alerts, total] = await Promise.all([
       prisma.stockAlert.findMany({
@@ -335,196 +320,139 @@ export class WarehouseService {
     return { alerts, total, page, limit };
   }
 
-  static async checkAndCreateStockAlerts(tenantId: string) {
-    // Kam qolgan mahsulotlarni topish (raw query — Prisma field comparison qo'llab-quvvatlamaydi)
-    const lowStockItems = await prisma.$queryRaw`
-      SELECT id, name, sku, unit, quantity, min_quantity
-      FROM inventory_items
-      WHERE tenant_id = ${tenantId}
-        AND is_active = true
-        AND min_quantity > 0
-        AND quantity <= min_quantity
-    ` as any[];
+  static async checkAndNotifyAlerts(tenantId: string, io?: Server) {
+    const result = await this.checkAndCreateStockAlerts(tenantId);
+    if (result.alerts.length > 0) {
+      await StockAlertNotifier.notify(tenantId, result.alerts as any, io);
+    }
+    return result;
+  }
 
-    const createdAlerts: Awaited<ReturnType<typeof prisma.stockAlert.create>>[] = [];
+  static async checkAndCreateStockAlerts(tenantId: string) {
+    const lowStockItems = await prisma.$queryRaw<any[]>`
+      SELECT id, name, sku, unit, quantity::float, min_quantity::float AS "minQuantity"
+      FROM inventory_items
+      WHERE tenant_id  = ${tenantId}
+        AND is_active  = true
+        AND min_quantity > 0
+        AND quantity  <= min_quantity
+    `;
+
+    const created: any[] = [];
 
     for (const item of lowStockItems) {
-      const currentQty = Number(item.quantity);
-      const minQty = Number(item.min_quantity);
-
-      // Agar hal qilinmagan alert mavjud bo'lsa, yaratmaymiz
-      const existingAlert = await prisma.stockAlert.findFirst({
-        where: {
-          inventoryItemId: item.id,
-          tenantId,
-          isResolved: false,
-        },
+      const existing = await prisma.stockAlert.findFirst({
+        where: { inventoryItemId: item.id, tenantId, isResolved: false },
       });
+      if (existing) continue;
 
-      if (existingAlert) continue;
-
-      // Severity aniqlash
-      const ratio = currentQty / minQty;
-      let severity: AlertSeverity;
-      if (currentQty === 0) {
-        severity = 'CRITICAL';
-      } else if (ratio <= 0.25) {
-        severity = 'HIGH';
-      } else if (ratio <= 0.5) {
-        severity = 'MEDIUM';
-      } else {
-        severity = 'LOW';
-      }
+      const ratio = item.quantity / item.minQuantity;
+      const severity: AlertSeverity =
+        item.quantity === 0 ? 'CRITICAL' :
+        ratio <= 0.25       ? 'HIGH'     :
+        ratio <= 0.5        ? 'MEDIUM'   : 'LOW';
 
       const alert = await prisma.stockAlert.create({
         data: {
           inventoryItemId: item.id,
           severity,
-          currentQty,
-          minQty,
+          currentQty: item.quantity,
+          minQty:     item.minQuantity,
           tenantId,
         },
         include: {
-          inventoryItem: {
-            select: { id: true, name: true, sku: true, unit: true },
-          },
+          inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
         },
       });
-
-      createdAlerts.push(alert);
+      created.push(alert);
     }
 
-    return {
-      scannedItems: lowStockItems.length,
-      createdAlerts: createdAlerts.length,
-      alerts: createdAlerts,
-    };
+    return { scannedItems: lowStockItems.length, createdAlerts: created.length, alerts: created };
   }
 
   static async resolveStockAlert(id: string, tenantId: string) {
-    const alert = await prisma.stockAlert.findFirst({
-      where: { id, tenantId },
-    });
+    const alert = await prisma.stockAlert.findFirst({ where: { id, tenantId } });
+    if (!alert) throw new AppError('Stock alert topilmadi', 404);
+    if (alert.isResolved) throw new AppError('Allaqachon hal qilingan', 400);
 
-    if (!alert) {
-      throw new AppError('Stock alert topilmadi', 404);
-    }
-
-    if (alert.isResolved) {
-      throw new AppError('Bu alert allaqachon hal qilingan', 400);
-    }
-
-    const updated = await prisma.stockAlert.update({
+    return prisma.stockAlert.update({
       where: { id },
-      data: {
-        isResolved: true,
-        resolvedAt: new Date(),
-      },
+      data:  { isResolved: true, resolvedAt: new Date() },
       include: {
-        inventoryItem: {
-          select: { id: true, name: true, sku: true, unit: true },
-        },
+        inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
       },
     });
-
-    return updated;
   }
 
   // ==========================================
-  // WASTE LOGS
+  // WASTE LOGS (Isrof jurnali)
   // ==========================================
 
   static async createWasteLog(data: {
-    inventoryItemId: string;
-    quantity: number;
-    reason: string;
-    userId: string;
-    tenantId: string;
-  }) {
-    // Mahsulot mavjudligini tekshirish
+    inventoryItemId: string; quantity: number; reason: string; userId: string; tenantId: string;
+  }, io?: Server) {
     const item = await prisma.inventoryItem.findFirst({
       where: { id: data.inventoryItemId, tenantId: data.tenantId },
     });
-
-    if (!item) {
-      throw new AppError('Ombor mahsuloti topilmadi', 404);
-    }
-
-    if (Number(item.quantity) < data.quantity) {
-      throw new AppError('Omborda yetarli miqdor yo\'q', 400);
-    }
+    if (!item) throw new AppError('Ombor mahsuloti topilmadi', 404);
+    if (Number(item.quantity) < data.quantity) throw new AppError('Omborda yetarli miqdor yo\'q', 400);
 
     const costAmount = Number(item.costPrice) * data.quantity;
 
-    // Tranzaksiya ichida waste log yaratish va inventorydan ayirish
     const [wasteLog] = await prisma.$transaction([
       prisma.wasteLog.create({
         data: {
           inventoryItemId: data.inventoryItemId,
-          quantity: data.quantity,
-          reason: data.reason,
+          quantity:        data.quantity,
+          reason:          data.reason,
           costAmount,
-          userId: data.userId,
-          tenantId: data.tenantId,
+          userId:          data.userId,
+          tenantId:        data.tenantId,
         },
         include: {
-          inventoryItem: {
-            select: { id: true, name: true, sku: true, unit: true },
-          },
+          inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
         },
       }),
       prisma.inventoryItem.update({
         where: { id: data.inventoryItemId },
-        data: {
-          quantity: { decrement: data.quantity },
-        },
+        data:  { quantity: { decrement: data.quantity } },
       }),
       prisma.inventoryTransaction.create({
         data: {
-          itemId: data.inventoryItemId,
-          type: 'WASTE',
+          itemId:   data.inventoryItemId,
+          type:     'WASTE',
           quantity: data.quantity,
-          notes: `Yo'qotish: ${data.reason}`,
-          userId: data.userId,
+          notes:    `Yo'qotish: ${data.reason}`,
+          userId:   data.userId,
         },
       }),
     ]);
 
+    // Isrof qilingandan keyin alertlarni tekshirish
+    this.checkAndNotifyAlerts(data.tenantId, io).catch(console.error);
+
     return wasteLog;
   }
 
-  static async getWasteLogs(
-    tenantId: string,
-    options: {
-      page?: number;
-      limit?: number;
-      dateFrom?: string;
-      dateTo?: string;
-    }
-  ) {
-    const page = options.page || 1;
+  static async getWasteLogs(tenantId: string, options: {
+    page?: number; limit?: number; dateFrom?: string; dateTo?: string;
+  }) {
+    const page  = options.page  || 1;
     const limit = options.limit || 20;
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
     const where: Prisma.WasteLogWhereInput = { tenantId };
-
     if (options.dateFrom || options.dateTo) {
       where.createdAt = {};
-      if (options.dateFrom) {
-        where.createdAt.gte = new Date(options.dateFrom);
-      }
-      if (options.dateTo) {
-        where.createdAt.lte = new Date(options.dateTo);
-      }
+      if (options.dateFrom) where.createdAt.gte = new Date(options.dateFrom);
+      if (options.dateTo)   where.createdAt.lte = new Date(options.dateTo);
     }
 
     const [logs, total] = await Promise.all([
       prisma.wasteLog.findMany({
         where,
         include: {
-          inventoryItem: {
-            select: { id: true, name: true, sku: true, unit: true },
-          },
+          inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -540,57 +468,39 @@ export class WarehouseService {
     const wasteLogs = await prisma.wasteLog.findMany({
       where: {
         tenantId,
-        createdAt: {
-          gte: new Date(dateFrom),
-          lte: new Date(dateTo),
-        },
+        createdAt: { gte: new Date(dateFrom), lte: new Date(dateTo) },
       },
       include: {
-        inventoryItem: {
-          select: { id: true, name: true, sku: true, unit: true },
-        },
+        inventoryItem: { select: { id: true, name: true, sku: true, unit: true } },
       },
-      orderBy: { createdAt: 'desc' },
     });
 
-    // Mahsulot bo'yicha aggregatsiya
-    const byItem = new Map<
-      string,
-      {
-        inventoryItemId: string;
-        name: string;
-        sku: string;
-        unit: string;
-        totalQuantity: number;
-        totalCost: number;
-        count: number;
-      }
-    >();
+    const byItem = new Map<string, {
+      inventoryItemId: string; name: string; sku: string; unit: string;
+      totalQuantity: number; totalCost: number; count: number;
+    }>();
 
-    let grandTotalQuantity = 0;
     let grandTotalCost = 0;
 
     for (const log of wasteLogs) {
-      const key = log.inventoryItemId;
-      const qty = Number(log.quantity);
+      const qty  = Number(log.quantity);
       const cost = Number(log.costAmount);
-
-      grandTotalQuantity += qty;
       grandTotalCost += cost;
 
+      const key  = log.inventoryItemId;
       if (byItem.has(key)) {
-        const existing = byItem.get(key)!;
-        existing.totalQuantity += qty;
-        existing.totalCost += cost;
-        existing.count += 1;
+        const e = byItem.get(key)!;
+        e.totalQuantity += qty;
+        e.totalCost     += cost;
+        e.count         += 1;
       } else {
         byItem.set(key, {
           inventoryItemId: log.inventoryItemId,
-          name: log.inventoryItem.name,
-          sku: log.inventoryItem.sku,
-          unit: log.inventoryItem.unit,
+          name:  log.inventoryItem.name,
+          sku:   log.inventoryItem.sku,
+          unit:  log.inventoryItem.unit,
           totalQuantity: qty,
-          totalCost: cost,
+          totalCost:     cost,
           count: 1,
         });
       }
@@ -599,9 +509,117 @@ export class WarehouseService {
     return {
       dateFrom,
       dateTo,
-      totalRecords: wasteLogs.length,
+      totalRecords:  wasteLogs.length,
       grandTotalCost,
       items: Array.from(byItem.values()).sort((a, b) => b.totalCost - a.totalCost),
+    };
+  }
+
+  // ==========================================
+  // OYLIK HISOBOT — Ombor aylanmasi
+  // ==========================================
+
+  static async getMonthlyTurnover(tenantId: string, year: number, month: number) {
+    const from = new Date(year, month - 1, 1);
+    const to   = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Barcha tranzaksiyalarni oling
+    const transactions = await prisma.inventoryTransaction.findMany({
+      where: {
+        item: { tenantId },
+        createdAt: { gte: from, lte: to },
+      },
+      include: {
+        item: { select: { id: true, name: true, sku: true, unit: true, costPrice: true } },
+        user: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Mahsulot bo'yicha agregatsiya
+    const byItem = new Map<string, {
+      itemId: string; name: string; sku: string; unit: string;
+      totalIn: number; totalOut: number; totalWaste: number; totalAdjust: number;
+      inCost: number; outCost: number; wasteCost: number;
+      transactionCount: number;
+    }>();
+
+    let totalInCost    = 0;
+    let totalOutCost   = 0;
+    let totalWasteCost = 0;
+
+    for (const tx of transactions) {
+      const qty     = Number(tx.quantity);
+      const cost    = Number(tx.item.costPrice) * qty;
+      const itemId  = tx.itemId;
+
+      if (!byItem.has(itemId)) {
+        byItem.set(itemId, {
+          itemId,
+          name:  tx.item.name,
+          sku:   tx.item.sku,
+          unit:  tx.item.unit,
+          totalIn: 0, totalOut: 0, totalWaste: 0, totalAdjust: 0,
+          inCost: 0, outCost: 0, wasteCost: 0,
+          transactionCount: 0,
+        });
+      }
+
+      const entry = byItem.get(itemId)!;
+      entry.transactionCount++;
+
+      switch (tx.type) {
+        case 'IN':
+          entry.totalIn  += qty;
+          entry.inCost   += cost;
+          totalInCost    += cost;
+          break;
+        case 'OUT':
+          entry.totalOut  += qty;
+          entry.outCost   += cost;
+          totalOutCost    += cost;
+          break;
+        case 'WASTE':
+          entry.totalWaste  += qty;
+          entry.wasteCost   += cost;
+          totalWasteCost    += cost;
+          break;
+        case 'ADJUST':
+          entry.totalAdjust += qty;
+          break;
+      }
+    }
+
+    // Joriy zaxira holati
+    const allItems = await prisma.inventoryItem.findMany({
+      where:  { tenantId, isActive: true },
+      select: { id: true, name: true, sku: true, unit: true, quantity: true, costPrice: true, minQuantity: true },
+    });
+
+    const currentStockValue = allItems.reduce(
+      (sum, i) => sum + Number(i.quantity) * Number(i.costPrice),
+      0,
+    );
+
+    const lowStockItems = allItems.filter(i => Number(i.quantity) <= Number(i.minQuantity) && Number(i.minQuantity) > 0);
+
+    return {
+      period: { year, month, from: from.toISOString(), to: to.toISOString() },
+      summary: {
+        totalTransactions: transactions.length,
+        totalInCost,
+        totalOutCost,
+        totalWasteCost,
+        netCost:           totalInCost - totalOutCost - totalWasteCost,
+        currentStockValue,
+        lowStockCount:     lowStockItems.length,
+      },
+      byItem: Array.from(byItem.values())
+        .sort((a, b) => (b.totalOut + b.totalWaste) - (a.totalOut + a.totalWaste)),
+      lowStockItems: lowStockItems.map(i => ({
+        id: i.id, name: i.name, sku: i.sku, unit: i.unit,
+        quantity: Number(i.quantity), minQuantity: Number(i.minQuantity),
+      })),
     };
   }
 }

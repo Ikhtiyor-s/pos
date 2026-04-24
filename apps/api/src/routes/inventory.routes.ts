@@ -65,4 +65,33 @@ router.post(
   InventoryController.addTransaction
 );
 
+// Recipe (ProductIngredient) — mahsulot bo'yicha
+// GET  /inventory/products/:productId/ingredients
+// PUT  /inventory/products/:productId/ingredients     (to'liq almashtirish)
+// POST /inventory/products/:productId/ingredients     (bitta qo'shish/yangilash)
+// DELETE /inventory/products/:productId/ingredients/:invItemId
+
+router.get(
+  '/products/:productId/ingredients',
+  InventoryController.getProductIngredients
+);
+
+router.put(
+  '/products/:productId/ingredients',
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.WAREHOUSE),
+  InventoryController.setProductIngredients
+);
+
+router.post(
+  '/products/:productId/ingredients',
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.WAREHOUSE),
+  InventoryController.upsertProductIngredient
+);
+
+router.delete(
+  '/products/:productId/ingredients/:inventoryItemId',
+  authorize(Role.SUPER_ADMIN, Role.MANAGER, Role.WAREHOUSE),
+  InventoryController.removeProductIngredient
+);
+
 export default router;
