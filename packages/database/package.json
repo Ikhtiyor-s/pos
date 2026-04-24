@@ -9,10 +9,14 @@
     "dev": "tsc --watch",
     "clean": "rimraf dist",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:migrate:reset": "prisma migrate reset",
+    "db:migrate:baseline": "prisma migrate resolve --applied 20260424000000_init",
     "db:seed": "ts-node prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:validate": "prisma validate"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0"

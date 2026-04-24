@@ -113,12 +113,10 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate --schema=packages/database/prisma/schema.prisma
 
-      - name: Prisma DB push (test uchun)
+      - name: Prisma migrate deploy (test DB)
         run: >
-          npx prisma db push
+          npx prisma migrate deploy
           --schema=packages/database/prisma/schema.prisma
-          --force-reset
-          --accept-data-loss
 
       - name: Run unit tests
         run: npx jest --testPathPattern="\.unit\.test\." --passWithNoTests --coverage
@@ -290,8 +288,6 @@ jobs:
             echo "==> [5/6] Prisma migrate deploy"
             docker exec oshxona-backend sh -c \
               "npx prisma migrate deploy \
-               --schema=../../packages/database/prisma/schema.prisma || \
-               npx prisma db push \
                --schema=../../packages/database/prisma/schema.prisma"
 
             echo "==> [6/6] Health check"
