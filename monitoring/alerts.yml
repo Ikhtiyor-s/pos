@@ -1,0 +1,291 @@
+groups:
+  # ============================================================
+  # API — HTTP XATOLIKLAR
+  # ============================================================
+  - name: api.http
+    interval: 30s
+    rules:
+
+      # 5xx error rate > 5% (5 daqiqa ichida)
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "HTTP 5xx error rate yuqori"
+          description: >-
+            So'nggi 5 daqiqada 5xx xatoliklar {{ $value | humanizePercentage }}
+            ga yetdi (chegara: 5%).
+          runbook: "https://wiki.example.com/runbooks/high-error-rate"
+
+      # 4xx rate > 20%
+      - alert: HighClientErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"4.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "HTTP 4xx error rate yuqori ({{ $value | humanizePercentage }})"
+          description: "Scraper/bot hujumi yoki autentifikatsiya muammosi bo'lishi mumkin."
+
+      # P95 response time > 2s
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, endpoint) (
+              rate(http_request_duration_seconds_bucket[5m])
+            )
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "So'rov vaqti sekin (p95 > 2s)"
+          description: >-
+            Endpoint {{ $labels.endpoint }} uchun p95 response time
+            {{ $value | humanizeDuration }} ga yetdi.
+
+      # API to'liq yoqilmagan
+      - alert: ApiDown
+        expr: up{job="oshxona-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Oshxona API ishlamayapti!"
+          description: "Prometheus {{ $labels.instance }} dan metriclarni ololmayapti."
+
+  # ============================================================
+  # DATABASE
+  # ============================================================
+  - name: database
+    interval: 30s
+    rules:
+
+      # DB so'rov P95 > 500ms
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, operation, model) (
+              rate(db_query_duration_seconds_bucket[5m])
+            )
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Database so'rovlari sekin"
+          description: >-
+            {{ $labels.operation }} on {{ $labels.model }}:
+            p95 = {{ $value | humanizeDuration }} (chegara: 500ms).
+
+      # DB so'rov P99 > 2s
+      - alert: CriticalDatabaseQueries
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (rate(db_query_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 3m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Database juda sekin (p99 > 2s)"
+
+      # DB xatolik rate > 1%
+      - alert: DatabaseErrors
+        expr: |
+          rate(db_query_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Database so'rov xatoliklari mavjud"
+          description: "Xatolik: {{ $labels.error_code }} | Model: {{ $labels.model }}"
+
+      # PostgreSQL exporter yoqilmagan
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "PostgreSQL ishlamayapti!"
+
+  # ============================================================
+  # NONBOR SINXRONIZATSIYA
+  # ============================================================
+  - name: nonbor.sync
+    interval: 60s
+    rules:
+
+      # 15 daqiqa ichida 3 ta yoki undan ko'p xatolik
+      - alert: NonborSyncFailed
+        expr: |
+          increase(nonbor_sync_errors_total[15m]) >= 3
+        for: 0m
+        labels:
+          severity: warning
+          team: integration
+        annotations:
+          summary: "Nonbor sinxronizatsiya muvaffaqiyatsiz"
+          description: >-
+            Tenant {{ $labels.tenant_id }}: so'nggi 15 daqiqada
+            {{ $value }} ta xatolik (tur: {{ $labels.error_type }}).
+
+      # 30 daqiqadan beri muvaffaqiyatli sinxronizatsiya yo'q
+      - alert: NonborSyncStale
+        expr: |
+          (time() - nonbor_sync_last_success_timestamp) > 1800
+        for: 5m
+        labels:
+          severity: critical
+          team: integration
+        annotations:
+          summary: "Nonbor sinxronizatsiya uzoq vaqtdan beri ishlamayapti"
+          description: >-
+            Tenant {{ $labels.tenant_id }}: oxirgi muvaffaqiyatli sinxronizatsiya
+            {{ $value | humanizeDuration }} oldin bo'lgan.
+
+  # ============================================================
+  # REDIS
+  # ============================================================
+  - name: redis
+    interval: 30s
+    rules:
+
+      # Redis ishlamayapti
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Redis ishlamayapti!"
+
+      # Hit ratio < 50%
+      - alert: LowRedisHitRatio
+        expr: redis_hit_ratio < 0.50
+        for: 15m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Redis cache hit ratio past"
+          description: >-
+            Namespace {{ $labels.namespace }}: hit ratio {{ $value | humanizePercentage }}.
+            Cache strategy ko'rib chiqilsin.
+
+  # ============================================================
+  # TIZIM RESURSLARI
+  # ============================================================
+  - name: system
+    interval: 60s
+    rules:
+
+      # Disk < 10%
+      - alert: LowDiskSpace
+        expr: |
+          (disk_space_bytes{type="available"} / disk_space_bytes{type="total"}) < 0.10
+        for: 5m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Disk maydoni kam qoldi (< 10%)"
+          description: >-
+            Mavjud: {{ $labels.type | printf "%.2f" }} GB.
+            Eski loglar va Docker imaglarni tozalash kerak.
+
+      # Disk < 20% (oldindan ogohlantirish)
+      - alert: DiskSpaceWarning
+        expr: |
+          (disk_space_bytes{type="available"} / disk_space_bytes{type="total"}) < 0.20
+        for: 15m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Disk maydoni ozayib bormoqda (< 20%)"
+
+      # Node.js memory > 400MB
+      - alert: HighMemoryUsage
+        expr: nodejs_heap_used_bytes > 400 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Node.js heap xotira yuqori"
+          description: >-
+            Heap used: {{ $value | humanize1024 }}B.
+            Memory leak bo'lishi mumkin.
+
+      # CPU load > 80% (node exporter)
+      - alert: HighCpuUsage
+        expr: |
+          100 - (avg by (instance) (
+            irate(node_cpu_seconds_total{mode="idle"}[5m])
+          ) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "CPU yuklama yuqori (> 80%)"
+          description: "Server {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}% CPU."
+
+  # ============================================================
+  # BIZNES METRIKALAR
+  # ============================================================
+  - name: business
+    interval: 60s
+    rules:
+
+      # Aktiv buyurtmalar soni 100 dan oshsa (bir tenant uchun)
+      - alert: TooManyActiveOrders
+        expr: orders_active_count > 100
+        for: 10m
+        labels:
+          severity: warning
+          team: business
+        annotations:
+          summary: "Juda ko'p faol buyurtmalar"
+          description: >-
+            Tenant {{ $labels.tenant_id }}: {{ $value }} ta faol buyurtma.
+
+      # Socket ulanishlar keskin kamaysa (restart belgisi)
+      - alert: SocketConnectionsDrop
+        expr: |
+          (
+            sum(socket_io_active_connections) offset 5m
+            - sum(socket_io_active_connections)
+          ) > 20
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Socket.IO ulanishlari keskin kamaydi"

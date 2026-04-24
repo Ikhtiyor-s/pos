@@ -1,0 +1,145 @@
+# Monitoring stack — Prometheus + Grafana + Alertmanager + Exporters
+# Ishlatish: docker compose -f docker/docker-compose.prod.yml -f monitoring/docker-compose.monitoring.yml up -d
+# Standalone:  docker compose -f monitoring/docker-compose.monitoring.yml up -d
+
+version: '3.8'
+
+networks:
+  oshxona-network:
+    external: true        # Asosiy stack bilan umumiy network
+  monitoring-internal:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+services:
+
+  # ────────���─────────────────────────────────────────────────
+  # PROMETHEUS
+  # ──────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: oshxona-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.enable-lifecycle'             # API orqali reload
+      - '--web.enable-admin-api'
+      - '--log.level=info'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - '9090:9090'
+    networks:
+      - oshxona-network
+      - monitoring-internal
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:9090/-/healthy']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ────────────────────────────────────────────────���─────────
+  # GRAFANA
+  # ─────────────────────────────────────────���────────────────
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: oshxona-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-ChangeMe!123}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3001}
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_INSTALL_PLUGINS: ''
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/oshxona-pos.json
+      GF_ALERTING_ENABLED: 'true'
+      GF_UNIFIED_ALERTING_ENABLED: 'true'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - '3001:3000'
+    networks:
+      - monitoring-internal
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ──────────────────────────────────────���───────────────────
+  # ALERTMANAGER
+  # ──────────────────────────────��───────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: oshxona-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--log.level=info'
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - '9093:9093'
+    networks:
+      - monitoring-internal
+
+  # ─────────────────────────────────────────────���────────────
+  # NODE EXPORTER (server metriclar)
+  # ──────────────────────────────────────��───────────────────
+  node-exporter:
+    image: prom/node-exporter:v1.8.0
+    container_name: oshxona-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|run)($|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+    networks:
+      - monitoring-internal
+    pid: host
+
+  # ───────────────────────────────���──────────────────────────
+  # POSTGRES EXPORTER
+  # ────────────────────────────────��─────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: oshxona-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: ${DATABASE_URL}
+      PG_EXPORTER_EXCLUDE_DATABASES: 'template0,template1'
+    networks:
+      - oshxona-network
+      - monitoring-internal
+
+  # ────────────────────────────────────────────���─────────────
+  # REDIS EXPORTER
+  # ──────────────────────────────────────────────────────────
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    container_name: oshxona-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    networks:
+      - oshxona-network
+      - monitoring-internal

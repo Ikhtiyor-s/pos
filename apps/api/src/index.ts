@@ -22,7 +22,13 @@ import { processRetryQueue } from './modules/webhook-provider/webhook-provider.s
 import { startReportCrons } from './modules/reports/report-cleanup.cron.js';
 import { startTelegramCrons } from './modules/telegram-bot/telegram-bot.cron.js';
 import { startLoyaltyCrons } from './modules/loyalty/loyalty.cron.js';
-import { logger } from './utils/logger.js';
+import { logger, Sentry } from './utils/logger.js';
+import { metricsMiddleware, createMetricsRouter } from './middleware/metrics.middleware.js';
+import {
+  socketActiveConnections,
+  socketEventsTotal,
+  startPeriodicCollectors,
+} from './config/metrics.js';
 
 const env = validateEnv();
 
@@ -37,7 +43,6 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
   },
-  // Ping interval oshirish — unnecessary disconnects kamaytirish
   pingInterval: 25000,
   pingTimeout: 20000,
 });
@@ -46,14 +51,30 @@ setupSocket(io);
 realtimeSyncManager.initialize(io);
 app.set('io', io);
 
+// Socket.IO connection metrics
+io.on('connection', (socket) => {
+  const tenantId = (socket.handshake.query.tenantId as string) || 'unknown';
+  socketActiveConnections.inc({ tenant_id: tenantId });
+  socketEventsTotal.inc({ event: 'connection', direction: 'in' });
+
+  socket.on('disconnect', () => {
+    socketActiveConnections.dec({ tenant_id: tenantId });
+    socketEventsTotal.inc({ event: 'disconnect', direction: 'in' });
+  });
+});
+
 // ==========================================
 // MIDDLEWARE PIPELINE
 // ==========================================
 
-// 1. Request ID — eng birinchi, barcha loglar uchun
+// 0. Prometheus metrics (auth yo'q — internal only)
+app.use(metricsMiddleware);
+app.use(createMetricsRouter());
+
+// 1. Request ID
 app.use(requestIdMiddleware);
 
-// 2. Security headers — Content-Security-Policy, HSTS, etc.
+// 3. Security headers
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -69,7 +90,7 @@ app.use(
   }),
 );
 
-// 3. CORS
+// 4. CORS
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -86,14 +107,14 @@ app.use(
   }),
 );
 
-// 4. Request parsing — 10mb limit (file uploads uchun multer ishlatiladi)
+// 5. Request parsing
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// 5. Logging
+// 6. Logging
 app.use(requestLogger);
 
-// 6. Rate limiting
+// 7. Rate limiting
 app.use('/api', globalLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/login-pin', authLimiter);
@@ -117,8 +138,12 @@ app.use('/api', routes);
 app.use('/api/v1', routes);
 
 // ==========================================
-// ERROR HANDLERS (oxirda bo'lishi shart)
+// ERROR HANDLERS
 // ==========================================
+
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -130,7 +155,6 @@ app.use(errorHandler);
 const PORT = env.PORT;
 
 async function bootstrap() {
-  // Redis'ga ulanish
   try {
     await connectRedis();
   } catch (err) {
@@ -146,6 +170,7 @@ async function bootstrap() {
       version: '3.0.0',
     });
 
+    startPeriodicCollectors();
     setupGracefulShutdown(httpServer, io);
 
     try {
@@ -162,7 +187,6 @@ async function bootstrap() {
     startTelegramCrons();
     startLoyaltyCrons();
 
-    // Webhook retry queue — har 5 daqiqada
     setInterval(() => {
       processRetryQueue().catch((err: Error) => {
         logger.warn('Webhook retry queue xatosi', { error: err.message });

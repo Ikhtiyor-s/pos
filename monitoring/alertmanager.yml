@@ -1,0 +1,114 @@
+global:
+  resolve_timeout: 5m
+  telegram_api_url: 'https://api.telegram.org'
+
+# ============================================================
+# ROUTING
+# ============================================================
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: telegram-default
+
+  routes:
+    # Critical — darhol Telegram + 1h qayta
+    - matchers:
+        - severity = critical
+      receiver: telegram-critical
+      repeat_interval: 1h
+      continue: true
+
+    # Infrastructure — alohida
+    - matchers:
+        - team = infrastructure
+      receiver: telegram-infra
+      group_interval: 2m
+
+    # Business — business kanalga
+    - matchers:
+        - team = business
+      receiver: telegram-business
+
+    # Integration — integration kanalga
+    - matchers:
+        - team = integration
+      receiver: telegram-integration
+
+# ============================================================
+# INHIBITION — avvalgi alertlar keyingini bosadi
+# ============================================================
+inhibit_rules:
+  # API down bo'lsa, slow query alertlarini bosish
+  - source_matchers:
+      - alertname = ApiDown
+    target_matchers:
+      - alertname =~ "Slow.*|High.*"
+    equal: [app]
+
+# ============================================================
+# RECEIVERS
+# ============================================================
+receivers:
+
+  - name: telegram-default
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        message: |
+          {{ range .Alerts }}
+          {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .Labels.alertname }}</b>
+          Severity: {{ .Labels.severity }}
+          {{ .Annotations.summary }}
+          {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          {{ end }}
+
+  - name: telegram-critical
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CRITICAL_CHAT_ID:-${TELEGRAM_CHAT_ID}}
+        parse_mode: HTML
+        message: |
+          {{ range .Alerts }}
+          🚨 <b>CRITICAL: {{ .Labels.alertname }}</b>
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ if .Annotations.runbook }}📖 Runbook: {{ .Annotations.runbook }}{{ end }}
+          Time: {{ .StartsAt.Format "15:04:05" }}
+          {{ end }}
+
+  - name: telegram-infra
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        message: |
+          {{ range .Alerts }}
+          🖥️ <b>Infra: {{ .Labels.alertname }}</b>
+          {{ .Annotations.summary }}
+          {{ end }}
+
+  - name: telegram-business
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        message: |
+          {{ range .Alerts }}
+          📊 <b>Biznes: {{ .Labels.alertname }}</b>
+          {{ .Annotations.summary }}
+          {{ end }}
+
+  - name: telegram-integration
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        message: |
+          {{ range .Alerts }}
+          🔄 <b>Integration: {{ .Labels.alertname }}</b>
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
