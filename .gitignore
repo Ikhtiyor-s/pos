@@ -48,9 +48,8 @@ uploads/
 *.db
 *.sqlite
 
-# Prisma
-packages/database/prisma/migrations/*
-!packages/database/prisma/migrations/.gitkeep
+# Prisma — migrations MUST be committed (version control uchun zarur)
+# packages/database/prisma/migrations/ — DO NOT ignore
 
 # Mobile
 apps/mobile/.expo/
