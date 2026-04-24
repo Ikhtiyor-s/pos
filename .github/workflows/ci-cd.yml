@@ -1,0 +1,456 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# Bir vaqtda bir xil ref uchun bitta run — PRlarda avvalgisi bekor qilinadi
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+  NODE_VERSION: '20'
+
+# ============================================================
+# JOB 1 — LINT & TYPE CHECK
+# ============================================================
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Prisma generate (types uchun)
+        run: npx prisma generate --schema=packages/database/prisma/schema.prisma
+
+      - name: TypeScript check — API
+        run: npx tsc --noEmit --project apps/api/tsconfig.json
+
+      - name: TypeScript check — POS
+        run: npx tsc --noEmit --project apps/pos/tsconfig.json
+
+      - name: ESLint
+        run: |
+          cd apps/api && npx eslint src --ext .ts --max-warnings 0 || true
+          cd ../pos  && npx eslint src --ext .ts,.tsx --max-warnings 0 || true
+
+      - name: Prettier check
+        run: npx prettier --check "**/*.{ts,tsx,json}" --ignore-path .gitignore
+
+# ============================================================
+# JOB 2 — TESTS
+# ============================================================
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: oshxona_test
+        options: >-
+          --health-cmd "pg_isready -U test -d oshxona_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/oshxona_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-jwt-secret-min-32-chars-long-ok
+      JWT_REFRESH_SECRET: test-refresh-secret-min-32-chars-ok
+      NODE_ENV: test
+      PORT: 3001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Prisma generate
+        run: npx prisma generate --schema=packages/database/prisma/schema.prisma
+
+      - name: Prisma DB push (test uchun)
+        run: >
+          npx prisma db push
+          --schema=packages/database/prisma/schema.prisma
+          --force-reset
+          --accept-data-loss
+
+      - name: Run unit tests
+        run: npx jest --testPathPattern="\.unit\.test\." --passWithNoTests --coverage
+        working-directory: apps/api
+
+      - name: Run integration tests
+        run: npx jest --testPathPattern="\.int\.test\." --passWithNoTests --forceExit
+        working-directory: apps/api
+
+      - name: Upload coverage
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/api/coverage/
+          retention-days: 7
+
+# ============================================================
+# JOB 3 — DOCKER BUILD & PUSH
+# ============================================================
+  build:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [lint, test]
+    # PRlarda faqat build (push yo'q), push eventlarda registry'ga push
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      image-tag: ${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Backend meta tags ────────────────────────────────
+      - name: Backend image metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # ── Frontend meta tags ───────────────────────────────
+      - name: Frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # ── Backend build ────────────────────────────────────
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/backend.Dockerfile
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          platforms: linux/amd64
+
+      # ── Frontend build ───────────────────────────────────
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend.Dockerfile
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: |
+            VITE_API_URL=/api
+            VITE_TENANT_ID=${{ secrets.VITE_TENANT_ID }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          platforms: linux/amd64
+
+      - name: Image digest summary
+        if: github.event_name == 'push'
+        run: |
+          echo "### Docker Images Built 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tag |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend  | \`${{ env.BACKEND_IMAGE }}:${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | \`${{ env.FRONTEND_IMAGE }}:${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+
+# ============================================================
+# JOB 4 — DEPLOY (faqat main branch, push event)
+# ============================================================
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ secrets.APP_URL }}
+
+    steps:
+      - name: Checkout (scripts uchun)
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: >
+            BACKEND_IMAGE,FRONTEND_IMAGE,
+            GITHUB_SHA,GITHUB_ACTOR,
+            REGISTRY
+          script: |
+            set -euo pipefail
+            IMAGE_TAG="${GITHUB_SHA:0:7}"
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            cd "$DEPLOY_PATH"
+
+            echo "==> [1/6] GHCR login"
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+            echo "==> [2/6] Joriy imageni saqlash (rollback uchun)"
+            PREV_BACKEND=$(docker inspect oshxona-backend \
+              --format='{{.Config.Image}}' 2>/dev/null || echo "none")
+            PREV_FRONTEND=$(docker inspect oshxona-pos \
+              --format='{{.Config.Image}}' 2>/dev/null || echo "none")
+            echo "$PREV_BACKEND" > /tmp/prev_backend_image
+            echo "$PREV_FRONTEND" > /tmp/prev_frontend_image
+            echo "Oldingi backend : $PREV_BACKEND"
+            echo "Oldingi frontend: $PREV_FRONTEND"
+
+            echo "==> [3/6] Yangi imageni pull qilish"
+            docker pull "${BACKEND_IMAGE}:${IMAGE_TAG}"
+            docker pull "${FRONTEND_IMAGE}:${IMAGE_TAG}"
+
+            echo "==> [4/6] Containerlarni yangilash"
+            export BACKEND_TAG="${IMAGE_TAG}"
+            export FRONTEND_TAG="${IMAGE_TAG}"
+            docker compose -f docker-compose.prod.yml up -d \
+              --no-deps --remove-orphans backend pos
+
+            echo "==> [5/6] Prisma migrate deploy"
+            docker exec oshxona-backend sh -c \
+              "npx prisma migrate deploy \
+               --schema=../../packages/database/prisma/schema.prisma || \
+               npx prisma db push \
+               --schema=../../packages/database/prisma/schema.prisma"
+
+            echo "==> [6/6] Health check"
+            HEALTH_URL="${{ secrets.HEALTH_CHECK_URL }}/health"
+            MAX_RETRY=6; DELAY=10; SUCCESS=0
+            for i in $(seq 1 $MAX_RETRY); do
+              echo "  Urinish $i/$MAX_RETRY..."
+              STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
+                --max-time 10 "$HEALTH_URL" 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "  ✅ Health check o'tdi (HTTP $STATUS)"
+                SUCCESS=1; break
+              fi
+              echo "  ⚠️  HTTP $STATUS — ${DELAY}s kutilmoqda..."
+              sleep $DELAY
+            done
+
+            if [ "$SUCCESS" = "0" ]; then
+              echo "❌ Health check muvaffaqiyatsiz — rollback boshlandi..."
+              PREV_B=$(cat /tmp/prev_backend_image)
+              PREV_F=$(cat /tmp/prev_frontend_image)
+              if [ "$PREV_B" != "none" ]; then
+                docker pull "$PREV_B" 2>/dev/null || true
+                docker pull "$PREV_F" 2>/dev/null || true
+                ROLLBACK_BACKEND_TAG="${PREV_B##*:}"
+                ROLLBACK_FRONTEND_TAG="${PREV_F##*:}"
+                BACKEND_TAG="$ROLLBACK_BACKEND_TAG" \
+                FRONTEND_TAG="$ROLLBACK_FRONTEND_TAG" \
+                  docker compose -f docker-compose.prod.yml up -d \
+                    --no-deps backend pos
+                echo "⬅️  Rollback yakunlandi: $PREV_B / $PREV_F"
+              fi
+              exit 1
+            fi
+
+            echo "✅ Deploy muvaffaqiyatli: ${IMAGE_TAG}"
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "### Deployment Successful ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag:** \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.event.head_commit.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** ${{ secrets.APP_URL }}" >> $GITHUB_STEP_SUMMARY
+
+# ============================================================
+# JOB 5 — NOTIFY (doim ishlaydi)
+# ============================================================
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [lint, test, build, deploy]
+    if: always() && github.event_name == 'push'
+
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          LINT="${{ needs.lint.result }}"
+          TEST="${{ needs.test.result }}"
+          BUILD="${{ needs.build.result }}"
+          DEPLOY="${{ needs.deploy.result }}"
+
+          if [[ "$DEPLOY" == "success" ]]; then
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+            echo "status=MUVAFFAQIYATLI" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          elif [[ "$DEPLOY" == "failure" ]]; then
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+            echo "status=DEPLOY XATOLIK" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          elif [[ "$BUILD" == "failure" ]]; then
+            echo "emoji=🔴" >> $GITHUB_OUTPUT
+            echo "status=BUILD XATOLIK" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          elif [[ "$TEST" == "failure" ]]; then
+            echo "emoji=🧪" >> $GITHUB_OUTPUT
+            echo "status=TEST XATOLIK" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          elif [[ "$LINT" == "failure" ]]; then
+            echo "emoji=🔍" >> $GITHUB_OUTPUT
+            echo "status=LINT XATOLIK" >> $GITHUB_OUTPUT
+            echo "color=warning" >> $GITHUB_OUTPUT
+          elif [[ "$DEPLOY" == "skipped" || "$DEPLOY" == "" ]]; then
+            echo "emoji=⚙️" >> $GITHUB_OUTPUT
+            echo "status=BUILD TAYYOR" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          else
+            echo "emoji=⚠️" >> $GITHUB_OUTPUT
+            echo "status=NOMA'LUM" >> $GITHUB_OUTPUT
+            echo "color=warning" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Telegram notification ────────────────────────────
+      - name: Telegram notification
+        if: secrets.TELEGRAM_BOT_TOKEN != ''
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1 | cut -c1-80)
+          ACTOR="${{ github.actor }}"
+          EMOJI="${{ steps.status.outputs.emoji }}"
+          STATUS="${{ steps.status.outputs.status }}"
+
+          LINT_ICON=$([ "${{ needs.lint.result }}" = "success" ] && echo "✅" || echo "❌")
+          TEST_ICON=$([ "${{ needs.test.result }}" = "success" ] && echo "✅" || echo "❌")
+          BUILD_ICON=$([ "${{ needs.build.result }}" = "success" ] && echo "✅" || \
+                       [ "${{ needs.build.result }}" = "skipped" ] && echo "⏭" || echo "❌")
+          DEPLOY_ICON=$([ "${{ needs.deploy.result }}" = "success" ] && echo "✅" || \
+                        [ "${{ needs.deploy.result }}" = "skipped" ] && echo "⏭" || echo "❌")
+
+          MESSAGE="${EMOJI} <b>Oshxona POS — ${STATUS}</b>
+
+          🌿 Branch: <code>${BRANCH}</code>
+          🔑 Commit: <code>${SHORT_SHA}</code>
+          📝 ${COMMIT_MSG}
+          👤 Actor: ${ACTOR}
+
+          ${LINT_ICON} Lint &amp; TypeCheck
+          ${TEST_ICON} Tests
+          ${BUILD_ICON} Docker Build
+          ${DEPLOY_ICON} Deploy
+
+          🔗 <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Pipeline</a>"
+
+          curl -sSf -X POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+              \"text\": \"$(echo "$MESSAGE" | sed 's/"/\\"/g')\",
+              \"parse_mode\": \"HTML\",
+              \"disable_web_page_preview\": true
+            }" > /dev/null
+
+      # ── Slack notification ───────────────────────────────
+      - name: Slack notification
+        if: secrets.SLACK_WEBHOOK_URL != ''
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -1 | cut -c1-80)
+          STATUS="${{ steps.status.outputs.status }}"
+          COLOR="${{ steps.status.outputs.color }}"
+
+          curl -sSf -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"${COLOR}\",
+                \"title\": \"Oshxona POS — ${STATUS}\",
+                \"fields\": [
+                  {\"title\": \"Branch\", \"value\": \"${BRANCH}\", \"short\": true},
+                  {\"title\": \"Commit\", \"value\": \"${SHORT_SHA}\", \"short\": true},
+                  {\"title\": \"Actor\", \"value\": \"${{ github.actor }}\", \"short\": true},
+                  {\"title\": \"Message\", \"value\": \"${COMMIT_MSG}\", \"short\": false}
+                ],
+                \"footer\": \"GitHub Actions\",
+                \"ts\": $(date +%s)
+              }]
+            }" > /dev/null
