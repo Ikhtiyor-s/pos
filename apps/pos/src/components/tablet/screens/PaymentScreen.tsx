@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import TouchButton from '../shared/TouchButton';
 import NumPad from '../shared/NumPad';
+import LoyaltyPanel from './LoyaltyPanel';
 
 const DELIVERY_LABEL: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
   DELIVERY: { label: 'Yetkazib berish', icon: <Truck size={14} />, className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
@@ -69,9 +70,12 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
   const [cashAmount, setCashAmount] = useState('');
   const [paid, setPaid] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [loyaltyApplied, setLoyaltyApplied] = useState(false);
 
+  const effectiveTotal = Math.max(0, total - loyaltyDiscount);
   const cashValue = parseFloat(cashAmount) || 0;
-  const change = cashValue - total;
+  const change = cashValue - effectiveTotal;
 
   const handlePay = async () => {
     if (!selectedMethod) return;
@@ -81,7 +85,7 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
       const { default: api } = await import('../../../services/api');
       await api.post(`/orders/${orderId}/payments`, {
         method: selectedMethod,
-        amount: selectedMethod === 'CASH' ? cashValue : total,
+        amount: selectedMethod === 'CASH' ? cashValue : effectiveTotal,
       });
       setPaid(true);
     } catch (err) {
@@ -102,7 +106,7 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
   };
 
   const handleCashSubmit = () => {
-    if (cashValue >= total) {
+    if (cashValue >= effectiveTotal) {
       handlePay();
     }
   };
@@ -161,12 +165,44 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+            {loyaltyDiscount > 0 && (
+              <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                <span>Asl narx:</span>
+                <span className="line-through">{total.toLocaleString('uz-UZ')} so'm</span>
+              </div>
+            )}
+            {loyaltyDiscount > 0 && (
+              <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                <span>Ball chegirma:</span>
+                <span>-{loyaltyDiscount.toLocaleString('uz-UZ')} so'm</span>
+              </div>
+            )}
             <div className="flex justify-between text-lg font-bold text-gray-900 dark:text-gray-100">
               <span>Jami:</span>
-              <span>{total.toLocaleString('uz-UZ')} so'm</span>
+              <span>{effectiveTotal.toLocaleString('uz-UZ')} so'm</span>
             </div>
           </div>
+
+          {/* Loyalty Panel */}
+          {!paid && (
+            <div className="mt-3">
+              <LoyaltyPanel
+                orderId={orderId}
+                orderTotal={total}
+                applied={loyaltyApplied}
+                appliedDiscount={loyaltyDiscount}
+                onPointsApplied={(discount, _points, _customerId) => {
+                  setLoyaltyDiscount(discount);
+                  setLoyaltyApplied(true);
+                }}
+                onPointsRemoved={() => {
+                  setLoyaltyDiscount(0);
+                  setLoyaltyApplied(false);
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right: Payment Area */}
@@ -254,7 +290,7 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
 
                   {/* Quick Cash Buttons */}
                   <div className="grid grid-cols-3 gap-2 mt-3">
-                    {[total, Math.ceil(total / 1000) * 1000, Math.ceil(total / 5000) * 5000].map(
+                    {[effectiveTotal, Math.ceil(effectiveTotal / 1000) * 1000, Math.ceil(effectiveTotal / 5000) * 5000].map(
                       (amount, i) => (
                         <button
                           key={i}
@@ -283,11 +319,11 @@ export default function PaymentScreen({ orderId, total, onComplete, onBack }: Pa
                   onClick={handlePay}
                   disabled={processing}
                 >
-                  {processing ? 'Kutilmoqda...' : `${total.toLocaleString('uz-UZ')} so'm to'lash`}
+                  {processing ? 'Kutilmoqda...' : `${effectiveTotal.toLocaleString('uz-UZ')} so'm to'lash`}
                 </TouchButton>
               )}
 
-              {selectedMethod === 'CASH' && cashValue >= total && (
+              {selectedMethod === 'CASH' && cashValue >= effectiveTotal && (
                 <TouchButton
                   variant="success"
                   size="lg"

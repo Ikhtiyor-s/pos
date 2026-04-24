@@ -1259,17 +1259,21 @@ enum LoyaltyTier {
 }
 
 model LoyaltyProgram {
-  id               String   @id @default(uuid())
-  pointsPerSpend   Decimal  @default(1) @map("points_per_spend") @db.Decimal(5, 2)
-  currency         Decimal  @default(1000) @db.Decimal(12, 2) // 1000 so'm = 1 point
-  silverThreshold  Int      @default(500) @map("silver_threshold")
-  goldThreshold    Int      @default(2000) @map("gold_threshold")
-  platinumThreshold Int     @default(5000) @map("platinum_threshold")
-  isActive         Boolean  @default(true) @map("is_active")
-  tenantId         String   @unique @map("tenant_id")
-  tenant           Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(uuid())
+  name              String   @default("Sodiqlik dasturi")
+  pointsPerSpend    Decimal  @default(1) @map("points_per_spend") @db.Decimal(5, 2)   // 1000 so'm uchun necha ball
+  currency          Decimal  @default(1000) @db.Decimal(12, 2)                         // nechi so'm = 1 ball (earn)
+  pointsValue       Decimal  @default(100) @map("points_value") @db.Decimal(12, 2)    // 1 ball = necha so'm (spend)
+  minSumForPoint    Decimal  @default(1000) @map("min_sum_for_point") @db.Decimal(12, 2) // minimal summa
+  expiryDays        Int      @default(90) @map("expiry_days")                          // ballar necha kunda eskiradi
+  silverThreshold   Int      @default(500) @map("silver_threshold")
+  goldThreshold     Int      @default(2000) @map("gold_threshold")
+  platinumThreshold Int      @default(5000) @map("platinum_threshold")
+  isActive          Boolean  @default(true) @map("is_active")
+  tenantId          String   @unique @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("loyalty_programs")
 }
@@ -1309,8 +1313,10 @@ model LoyaltyTransaction {
   points    Int
   orderId   String?                @map("order_id")
   notes     String?
+  expiresAt DateTime?              @map("expires_at")
   createdAt DateTime               @default(now()) @map("created_at")
 
+  @@index([accountId, type, expiresAt])
   @@map("loyalty_transactions")
 }
 

@@ -288,6 +288,7 @@ export class OrderLifecycleEngine {
     if (toStatus === 'COMPLETED') {
       hooks.push({ type: 'NOTIFY', target: 'all', event: 'order:completed' });
       hooks.push({ type: 'PRINT', printType: 'receipt' });
+      hooks.push({ type: 'LOYALTY_EARN', orderId: orderContext.id });
       if (orderContext.tableId) {
         hooks.push({ type: 'TABLE_FREE', tableId: orderContext.tableId });
       }
@@ -357,7 +358,7 @@ export class OrderLifecycleEngine {
 // --- Types ---
 
 export interface LifecycleHook {
-  type: 'NOTIFY' | 'PRINT' | 'INVENTORY_DEDUCT' | 'INVENTORY_RESTORE' | 'TABLE_FREE' | 'EXTERNAL_SYNC';
+  type: 'NOTIFY' | 'PRINT' | 'INVENTORY_DEDUCT' | 'INVENTORY_RESTORE' | 'TABLE_FREE' | 'EXTERNAL_SYNC' | 'LOYALTY_EARN';
   target?: string;
   event?: string;
   printType?: string;

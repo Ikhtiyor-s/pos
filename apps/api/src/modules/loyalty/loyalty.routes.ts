@@ -5,15 +5,21 @@ import { Role } from '@oshxona/database';
 
 const router = Router();
 
-// Barcha routelar himoyalangan
 router.use(authenticate);
 
 // ==========================================
-// PROGRAM (faqat MANAGER)
+// PROGRAM
 // ==========================================
 
 router.get('/program', LoyaltyController.getProgram);
 router.put('/program', authorize(Role.MANAGER, Role.SUPER_ADMIN), LoyaltyController.setupProgram);
+
+// ==========================================
+// CUSTOMER BALANCE (kassada ishlatiladi)
+// ==========================================
+
+router.get('/customer/:customerId/balance', LoyaltyController.getCustomerBalance);
+router.get('/max-spendable', LoyaltyController.calcMaxSpendable);
 
 // ==========================================
 // POINTS
@@ -21,6 +27,7 @@ router.put('/program', authorize(Role.MANAGER, Role.SUPER_ADMIN), LoyaltyControl
 
 router.get('/account/:customerId', LoyaltyController.getAccount);
 router.post('/earn', LoyaltyController.earnPoints);
+router.post('/spend', LoyaltyController.spendPoints);
 router.post('/redeem', LoyaltyController.redeemPoints);
 
 // ==========================================

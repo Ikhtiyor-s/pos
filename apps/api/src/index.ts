@@ -21,6 +21,7 @@ import { connectRedis } from './config/redis.js';
 import { processRetryQueue } from './modules/webhook-provider/webhook-provider.service.js';
 import { startReportCrons } from './modules/reports/report-cleanup.cron.js';
 import { startTelegramCrons } from './modules/telegram-bot/telegram-bot.cron.js';
+import { startLoyaltyCrons } from './modules/loyalty/loyalty.cron.js';
 import { logger } from './utils/logger.js';
 
 const env = validateEnv();
@@ -159,6 +160,7 @@ async function bootstrap() {
 
     startReportCrons();
     startTelegramCrons();
+    startLoyaltyCrons();
 
     // Webhook retry queue — har 5 daqiqada
     setInterval(() => {

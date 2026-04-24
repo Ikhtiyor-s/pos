@@ -3,6 +3,7 @@ import { OrderLifecycleEngine, OrderContext, LifecycleHook } from './lifecycle-e
 import { realtimeSyncManager } from './realtime-sync.js';
 import { PrinterService } from '../printer/printer.service.js';
 import { InventoryService } from '../../services/inventory.service.js';
+import { LoyaltyService } from '../loyalty/loyalty.service.js';
 
 // ==========================================
 // ORDER LIFECYCLE SERVICE
@@ -272,6 +273,20 @@ export class OrderLifecycleService {
                 data: { status: TableStatus.CLEANING },
               });
               realtimeSyncManager.broadcastTableStatus(tenantId, hook.tableId, 'CLEANING');
+            }
+            break;
+
+          case 'LOYALTY_EARN':
+            if (hook.orderId) {
+              const o = await prisma.order.findUnique({
+                where: { id: hook.orderId },
+                select: { customerId: true, total: true, tenantId: true },
+              });
+              if (o?.customerId) {
+                await LoyaltyService.earnPoints(
+                  o.tenantId, o.customerId, hook.orderId, Number(o.total)
+                );
+              }
             }
             break;
 

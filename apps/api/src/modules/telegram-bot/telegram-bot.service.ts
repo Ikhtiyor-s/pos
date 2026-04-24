@@ -988,6 +988,12 @@ export class TelegramBotService {
     await this.cmdStatus(settings.telegramBotToken, tenantId, tgUser.chatId, order.orderNumber);
   }
 
+  static async sendMessage(tenantId: string, chatId: string, text: string): Promise<void> {
+    const settings = await this.getSettings(tenantId);
+    if (!settings?.telegramBotToken || !settings.telegramEnabled) return;
+    await sendMsg(settings.telegramBotToken, chatId, text);
+  }
+
   static async sendReservationConfirmation(chatId: string, token: string, data: {
     confirmationCode?: string | null;
     customerName: string;
