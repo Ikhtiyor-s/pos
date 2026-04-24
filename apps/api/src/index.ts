@@ -20,6 +20,7 @@ import { startWorker } from './integration/index.js';
 import { connectRedis } from './config/redis.js';
 import { processRetryQueue } from './modules/webhook-provider/webhook-provider.service.js';
 import { startReportCrons } from './modules/reports/report-cleanup.cron.js';
+import { startTelegramCrons } from './modules/telegram-bot/telegram-bot.cron.js';
 import { logger } from './utils/logger.js';
 
 const env = validateEnv();
@@ -157,6 +158,7 @@ async function bootstrap() {
     });
 
     startReportCrons();
+    startTelegramCrons();
 
     // Webhook retry queue — har 5 daqiqada
     setInterval(() => {

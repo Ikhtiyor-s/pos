@@ -1,32 +1,50 @@
 import { Request, Response, NextFunction } from 'express';
 import { TelegramBotService } from './telegram-bot.service.js';
 import { successResponse, paginatedResponse } from '../../utils/response.js';
-import { prisma } from '@oshxona/database';
+import { z } from 'zod';
 import {
-  webhookParamsSchema,
   setupWebhookSchema,
   broadcastSchema,
   getTelegramUsersQuerySchema,
 } from './telegram-bot.validator.js';
 
+// ==========================================
+// TELEGRAM BOT CONTROLLER
+// ==========================================
+
 export class TelegramBotController {
+
   // ==========================================
-  // WEBHOOK (Telegram tomonidan chaqiriladi — auth yo'q)
+  // WEBHOOK — by botToken (Telegram → API)
   // ==========================================
 
-  static async webhook(req: Request, res: Response, next: NextFunction) {
+  static async webhookByToken(req: Request, res: Response) {
     try {
-      const { tenantId } = webhookParamsSchema.parse(req.params);
-      const update = req.body;
+      const botToken = req.params.botToken;
+      if (!botToken) return res.status(200).json({ ok: false });
 
-      // Telegram webhook'ga tez javob berish kerak
-      const result = await TelegramBotService.handleWebhook(tenantId, update);
+      const tenantId = await TelegramBotService.getTenantByToken(botToken);
+      if (!tenantId) return res.status(200).json({ ok: false, reason: 'tenant not found' });
 
-      // Telegram har doim 200 kutadi
-      return res.status(200).json(result);
-    } catch (error) {
-      // Telegram xatoliklarda ham 200 kutadi, aks holda qayta yuboradi
-      console.error('Telegram webhook xatolik:', error);
+      await TelegramBotService.handleWebhook(tenantId, req.body);
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error('[TG] webhookByToken error:', e);
+      return res.status(200).json({ ok: false });
+    }
+  }
+
+  // ==========================================
+  // WEBHOOK — by tenantId (legacy)
+  // ==========================================
+
+  static async webhookByTenant(req: Request, res: Response) {
+    try {
+      const tenantId = req.params.tenantId;
+      await TelegramBotService.handleWebhook(tenantId, req.body);
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error('[TG] webhookByTenant error:', e);
       return res.status(200).json({ ok: false });
     }
   }
@@ -37,12 +55,11 @@ export class TelegramBotController {
 
   static async setupWebhook(req: Request, res: Response, next: NextFunction) {
     try {
-      const { webhookUrl } = setupWebhookSchema.parse(req.body);
-      const result = await TelegramBotService.setupWebhook(webhookUrl);
+      const tenantId = req.user!.tenantId!;
+      const { appUrl } = z.object({ appUrl: z.string().url() }).parse(req.body);
+      const result = await TelegramBotService.setupWebhook(tenantId, appUrl);
       return successResponse(res, result, 'Webhook sozlandi');
-    } catch (error) {
-      next(error);
-    }
+    } catch (e) { next(e); }
   }
 
   // ==========================================
@@ -55,44 +72,69 @@ export class TelegramBotController {
       const { message } = broadcastSchema.parse(req.body);
       const result = await TelegramBotService.broadcastMessage(tenantId, message);
       return successResponse(res, result, `${result.sent} ta foydalanuvchiga yuborildi`);
-    } catch (error) {
-      next(error);
-    }
+    } catch (e) { next(e); }
   }
 
   // ==========================================
-  // TELEGRAM USERS
+  // USERS
   // ==========================================
 
   static async getUsers(req: Request, res: Response, next: NextFunction) {
     try {
       const tenantId = req.user!.tenantId!;
       const query = getTelegramUsersQuerySchema.parse(req.query);
-      const page = query.page;
-      const limit = query.limit;
-      const skip = (page - 1) * limit;
+      const result = await TelegramBotService.getUsers(tenantId, {
+        page: query.page, limit: query.limit, isActive: query.isActive,
+      });
+      return paginatedResponse(res, result.users, result.page, result.limit, result.total);
+    } catch (e) { next(e); }
+  }
 
-      const where: { tenantId: string; isActive?: boolean } = { tenantId };
-      if (query.isActive !== undefined) {
-        where.isActive = query.isActive;
-      }
+  // ==========================================
+  // STAFF CHATS
+  // ==========================================
 
-      const [users, total] = await Promise.all([
-        prisma.telegramUser.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            customer: { select: { id: true, firstName: true, lastName: true, phone: true } },
-          },
-        }),
-        prisma.telegramUser.count({ where }),
-      ]);
+  static async getChats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const chats = await TelegramBotService.getChats(tenantId);
+      return successResponse(res, chats);
+    } catch (e) { next(e); }
+  }
 
-      return paginatedResponse(res, users, page, limit, total);
-    } catch (error) {
-      next(error);
-    }
+  static async addChat(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const data = z.object({
+        chatId: z.string().min(1),
+        title: z.string().optional(),
+        type: z.enum(['private', 'group', 'supergroup', 'channel']).optional(),
+        role: z.enum(['ADMIN', 'MANAGER', 'KITCHEN', 'CASHIER', 'STAFF']).optional(),
+        events: z.array(z.string()).optional(),
+      }).parse(req.body);
+
+      const chat = await TelegramBotService.addChat(tenantId, data);
+      return successResponse(res, chat, 'Chat qo\'shildi', 201);
+    } catch (e) { next(e); }
+  }
+
+  static async removeChat(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      await TelegramBotService.removeChat(req.params.chatId, tenantId);
+      return successResponse(res, null, 'Chat o\'chirildi');
+    } catch (e) { next(e); }
+  }
+
+  // ==========================================
+  // MANUAL NOTIFICATIONS (test)
+  // ==========================================
+
+  static async sendShiftReport(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      await TelegramBotService.sendShiftReport(tenantId);
+      return successResponse(res, null, 'Smena hisoboti yuborildi');
+    } catch (e) { next(e); }
   }
 }

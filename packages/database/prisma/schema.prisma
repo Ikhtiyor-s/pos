@@ -71,6 +71,7 @@ model Tenant {
   attendances           Attendance[]
   payrolls              Payroll[]
   telegramUsers         TelegramUser[]
+  telegramChats         TelegramChat[]
   smsLogs               SmsLog[]
   webhookProviders      WebhookProvider[]
 
@@ -1540,22 +1541,44 @@ model Payroll {
 // ==========================================
 
 model TelegramUser {
-  id         String   @id @default(uuid())
-  chatId     String   @unique @map("chat_id")
+  id         String    @id @default(uuid())
+  chatId     String    @map("chat_id")
   username   String?
-  firstName  String?  @map("first_name")
+  firstName  String?   @map("first_name")
   phone      String?
-  customerId String?  @map("customer_id")
+  customerId String?   @map("customer_id")
   customer   Customer? @relation(fields: [customerId], references: [id])
-  language   String   @default("uz")
-  isActive   Boolean  @default(true) @map("is_active")
-  tenantId   String   @map("tenant_id")
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  language   String    @default("uz")
+  isActive   Boolean   @default(true) @map("is_active")
+  tenantId   String    @map("tenant_id")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  @@index([tenantId, chatId])
+  @@unique([chatId, tenantId])
+  @@index([tenantId])
   @@map("telegram_users")
+}
+
+// ==========================================
+// TELEGRAM STAFF CHATS
+// ==========================================
+
+model TelegramChat {
+  id        String   @id @default(uuid())
+  chatId    String   @map("chat_id")
+  title     String?
+  type      String   @default("private")
+  role      String   @default("STAFF")
+  events    String[] @default(["order:new", "stock:low", "shift:report"]) @map("events")
+  isActive  Boolean  @default(true) @map("is_active")
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([chatId, tenantId])
+  @@index([tenantId, isActive])
+  @@map("telegram_chats")
 }
 
 // ==========================================
