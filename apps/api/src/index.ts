@@ -33,6 +33,10 @@ import {
 const env = validateEnv();
 
 const app = express();
+
+// Nginx / CloudFlare orqasi — req.ip va rate limiter to'g'ri ishlashi uchun
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 
 const allowedOrigins = env.CLIENT_URL;

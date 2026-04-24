@@ -45,9 +45,20 @@ export function validateEnv(): EnvConfig {
       console.error('❌ JWT_REFRESH_SECRET kamida 32 belgi bo\'lishi kerak (production)');
       process.exit(1);
     }
-    // Production'da CLIENT_URL majburiy
+    // Production'da CLIENT_URL majburiy va localhost bo'lmasligi kerak
     if (!process.env.CLIENT_URL) {
-      console.error('❌ CLIENT_URL production\'da majburiy (localhost ruxsat etilmaydi)');
+      console.error('❌ CLIENT_URL production\'da majburiy');
+      console.error('   Misol: CLIENT_URL=https://pos.example.uz,https://admin.example.uz');
+      process.exit(1);
+    }
+    const prodUrls = process.env.CLIENT_URL.split(',').map((u) => u.trim());
+    const hasLocalhost = prodUrls.some(
+      (u) => u.includes('localhost') || u.includes('127.0.0.1') || u.startsWith('http://')
+    );
+    if (hasLocalhost) {
+      console.error('❌ CLIENT_URL production\'da localhost yoki http:// ruxsat etilmaydi');
+      console.error(`   Berilgan: ${prodUrls.join(', ')}`);
+      console.error('   Faqat https:// va haqiqiy domen ishlatilishi kerak');
       process.exit(1);
     }
   }
