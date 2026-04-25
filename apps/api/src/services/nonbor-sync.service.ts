@@ -95,6 +95,34 @@ function backoffDelay(attempts: number): number {
 }
 
 // ==========================================
+// RATE LIMITING — 30 req/min per tenant (Redis)
+// ==========================================
+
+const SYNC_CONCURRENCY    = 3;   // parallel tenant sayisi
+const RATE_LIMIT_MAX      = 30;  // max so'rov / daqiqa
+const RATE_LIMIT_WIN_SEC  = 60;  // oyna: 60 soniya
+
+const rateKey = (tenantId: string) => `nonbor:ratelimit:${tenantId}`;
+
+async function runConcurrent<T>(
+  items:       T[],
+  concurrency: number,
+  fn:          (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from(
+    { length: Math.min(concurrency, queue.length || 1) },
+    async () => {
+      while (queue.length > 0) {
+        const item = queue.shift()!;
+        await fn(item);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
+// ==========================================
 // MONITORING STATS
 // ==========================================
 
@@ -273,6 +301,21 @@ class NonborSyncService {
   // SCHEDULING
   // ==========================================
 
+  private async checkRateLimit(tenantId: string): Promise<boolean> {
+    try {
+      const key   = rateKey(tenantId);
+      const count = await redis.incr(key);
+      if (count === 1) await redis.expire(key, RATE_LIMIT_WIN_SEC);
+      if (count > RATE_LIMIT_MAX) {
+        logger.warn('[Nonbor] Rate limit oshdi, tenant skip', { tenantId, count });
+        return false;
+      }
+      return true;
+    } catch {
+      return true; // Redis xatosi — cheklamasdan davom etamiz
+    }
+  }
+
   private scheduleNextPoll(immediate: boolean) {
     if (this.pollingTimer) clearTimeout(this.pollingTimer);
     const delay = immediate ? 0 : this.resolveInterval();
@@ -302,9 +345,11 @@ class NonborSyncService {
         where: { nonborEnabled: true, nonborSellerId: { not: null } },
       });
 
-      for (const settings of enabledSettings) {
+      await runConcurrent(enabledSettings, SYNC_CONCURRENCY, async (settings) => {
         const tenantId = settings.tenantId;
         try {
+          if (!(await this.checkRateLimit(tenantId))) return;
+
           const nonborOrders = await nonborApiService.syncOrdersFromNonbor(tenantId);
           const active = nonborOrders.filter(o => ACTIVE_NONBOR_STATES.has(o.state));
 
@@ -329,7 +374,7 @@ class NonborSyncService {
             tenantId, error: (err as Error).message,
           });
         }
-      }
+      });
     } catch (err) {
       logger.error('[Nonbor] Sync xatolik', { error: (err as Error).message });
     } finally {
@@ -586,8 +631,9 @@ class NonborSyncService {
       where: { nonborEnabled: true, nonborSellerId: { not: null } },
     });
 
-    for (const s of enabledSettings) {
+    await runConcurrent(enabledSettings, SYNC_CONCURRENCY, async (s) => {
       try {
+        if (!(await this.checkRateLimit(s.tenantId))) return;
         const result = await this.batchSyncProducts(s.tenantId, s.nonborSellerId!);
         logger.info('[Nonbor] Batch product sync', {
           tenantId: s.tenantId,
@@ -600,7 +646,7 @@ class NonborSyncService {
           tenantId: s.tenantId, error: (err as Error).message,
         });
       }
-    }
+    });
 
     this.lastBatchSyncAt = new Date();
   }
