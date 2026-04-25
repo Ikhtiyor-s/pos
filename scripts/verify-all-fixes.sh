@@ -333,15 +333,59 @@ fi
 
 sep "RUNTIME TEKSHIRUVLAR (ixtiyoriy)"
 
-# Redis ulanishi
-if command -v redis-cli &>/dev/null; then
-  if redis-cli ping 2>/dev/null | grep -q "PONG"; then
-    ok "Redis: ULANISH OK"
-  else
-    warn "Redis: ulanib bo'lmadi (prod da muhim!)"
+# Redis ulanishi — redis-cli → Docker → nc fallback
+REDIS_HOST="127.0.0.1"
+REDIS_PORT="6379"
+
+# .env dan REDIS_URL parse
+if [[ -f "$ROOT/apps/api/.env" ]]; then
+  _rurl=$(grep "^REDIS_URL" "$ROOT/apps/api/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
+  if [[ -n "$_rurl" ]]; then
+    _rhost="${_rurl#*://}"; _rhost="${_rhost%%:*}"
+    _rport="${_rurl##*:}"; _rport="${_rport%%/*}"
+    [[ -n "$_rhost" ]] && REDIS_HOST="$_rhost"
+    [[ "$_rport" =~ ^[0-9]+$ ]] && REDIS_PORT="$_rport"
   fi
-else
-  warn "redis-cli topilmadi — Redis tekshirib bo'lmadi"
+fi
+
+REDIS_CHECKED=false
+
+# 1) redis-cli (lokal o'rnatilgan bo'lsa)
+if command -v redis-cli &>/dev/null; then
+  if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping 2>/dev/null | grep -q "PONG"; then
+    ok "Redis: ULANISH OK ($REDIS_HOST:$REDIS_PORT)"
+  else
+    warn "Redis: redis-cli bor, lekin ulanib bo'lmadi ($REDIS_HOST:$REDIS_PORT)"
+  fi
+  REDIS_CHECKED=true
+fi
+
+# 2) Docker (oshxona-redis konteyner)
+if [[ "$REDIS_CHECKED" == "false" ]] && command -v docker &>/dev/null; then
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "oshxona-redis"; then
+    if docker exec oshxona-redis redis-cli ping 2>/dev/null | grep -q "PONG"; then
+      ok "Redis: ULANISH OK (Docker: oshxona-redis)"
+    else
+      warn "Redis: Docker konteyner bor, lekin PING javob bermadi"
+    fi
+    REDIS_CHECKED=true
+  fi
+fi
+
+# 3) nc — port ochiqmi?
+if [[ "$REDIS_CHECKED" == "false" ]]; then
+  if command -v nc &>/dev/null; then
+    if nc -z -w2 "$REDIS_HOST" "$REDIS_PORT" 2>/dev/null; then
+      ok "Redis: port ochiq ($REDIS_HOST:$REDIS_PORT) — to'liq tekshirib bo'lmadi"
+    else
+      warn "Redis: $REDIS_HOST:$REDIS_PORT ga ulanib bo'lmadi"
+    fi
+    REDIS_CHECKED=true
+  fi
+fi
+
+if [[ "$REDIS_CHECKED" == "false" ]]; then
+  warn "Redis: redis-cli, Docker va nc topilmadi — tekshirib bo'lmadi"
 fi
 
 # PostgreSQL ulanishi
