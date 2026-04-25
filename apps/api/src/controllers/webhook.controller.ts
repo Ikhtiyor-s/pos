@@ -4,6 +4,7 @@ import { prisma, OrderStatus, ItemStatus } from '@oshxona/database';
 import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
 import { webhookService } from '../services/webhook.service.js';
 import { nonborSyncService } from '../services/nonbor-sync.service.js';
+import { webhookProviderService, type ProviderHandleResult } from '../services/webhook-provider.service.js';
 
 export class WebhookController {
   // ============================================================
@@ -263,6 +264,16 @@ export class WebhookController {
           nonborSyncService.notifyWebhookReceived();
           result = await WebhookController.handleNonborWebhook(req, payload, tenantId);
           break;
+
+        case 'yandex-eats':
+        case 'express24':
+        case 'delivery-club': {
+          const providerResult: ProviderHandleResult =
+            await webhookProviderService.handleIncoming(service, payload, tenantId, req);
+          result = providerResult;
+          break;
+        }
+
         default:
           result = await WebhookController.handleGenericWebhook(req, service, payload);
           break;
