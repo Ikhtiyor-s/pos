@@ -20,9 +20,9 @@ G='\033[0;32m' R='\033[0;31m' Y='\033[1;33m' B='\033[0;34m' C='\033[0;36m' BOLD=
 
 PASS=0; FAIL=0; WARN=0
 
-ok()   { echo -e "  ${G}✅${NC}  $*"; ((PASS++)); }
-fail() { echo -e "  ${R}❌${NC}  $*"; ((FAIL++)); }
-warn() { echo -e "  ${Y}⚠️ ${NC}  $*"; ((WARN++)); }
+ok()   { echo -e "  ${G}✅${NC}  $*"; PASS=$((PASS + 1)); }
+fail() { echo -e "  ${R}❌${NC}  $*"; FAIL=$((FAIL + 1)); }
+warn() { echo -e "  ${Y}⚠️ ${NC}  $*"; WARN=$((WARN + 1)); }
 sep()  { echo -e "\n${BOLD}${C}── $* ─────────────────────────────────────────────${NC}"; }
 
 file_contains() {
@@ -346,7 +346,7 @@ fi
 
 # PostgreSQL ulanishi
 if [[ -f "$ROOT/apps/api/.env" ]]; then
-  DB_URL=$(grep DATABASE_URL "$ROOT/apps/api/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+  DB_URL=$(grep DATABASE_URL "$ROOT/apps/api/.env" 2>/dev/null | cut -d'=' -f2- | tr -d '"' | tr -d "'" || true)
   if [[ -n "$DB_URL" ]]; then
     if command -v pg_isready &>/dev/null; then
       _url="${DB_URL#*://}"
@@ -365,7 +365,8 @@ fi
 
 # TypeScript tekshirish
 if command -v npx &>/dev/null && [[ -f "$ROOT/apps/api/tsconfig.json" ]]; then
-  TS_ERRORS=$(cd "$ROOT" && npx tsc --noEmit --project apps/api/tsconfig.json 2>&1 | grep "error TS" | wc -l | tr -d ' ')
+  TS_OUT=$(cd "$ROOT" && npx tsc --noEmit --project apps/api/tsconfig.json 2>&1 || true)
+  TS_ERRORS=$(echo "$TS_OUT" | grep -c "error TS" || true)
   if [[ "$TS_ERRORS" == "0" ]]; then
     ok "TypeScript: 0 xato"
   else
@@ -381,8 +382,8 @@ echo ""
 echo -e "${BOLD}${C}══════════════════════════════════════════════${NC}"
 echo -e "  NATIJA:"
 echo -e "  ${G}✅  O'tdi  : $PASS${NC}"
-[[ $FAIL -gt 0 ]] && echo -e "  ${R}❌  Xato   : $FAIL${NC}" || echo -e "  ${R}❌  Xato   : 0${NC}"
-[[ $WARN -gt 0 ]] && echo -e "  ${Y}⚠️   Ogohlantirish: $WARN${NC}"
+if [[ $FAIL -gt 0 ]]; then echo -e "  ${R}❌  Xato   : $FAIL${NC}"; else echo -e "  ${R}❌  Xato   : 0${NC}"; fi
+if [[ $WARN -gt 0 ]]; then echo -e "  ${Y}⚠️   Ogohlantirish: $WARN${NC}"; fi
 echo -e "${BOLD}${C}══════════════════════════════════════════════${NC}"
 echo ""
 
