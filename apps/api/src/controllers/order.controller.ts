@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { OrderService } from '../services/order.service.js';
 import { PaymentService } from '../services/payment.service.js';
 import { nonborSyncService } from '../services/nonbor-sync.service.js';
+import { nonborPosService } from '../services/nonbor-pos.service.js';
 import { IntegrationService } from '../services/integration.service.js';
 import { PrinterService } from '../modules/printer/printer.service.js';
 import { OrderLifecycleService } from '../modules/order-lifecycle/order-lifecycle.service.js';
@@ -77,6 +78,29 @@ export class OrderController {
       // Integration Hub
       IntegrationService.dispatchEvent('order:new', order).catch(console.error);
 
+      // Nonbor Admin POS — buyurtmani forward qilish (agar ulangan bo'lsa)
+      nonborPosService.getStatus(tenantId).then(st => {
+        if (!st.connected) return;
+        const items = ((order as any).items || []).map((item: any) => ({
+          productId: item.productId,
+          productName: item.product?.name || item.productName || '',
+          quantity: item.quantity,
+          price: Number(item.price),
+          note: item.note || '',
+        }));
+        nonborPosService.forwardOrder({
+          tenantId,
+          localOrderId: order.id,
+          tableId: (order as any).tableId ?? null,
+          customerName: (order as any).customerName || '',
+          customerPhone: (order as any).customer?.phone || '',
+          orderType: (order as any).orderType || 'DINE_IN',
+          discount: Number((order as any).discount || 0),
+          note: (order as any).notes || '',
+          items,
+        }).catch(() => null);
+      }).catch(() => null);
+
       return successResponse(res, order, 'Buyurtma yaratildi', 201);
     } catch (error) {
       next(error);
@@ -106,7 +130,7 @@ export class OrderController {
 
       const order = result.order;
 
-      // Nonbor sync (agar kerak bo'lsa)
+      // Nonbor marketplace sync (agar Nonbor marketplace buyurtmasi bo'lsa)
       if ((order as any).isNonborOrder && (order as any).nonborOrderId) {
         nonborSyncService.syncStatusToNonbor({
           id: order.id,
@@ -114,6 +138,13 @@ export class OrderController {
           nonborOrderId: (order as any).nonborOrderId,
           isNonborOrder: true,
         }).catch((err: any) => console.error('[Nonbor] Status sync xatolik:', err));
+      }
+
+      // Nonbor Admin POS sync (agar POS ulangan bo'lsa)
+      const posOrderId = (order as any).nonborPosOrderId;
+      if (posOrderId) {
+        nonborPosService.updateOrderStatus(tenantId, posOrderId, order.status)
+          .catch(() => null);
       }
 
       // Integration Hub

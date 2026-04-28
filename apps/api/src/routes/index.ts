@@ -39,6 +39,7 @@ import mxikRoutes from '../modules/mxik/mxik.routes.js';
 import webhookProviderRoutes from '../modules/webhook-provider/webhook-provider.routes.js';
 import reportsRoutes from '../modules/reports/reports.routes.js';
 import markirovkaRoutes from './markirovka.routes.js';
+import nonborPosRoutes from './nonbor-pos.routes.js';
 
 const router = Router();
 
@@ -83,6 +84,7 @@ router.use('/mxik', mxikRoutes);
 router.use('/webhook-providers', webhookProviderRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/markirovka', markirovkaRoutes);
+router.use('/nonbor-pos', nonborPosRoutes);
 
 // API info
 router.get('/', (_req, res) => {

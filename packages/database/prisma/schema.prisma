@@ -378,6 +378,7 @@ model Order {
   address         String?
   nonborOrderId   Int?        @map("nonbor_order_id")
   isNonborOrder   Boolean     @default(false) @map("is_nonbor_order")
+  nonborPosOrderId String?    @map("nonbor_pos_order_id")
   tenantId        String      @map("tenant_id")
   tenant          Tenant      @relation(fields: [tenantId], references: [id])
   createdAt       DateTime    @default(now()) @map("created_at")
@@ -604,6 +605,15 @@ model Settings {
   nonborSellerId  Int?    @map("nonbor_seller_id")
   nonborApiUrl    String? @default("https://test.nonbor.uz/api/v2") @map("nonbor_api_url")
   nonborApiSecret String? @default("nonbor-secret-key") @map("nonbor_api_secret")
+
+  // Nonbor Admin POS integratsiya
+  nonborPosEnabled       Boolean   @default(false) @map("nonbor_pos_enabled")
+  nonborPosUrl           String?   @map("nonbor_pos_url")
+  nonborPosUsername      String?   @map("nonbor_pos_username")
+  nonborPosTenantId      String?   @map("nonbor_pos_tenant_id")
+  nonborPosToken         String?   @map("nonbor_pos_token")
+  nonborPosRefreshToken  String?   @map("nonbor_pos_refresh_token")
+  nonborPosTokenExpiry   DateTime? @map("nonbor_pos_token_expiry")
 
   // To'lov integratsiyalar
   paymeEnabled      Boolean  @default(false) @map("payme_enabled")
