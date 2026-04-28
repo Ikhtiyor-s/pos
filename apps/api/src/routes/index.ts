@@ -38,6 +38,7 @@ import smsRoutes from '../modules/sms/sms.routes.js';
 import mxikRoutes from '../modules/mxik/mxik.routes.js';
 import webhookProviderRoutes from '../modules/webhook-provider/webhook-provider.routes.js';
 import reportsRoutes from '../modules/reports/reports.routes.js';
+import markirovkaRoutes from './markirovka.routes.js';
 
 const router = Router();
 
@@ -81,6 +82,7 @@ router.use('/sms', smsRoutes);
 router.use('/mxik', mxikRoutes);
 router.use('/webhook-providers', webhookProviderRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/markirovka', markirovkaRoutes);
 
 // API info
 router.get('/', (_req, res) => {
@@ -117,7 +119,8 @@ router.get('/', (_req, res) => {
       analytics: '/api/analytics',
       printer: '/api/printer',
       sync: '/api/sync',
-      admin: '/api/admin',
+      admin:      '/api/admin',
+      markirovka: '/api/markirovka',
     },
   });
 });

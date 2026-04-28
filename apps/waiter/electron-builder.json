@@ -1,0 +1,45 @@
+{
+  "appId": "uz.oshxona.waiter",
+  "productName": "Oshxona Waiter",
+  "copyright": "Copyright 2024 Oshxona POS",
+  "directories": {
+    "output": "../../release/windows/waiter",
+    "buildResources": "assets"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "Oshxona-Waiter-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Oshxona Waiter",
+    "differentialPackage": false
+  },
+  "portable": {
+    "artifactName": "Oshxona-Waiter-Portable-${version}.${ext}"
+  },
+  "publish": null
+}

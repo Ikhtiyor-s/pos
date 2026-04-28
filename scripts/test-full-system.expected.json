@@ -1,0 +1,803 @@
+{
+  "_comment": "Oshxona POS tizimi — kutilayotgan javoblar formati. Har bir endpoint uchun HTTP status va field struktura.",
+  "_version": "3.1.0",
+  "_updated": "2026-04-28",
+
+  "sections": {
+    "1_auth": {
+      "title": "Authentication",
+      "endpoints": {
+        "1.1_login": {
+          "method": "POST",
+          "path": "/api/auth/login",
+          "expectedStatus": 200,
+          "body": { "email": "string", "password": "string" },
+          "response": {
+            "success": true,
+            "data": {
+              "accessToken":  "string (JWT, expires 15m)",
+              "refreshToken": "string (JWT, expires 7d)",
+              "user": {
+                "id":        "UUID",
+                "email":     "string",
+                "firstName": "string",
+                "lastName":  "string",
+                "role":      "SUPER_ADMIN | MANAGER | CASHIER | CHEF | WAITER | WAREHOUSE | ACCOUNTANT",
+                "tenantId":  "UUID | null",
+                "isActive":  true
+              }
+            }
+          }
+        },
+        "1.2_login_pin": {
+          "method": "POST",
+          "path": "/api/auth/login-pin",
+          "expectedStatus": 200,
+          "body": { "pin": "string (4 digits)", "tenantId": "UUID" },
+          "response": {
+            "success": true,
+            "data": { "accessToken": "string", "user": "object" }
+          }
+        },
+        "1.3_refresh": {
+          "method": "POST",
+          "path": "/api/auth/refresh",
+          "expectedStatus": 200,
+          "body": { "refreshToken": "string" },
+          "response": {
+            "success": true,
+            "data": {
+              "accessToken":  "string (new JWT)",
+              "refreshToken": "string (new refresh)"
+            }
+          }
+        },
+        "1.4_me": {
+          "method": "GET",
+          "path": "/api/auth/me",
+          "expectedStatus": 200,
+          "auth": "Bearer token",
+          "response": {
+            "success": true,
+            "data": {
+              "id": "UUID", "email": "string", "role": "string",
+              "firstName": "string", "lastName": "string",
+              "tenantId": "UUID | null", "isActive": true
+            }
+          }
+        },
+        "1.5_change_password": {
+          "method": "PUT",
+          "path": "/api/auth/change-password",
+          "expectedStatus": 200,
+          "body": { "oldPassword": "string", "newPassword": "string (min 8 chars)" },
+          "response": { "success": true, "message": "Parol muvaffaqiyatli o'zgartirildi" }
+        },
+        "1.6_logout": {
+          "method": "POST",
+          "path": "/api/auth/logout",
+          "expectedStatus": 200,
+          "response": { "success": true }
+        }
+      }
+    },
+
+    "2_users": {
+      "title": "User Management",
+      "endpoints": {
+        "2.1_create": {
+          "method": "POST",
+          "path": "/api/users",
+          "expectedStatus": 201,
+          "roles": ["MANAGER", "SUPER_ADMIN"],
+          "body": {
+            "email":     "string (unique per tenant)",
+            "password":  "string (min 8)",
+            "firstName": "string",
+            "lastName":  "string",
+            "role":      "CASHIER | WAITER | CHEF | WAREHOUSE | ACCOUNTANT | MANAGER",
+            "phone":     "string (optional)"
+          },
+          "response": {
+            "success": true,
+            "data": { "id": "UUID", "email": "string", "role": "string", "isActive": true }
+          }
+        },
+        "2.2_list": {
+          "method": "GET",
+          "path": "/api/users",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": [{ "id": "UUID", "email": "string", "role": "string", "isActive": true }],
+            "meta": { "total": "number", "page": 1, "limit": 20 }
+          }
+        },
+        "2.3_get_one": {
+          "method": "GET",
+          "path": "/api/users/:id",
+          "expectedStatus": 200,
+          "response": { "success": true, "data": { "id": "UUID" } }
+        },
+        "2.4_update": {
+          "method": "PUT",
+          "path": "/api/users/:id",
+          "expectedStatus": 200,
+          "body": { "firstName": "string", "lastName": "string", "phone": "string" },
+          "response": { "success": true, "data": { "id": "UUID" } }
+        },
+        "2.5_pin": {
+          "method": "PUT",
+          "path": "/api/auth/users/:userId/pin",
+          "expectedStatus": 200,
+          "body": { "pin": "string (4 digits)" },
+          "response": { "success": true }
+        }
+      }
+    },
+
+    "3_categories": {
+      "title": "Category Management",
+      "endpoints": {
+        "3.1_create": {
+          "method": "POST",
+          "path": "/api/categories",
+          "expectedStatus": 201,
+          "body": { "name": "string", "slug": "string (url-safe)", "nameRu": "string (optional)" },
+          "response": {
+            "success": true,
+            "data": { "id": "UUID", "name": "string", "slug": "string", "isActive": true }
+          }
+        },
+        "3.2_list": {
+          "method": "GET",
+          "path": "/api/categories",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": [{ "id": "UUID", "name": "string", "slug": "string", "products": [] }]
+          }
+        },
+        "3.3_update": {
+          "method": "PUT",
+          "path": "/api/categories/:id",
+          "expectedStatus": 200,
+          "body": { "name": "string", "sortOrder": "number" },
+          "response": { "success": true, "data": { "id": "UUID" } }
+        }
+      }
+    },
+
+    "4_products": {
+      "title": "Product Management",
+      "endpoints": {
+        "4.1_create": {
+          "method": "POST",
+          "path": "/api/products",
+          "expectedStatus": 201,
+          "body": {
+            "name":       "string",
+            "price":      "number (UZS, e.g. 15000)",
+            "categoryId": "UUID",
+            "nameRu":     "string (optional)",
+            "description":"string (optional)",
+            "barcode":    "string (optional, unique per tenant)",
+            "costPrice":  "number (optional)",
+            "weight":     "number (optional)",
+            "weightUnit": "g | kg | ml | litr | dona",
+            "cookingTime":"number (minutes, optional)",
+            "calories":   "number (optional)",
+            "tags":       "string[] (optional)",
+            "mxikCode":   "string (9 or 14 digits, optional)",
+            "mxikVatRate":"0 | 12 | 20 (optional)"
+          },
+          "response": {
+            "success": true,
+            "data": {
+              "id":         "UUID",
+              "name":       "string",
+              "price":      "Decimal string",
+              "categoryId": "UUID",
+              "isActive":   true,
+              "barcode":    "string | null"
+            }
+          }
+        },
+        "4.2_list": {
+          "method": "GET",
+          "path": "/api/products",
+          "expectedStatus": 200,
+          "queryParams": { "categoryId": "UUID (optional)", "isActive": "true|false (optional)", "page": 1, "limit": 20 },
+          "response": {
+            "success": true,
+            "data": [{ "id": "UUID", "name": "string", "price": "string", "category": { "id": "UUID" } }],
+            "meta": { "total": "number", "page": 1, "limit": 20, "totalPages": "number" }
+          }
+        },
+        "4.6_barcode": {
+          "method": "GET",
+          "path": "/api/products/barcode/:barcode",
+          "expectedStatus": 200,
+          "response": { "success": true, "data": { "id": "UUID", "name": "string", "price": "string" } },
+          "errorResponse": { "success": false, "message": "Barcode bo'yicha mahsulot topilmadi" }
+        }
+      }
+    },
+
+    "5_tables": {
+      "title": "Table Management",
+      "endpoints": {
+        "5.1_create": {
+          "method": "POST",
+          "path": "/api/tables",
+          "expectedStatus": 201,
+          "body": { "number": "number (unique per tenant)", "capacity": "number", "name": "string (optional)" },
+          "response": {
+            "success": true,
+            "data": {
+              "id":       "UUID",
+              "number":   "number",
+              "capacity": "number",
+              "status":   "FREE",
+              "qrCode":   "string"
+            }
+          }
+        },
+        "5.3_status": {
+          "method": "PATCH",
+          "path": "/api/tables/:id/status",
+          "expectedStatus": 200,
+          "body": { "status": "FREE | OCCUPIED | RESERVED | CLEANING" },
+          "response": { "success": true, "data": { "id": "UUID", "status": "string" } }
+        }
+      }
+    },
+
+    "7_markirovka": {
+      "title": "O'zbekiston Markirovka Tizimi",
+      "endpoints": {
+        "7.1_verify": {
+          "method": "POST",
+          "path": "/api/markirovka/verify/:code",
+          "expectedStatus": "200 | 202",
+          "note": "202 qaytsa — kod offline queue ga qo'shildi (internet yo'q)",
+          "response": {
+            "online_success": {
+              "success": true,
+              "data": {
+                "valid":            true,
+                "gtin":             "string (14 digits)",
+                "serialNumber":     "string",
+                "productName":      "string | null",
+                "expiryDate":       "ISO string | null",
+                "manufacturerName": "string | null",
+                "status":           "string"
+              }
+            },
+            "offline_queued": {
+              "success": true,
+              "data": { "valid": false, "queued": true, "status": "QUEUED" },
+              "message": "Internet mavjud emas — tekshiruv navbatga qo'shildi"
+            }
+          }
+        },
+        "7.3_check": {
+          "method": "GET",
+          "path": "/api/markirovka/check/:code",
+          "expectedStatus": 200,
+          "note": "Bu endpoint HAMMA VAQT 200 qaytaradi. valid:false bo'lsa sotish mumkin emas.",
+          "response": {
+            "success": true,
+            "data": {
+              "valid":   "boolean",
+              "reason":  "string | null (agar valid:false bo'lsa sababi)",
+              "product": {
+                "id":           "UUID | null",
+                "gtin":         "string",
+                "serialNumber": "string",
+                "batchNumber":  "string | null",
+                "expiryDate":   "ISO string | null",
+                "status":       "IN_STOCK | SOLD | EXPIRED | RESERVED | MANUFACTURED | IMPORTED"
+              }
+            }
+          },
+          "errorReasons": [
+            "Markirovka kodi bazada topilmadi",
+            "Mahsulot allaqachon sotilgan",
+            "Mahsulot muddati o'tgan",
+            "Mahsulot boshqa buyurtma uchun band",
+            "Bu markirovka kodi ushbu restoran uchun emas",
+            "Davlat serveri kodni tasdiqlamadi"
+          ]
+        },
+        "7.4_expired": {
+          "method": "GET",
+          "path": "/api/markirovka/expired",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": [{
+              "id":          "UUID",
+              "markCode":    "string",
+              "gtin":        "string",
+              "expiryDate":  "ISO string",
+              "status":      "EXPIRED",
+              "product": { "id": "UUID", "name": "string", "sku": "string | null" }
+            }]
+          }
+        },
+        "7.5_daily_report": {
+          "method": "GET",
+          "path": "/api/markirovka/report/daily",
+          "expectedStatus": 200,
+          "queryParams": { "date": "YYYY-MM-DD (optional, default: today)" },
+          "response": {
+            "success": true,
+            "data": {
+              "date":      "YYYY-MM-DD",
+              "received":  "number",
+              "verified":  "number",
+              "sold":      "number",
+              "failed":    "number",
+              "queued":    "number",
+              "byStatus":  { "IN_STOCK": "number", "SOLD": "number", "EXPIRED": "number" },
+              "topGtins":  [{ "gtin": "string", "count": "number" }]
+            }
+          }
+        }
+      }
+    },
+
+    "8_orders": {
+      "title": "Order Management",
+      "endpoints": {
+        "8.1_create": {
+          "method": "POST",
+          "path": "/api/orders",
+          "expectedStatus": 201,
+          "body": {
+            "source":      "POS_ORDER | WAITER_ORDER | QR_ORDER | TELEGRAM_ORDER | WEBSITE_ORDER | API_ORDER | WEBHOOK_ORDER",
+            "type":        "DINE_IN | TAKEAWAY | DELIVERY",
+            "tableId":     "UUID (optional, DINE_IN uchun)",
+            "customerId":  "UUID (optional)",
+            "items": [{ "productId": "UUID", "quantity": "number (positive)", "notes": "string (optional)" }],
+            "discount":        "number (optional, so'm)",
+            "discountPercent": "number (optional, 0-100%)",
+            "notes":           "string (optional)",
+            "address":         "string (optional, DELIVERY uchun)"
+          },
+          "response": {
+            "success": true,
+            "data": {
+              "id":          "UUID",
+              "orderNumber": "string (e.g. ORD-001)",
+              "status":      "NEW",
+              "source":      "string",
+              "type":        "string",
+              "subtotal":    "Decimal string",
+              "discount":    "Decimal string",
+              "tax":         "Decimal string",
+              "total":       "Decimal string",
+              "items":       [{ "id": "UUID", "productId": "UUID", "quantity": "number", "price": "string" }],
+              "payments":    [],
+              "table":       "object | null",
+              "customer":    "object | null",
+              "createdAt":   "ISO string"
+            }
+          }
+        },
+        "8.4_status": {
+          "method": "PATCH",
+          "path": "/api/orders/:id/status",
+          "expectedStatus": 200,
+          "body": { "status": "NEW | CONFIRMED | PREPARING | READY | DELIVERING | COMPLETED | CANCELLED" },
+          "statusFlow": "NEW → CONFIRMED → PREPARING → READY → DELIVERING → COMPLETED",
+          "response": {
+            "success": true,
+            "data": { "id": "UUID", "status": "string" },
+            "message": "string"
+          }
+        },
+        "8.6_payment": {
+          "method": "POST",
+          "path": "/api/orders/:id/payment",
+          "expectedStatus": 200,
+          "body": {
+            "method":    "CASH | CARD | PAYME | CLICK | UZUM | HUMO | OTHER",
+            "amount":    "number (UZS)",
+            "reference": "string (optional, transaction ID)"
+          },
+          "response": {
+            "success": true,
+            "data": {
+              "id":          "UUID",
+              "status":      "string",
+              "total":       "Decimal string",
+              "payments": [{ "id": "UUID", "method": "string", "amount": "string", "status": "COMPLETED" }]
+            }
+          }
+        }
+      }
+    },
+
+    "9_customers": {
+      "title": "Customer Management",
+      "endpoints": {
+        "9.1_create": {
+          "method": "POST",
+          "path": "/api/customers",
+          "expectedStatus": 201,
+          "body": {
+            "phone":     "string (unique per tenant, e.g. +998901234567)",
+            "firstName": "string (optional)",
+            "lastName":  "string (optional)",
+            "email":     "string (optional)",
+            "birthDate": "ISO date string (optional)"
+          },
+          "response": {
+            "success": true,
+            "data": {
+              "id":          "UUID",
+              "phone":       "string",
+              "bonusPoints": 0,
+              "isActive":    true
+            }
+          }
+        }
+      }
+    },
+
+    "10_inventory": {
+      "title": "Inventory Management",
+      "endpoints": {
+        "10.1_create": {
+          "method": "POST",
+          "path": "/api/inventory",
+          "expectedStatus": 201,
+          "body": {
+            "name":        "string",
+            "sku":         "string (unique per tenant)",
+            "unit":        "kg | g | litr | ml | dona | pachka",
+            "quantity":    "number (initial stock)",
+            "minQuantity": "number (low stock threshold)",
+            "costPrice":   "number (optional)",
+            "supplierId":  "UUID (optional)"
+          },
+          "response": {
+            "success": true,
+            "data": { "id": "UUID", "name": "string", "sku": "string", "quantity": "Decimal string" }
+          }
+        },
+        "10.3_transaction": {
+          "method": "POST",
+          "path": "/api/inventory/:id/transaction",
+          "expectedStatus": 200,
+          "body": {
+            "type":     "IN | OUT | ADJUST | WASTE",
+            "quantity": "number (positive)",
+            "notes":    "string (optional)"
+          },
+          "response": {
+            "success": true,
+            "data": { "id": "UUID", "quantity": "Decimal string (new quantity)" }
+          }
+        }
+      }
+    },
+
+    "11_payments": {
+      "title": "Payment Integrations",
+      "endpoints": {
+        "11.1_payme": {
+          "method": "POST",
+          "path": "/api/payments/payme/callback",
+          "auth": "None (HMAC verified internally)",
+          "note": "Payme JSON-RPC 2.0 protokoli",
+          "supportedMethods": [
+            "CheckPerformTransaction",
+            "CreateTransaction",
+            "PerformTransaction",
+            "CancelTransaction",
+            "CheckTransaction",
+            "GetStatement"
+          ],
+          "body": {
+            "id":     "number (JSON-RPC id)",
+            "method": "string",
+            "params": "object"
+          },
+          "response": {
+            "id":     "number",
+            "result": "object | null",
+            "error":  "object | null"
+          }
+        },
+        "11.2_click": {
+          "method": "POST",
+          "path": "/api/payments/click/prepare",
+          "auth": "None (HMAC-MD5 verified internally)",
+          "note": "Click 2-step payment: prepare → complete",
+          "body": {
+            "click_trans_id":  "string",
+            "service_id":      "string",
+            "merchant_trans_id": "string (orderId)",
+            "amount":          "number",
+            "action":          "0 (prepare) | 1 (complete)",
+            "sign_time":       "string",
+            "sign_string":     "string (MD5 hash)"
+          },
+          "response": {
+            "click_trans_id":     "string",
+            "merchant_trans_id":  "string",
+            "merchant_confirm_id":"string",
+            "error":              "0 (success) | negative (error)",
+            "error_note":         "string"
+          }
+        }
+      }
+    },
+
+    "12_loyalty": {
+      "title": "Loyalty Program",
+      "endpoints": {
+        "12.1_program": {
+          "method": "GET",
+          "path": "/api/loyalty/program",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": {
+              "id":               "UUID",
+              "name":             "string",
+              "pointsPerSpend":   "Decimal string",
+              "pointsValue":      "Decimal string",
+              "expiryDays":       "number",
+              "silverThreshold":  "number",
+              "goldThreshold":    "number",
+              "platinumThreshold":"number",
+              "isActive":         true
+            }
+          }
+        },
+        "12.2_balance": {
+          "method": "GET",
+          "path": "/api/loyalty/customer/:customerId/balance",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": {
+              "points":       "number",
+              "totalEarned":  "number",
+              "totalSpent":   "number",
+              "tier":         "BRONZE | SILVER | GOLD | PLATINUM",
+              "maxSpendable": "number"
+            }
+          }
+        }
+      }
+    },
+
+    "13_analytics": {
+      "title": "Analytics & Reports",
+      "endpoints": {
+        "13.1_dashboard": {
+          "method": "GET",
+          "path": "/api/dashboard",
+          "expectedStatus": 200,
+          "queryParams": { "period": "today | week | month | year", "branchId": "UUID (optional)" },
+          "response": {
+            "success": true,
+            "data": {
+              "revenue":      { "total": "number", "averageCheck": "number" },
+              "orders":       { "total": "number", "completed": "number" },
+              "customers":    "number",
+              "employees":    "number",
+              "recentOrders": "array",
+              "topProducts":  "array",
+              "ordersByStatus":"array"
+            }
+          }
+        },
+        "13.2_analytics": {
+          "method": "GET",
+          "path": "/api/analytics/dashboard",
+          "expectedStatus": 200,
+          "note": "AI-powered analytics dashboard"
+        },
+        "13.4_report_data": {
+          "method": "GET",
+          "path": "/api/reports/data/:reportType",
+          "expectedStatus": 200,
+          "reportTypes": ["sales", "financial", "products", "staff", "warehouse", "tax"],
+          "queryParams": { "period": "today | week | month | year", "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" },
+          "response": {
+            "success": true,
+            "data": "object (varies by reportType)"
+          }
+        }
+      }
+    },
+
+    "15_sync": {
+      "title": "Offline Sync",
+      "endpoints": {
+        "15.1_health": {
+          "method": "GET",
+          "path": "/api/sync/health",
+          "expectedStatus": 200,
+          "auth": "None (device discovery)",
+          "response": {
+            "status": "online",
+            "version": "string",
+            "timestamp": "ISO string"
+          }
+        },
+        "15.2_pending": {
+          "method": "GET",
+          "path": "/api/sync/pending",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": {
+              "orders":     "number",
+              "payments":   "number",
+              "tableStatus":"number",
+              "total":      "number"
+            }
+          }
+        },
+        "15.3_pull": {
+          "method": "GET",
+          "path": "/api/sync/pull",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": {
+              "products":   "array (all active)",
+              "categories": "array",
+              "tables":     "array",
+              "settings":   "object"
+            }
+          }
+        },
+        "15.4_batch": {
+          "method": "POST",
+          "path": "/api/sync/batch",
+          "expectedStatus": 200,
+          "body": {
+            "operations": [{
+              "type":      "order | order_status | table_status | payment",
+              "payload":   "object",
+              "timestamp": "ISO string",
+              "localId":   "string (client-side UUID)"
+            }]
+          },
+          "response": {
+            "success": true,
+            "data": {
+              "processed": "number",
+              "failed":    "number",
+              "results": [{ "localId": "string", "serverId": "UUID | null", "error": "string | null" }]
+            }
+          }
+        }
+      }
+    },
+
+    "17_settings": {
+      "title": "Settings & Branches",
+      "endpoints": {
+        "17.1_get": {
+          "method": "GET",
+          "path": "/api/settings",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": {
+              "id":             "UUID",
+              "name":           "string",
+              "currency":       "UZS",
+              "timezone":       "Asia/Tashkent",
+              "taxRate":        "Decimal string",
+              "orderPrefix":    "ORD",
+              "nonborEnabled":  "boolean",
+              "telegramEnabled":"boolean",
+              "paymeEnabled":   "boolean",
+              "clickEnabled":   "boolean"
+            }
+          }
+        },
+        "17.3_branches": {
+          "method": "GET",
+          "path": "/api/branches",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": [{
+              "id":       "UUID",
+              "name":     "string",
+              "slug":     "string",
+              "isActive": true,
+              "parentId": "UUID | null"
+            }],
+            "meta": { "total": "number" }
+          }
+        }
+      }
+    },
+
+    "19_notifications": {
+      "title": "Notifications",
+      "endpoints": {
+        "19.1_list": {
+          "method": "GET",
+          "path": "/api/notifications",
+          "expectedStatus": 200,
+          "response": {
+            "success": true,
+            "data": [{
+              "id":        "UUID",
+              "type":      "STOCK_LOW | ORDER_NEW | SHIFT_OPENED | EXPENSE_PENDING | SYSTEM",
+              "channel":   "IN_APP | TELEGRAM | SMS | PUSH",
+              "title":     "string",
+              "body":      "string",
+              "isRead":    false,
+              "createdAt": "ISO string"
+            }],
+            "meta": { "total": "number", "unread": "number" }
+          }
+        }
+      }
+    }
+  },
+
+  "errorCodes": {
+    "VALIDATION_ERROR": { "status": 400, "description": "So'rov body validatsiyasidan o'tmadi (Zod xatosi)" },
+    "UNAUTHORIZED":     { "status": 401, "description": "Token yo'q yoki muddati o'tgan" },
+    "FORBIDDEN":        { "status": 403, "description": "Ruxsat yo'q (role yoki tenant)" },
+    "NOT_FOUND":        { "status": 404, "description": "Resurs topilmadi" },
+    "CONFLICT":         { "status": 409, "description": "Duplicate (unique constraint)" },
+    "INTERNAL":         { "status": 500, "description": "Server ichki xatosi" },
+    "RATE_LIMITED":     { "status": 429, "description": "Juda ko'p so'rov (rate limit)" },
+    "PLAN_LIMIT":       { "status": 403, "code": "PLAN_LIMIT_EXCEEDED", "description": "Tarif limiti tugadi" }
+  },
+
+  "standardErrorShape": {
+    "success": false,
+    "code": "ERROR_CODE",
+    "message": "Human-readable xato xabari",
+    "errors": [{ "field": "fieldName", "message": "Validatsiya xato xabari" }],
+    "requestId": "UUID"
+  },
+
+  "standardSuccessShape": {
+    "success": true,
+    "data":    "object | array",
+    "message": "optional string",
+    "meta": {
+      "page":       1,
+      "limit":      20,
+      "total":      100,
+      "totalPages": 5
+    }
+  },
+
+  "authFlow": {
+    "step1": "POST /api/auth/login → accessToken + refreshToken",
+    "step2": "Barcha so'rovlarda: Authorization: Bearer {accessToken}",
+    "step3": "401 kelsa: POST /api/auth/refresh → yangi tokenlar",
+    "tokenTTL": { "access": "15 daqiqa", "refresh": "7 kun" }
+  },
+
+  "multiTenancy": {
+    "note": "Barcha ma'lumotlar tenantId bilan izolyatsiya qilingan",
+    "tenantSource": "JWT token payload ichida (login vaqtida o'rnatiladi)",
+    "superAdmin": "SUPER_ADMIN roli barcha tenantlarni ko'ra oladi"
+  },
+
+  "rateLimit": {
+    "global":   "200 so'rov/daqiqa (IP bo'yicha)",
+    "auth":     "10 so'rov/daqiqa (IP bo'yicha, login uchun)",
+    "orders":   "30 so'rov/daqiqa (tenant bo'yicha)"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "appId": "uz.oshxona.pos",
+  "productName": "Oshxona POS",
+  "copyright": "Copyright 2024 Oshxona POS",
+  "directories": {
+    "output": "../../release/windows/pos",
+    "buildResources": "assets"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "Oshxona-POS-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Oshxona POS",
+    "differentialPackage": false
+  },
+  "portable": {
+    "artifactName": "Oshxona-POS-Portable-${version}.${ext}"
+  },
+  "publish": null
+}

@@ -59,3 +59,19 @@ apps/mobile/android/
 # Misc
 *.pem
 .vercel
+
+# Build releases (EXE, APK — juda katta fayllar)
+release/
+
+# Android build artifacts
+*.hprof
+android/.gradle/
+android/local.properties
+android/gradle/wrapper/gradle-wrapper.jar
+android/gradlew
+android/gradlew.bat
+**/android/.gradle/
+**/android/local.properties
+
+# Database env
+packages/database/.env

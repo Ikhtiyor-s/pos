@@ -75,6 +75,11 @@ model Tenant {
   smsLogs               SmsLog[]
   webhookProviders      WebhookProvider[]
 
+  // Markirovka moduli
+  markirovkaProducts    MarkirovkaProduct[]
+  markirovkaBatches     MarkirovkaBatch[]
+  markirovkaLogs        MarkirovkaLog[]
+
   @@index([parentId])
   @@index([slug])
   @@index([isActive])
@@ -237,6 +242,9 @@ model Product {
   modifiers   ProductModifier[]
   ingredients ProductIngredient[]
   orderItems  OrderItem[]
+
+  markirovkaProducts MarkirovkaProduct[]
+  markirovkaBatches  MarkirovkaBatch[]
 
   @@unique([barcode, tenantId])
   @@unique([nonborProductId, tenantId])
@@ -481,6 +489,7 @@ model Supplier {
 
   items          InventoryItem[]
   purchaseOrders PurchaseOrder[]
+  markirovkaBatches MarkirovkaBatch[]
 
   @@map("suppliers")
 }
@@ -1672,4 +1681,95 @@ model WebhookRetryQueue {
   @@index([resolved, nextRetryAt])
   @@index([providerId])
   @@map("webhook_retry_queue")
+}
+
+// ==========================================
+// MARKIROVKA MODULI (O'zbekiston majburiy raqamli markirovka)
+// ==========================================
+
+enum MarkirovkaStatus {
+  MANUFACTURED
+  IMPORTED
+  IN_STOCK
+  RESERVED
+  SOLD
+  EXPIRED
+}
+
+enum MarkirovkaAction {
+  VERIFY
+  RECEIVE
+  SELL
+  REPORT
+}
+
+model MarkirovkaProduct {
+  id           String           @id @default(uuid())
+  tenantId     String           @map("tenant_id")
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  productId    String           @map("product_id")
+  product      Product          @relation(fields: [productId], references: [id])
+  // Markirovka kodlari
+  markCode     String           @unique @map("mark_code")
+  gtin         String           @db.Char(14)
+  serialNumber String           @unique @map("serial_number")
+  batchNumber  String?          @map("batch_number")
+  expiryDate   DateTime?        @map("expiry_date")
+  // Holat
+  status       MarkirovkaStatus @default(IN_STOCK)
+  verifiedAt   DateTime?        @map("verified_at")
+  // Sotuv ma'lumotlari
+  soldAt       DateTime?        @map("sold_at")
+  soldBy       String?          @map("sold_by")
+  orderId      String?          @map("order_id")
+  // Import ma'lumotlari
+  importedAt   DateTime?        @map("imported_at")
+  importerTin  String?          @map("importer_tin")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([tenantId, gtin])
+  @@index([batchNumber, tenantId])
+  @@index([orderId])
+  @@map("markirovka_products")
+}
+
+model MarkirovkaBatch {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  batchNumber   String    @map("batch_number")
+  productId     String    @map("product_id")
+  product       Product   @relation(fields: [productId], references: [id])
+  quantity      Int
+  receivedAt    DateTime  @map("received_at")
+  expiryDate    DateTime? @map("expiry_date")
+  supplierId    String?   @map("supplier_id")
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  invoiceNumber String?   @map("invoice_number")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([batchNumber, tenantId])
+  @@index([tenantId, productId])
+  @@index([supplierId])
+  @@map("markirovka_batches")
+}
+
+model MarkirovkaLog {
+  id        String           @id @default(uuid())
+  tenantId  String           @map("tenant_id")
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  markCode  String           @map("mark_code")
+  action    MarkirovkaAction
+  request   Json?
+  response  Json?
+  status    String
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([tenantId, markCode])
+  @@index([tenantId, action])
+  @@index([tenantId, createdAt])
+  @@map("markirovka_logs")
 }

@@ -33,10 +33,10 @@ const IDB_STORE = 'queue';
 const IDB_META  = 'meta';
 
 // VitePWA inject qiladi — build paytida haqiqiy URL'lar bilan to'ldiriladi
-const WB_MANIFEST: string[] =
-  typeof self.__WB_MANIFEST !== 'undefined'
-    ? self.__WB_MANIFEST.map(e => e.url)
-    : [];
+const _RAW_MANIFEST = self.__WB_MANIFEST;
+const WB_MANIFEST: string[] = Array.isArray(_RAW_MANIFEST)
+  ? _RAW_MANIFEST.map((e: { url: string }) => e.url)
+  : [];
 
 const SHELL_URLS = [...new Set([...WB_MANIFEST, '/', '/index.html'])];
 
@@ -186,7 +186,7 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
 // MESSAGE — main thread bilan muloqot
 // ==========================================
 
-self.addEventListener('message', (event: MessageEvent) => {
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if (!event.data?.type) return;
   switch (event.data.type) {
     case 'SKIP_WAITING':
@@ -213,6 +213,7 @@ interface QueueItem {
   maxRetries: number;
   status:     'pending' | 'processing' | 'failed' | 'conflict' | 'done';
   lastError?: string;
+  resolvedAt?: number;
   deviceId:   string;
 }
 

@@ -23,8 +23,7 @@ class OfflineService {
   }
 
   Stream<ConnectivityResult> get connectivityStream =>
-      Connectivity().onConnectivityChanged.map((results) =>
-          results.isNotEmpty ? results.first : ConnectivityResult.none);
+      Connectivity().onConnectivityChanged;
 
   // ---------- Cache Products ----------
 

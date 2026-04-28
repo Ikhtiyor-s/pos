@@ -22,6 +22,7 @@ import { processRetryQueue } from './modules/webhook-provider/webhook-provider.s
 import { startReportCrons } from './modules/reports/report-cleanup.cron.js';
 import { startTelegramCrons } from './modules/telegram-bot/telegram-bot.cron.js';
 import { startLoyaltyCrons } from './modules/loyalty/loyalty.cron.js';
+import { startMarkirovkaReportCrons } from './jobs/markirovka-report.cron.js';
 import { logger, Sentry } from './utils/logger.js';
 import { metricsMiddleware, createMetricsRouter } from './middleware/metrics.middleware.js';
 import {
@@ -190,6 +191,7 @@ async function bootstrap() {
     startReportCrons();
     startTelegramCrons();
     startLoyaltyCrons();
+    startMarkirovkaReportCrons();
 
     setInterval(() => {
       processRetryQueue().catch((err: Error) => {
