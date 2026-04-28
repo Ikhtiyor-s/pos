@@ -903,6 +903,203 @@ class NonborV2Service {
     const mapped = state === 'CANCELLED_CLIENT' ? 'CANCELLED_SELLER' : state as any;
     await this.changeOrderStatus(orderId, mapped, undefined, tenantId);
   }
+
+  // ─────────────────────────────────────────────────────
+  // EMAIL + PAROL BILAN NONBORGA KIRISH
+  // Restoran admin o'z email/parolini kiritadi →
+  // Nonbor JWT token → mahsulotlar/kategoriyalar import
+  // ─────────────────────────────────────────────────────
+
+  async loginWithCredentials(params: {
+    email:    string;
+    password: string;
+    apiUrl?:  string;
+    tenantId: string;
+  }): Promise<{
+    token:        string;
+    sellerId:     number | null;
+    businessInfo: NonborBusiness | null;
+    products:     { created: number; updated: number; skipped: number; errors: string[] };
+    categories:   number;
+  }> {
+    const { email, password, tenantId } = params;
+    const baseUrl = (params.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '');
+
+    logger.info('[Nonbor] Email/parol bilan ulanish boshlandi', { email, baseUrl });
+
+    // ── 1. JWT token olish ──────────────────────────────────────────
+    // Nonbor API: POST /user/authenticate/ → {username, password, role}
+    // Response: {success: true, data: {access, refresh}} or {success: false, error: {...}}
+    let token = '';
+    let lastError = '';
+
+    const authAttempts = [
+      { url: `${baseUrl}/user/authenticate/`, body: { username: email, password, role: 'seller' } },
+      { url: `${baseUrl}/user/authenticate/`, body: { username: email, password, role: 'admin' } },
+      { url: `${baseUrl}/user/authenticate/`, body: { username: email, password } },
+    ];
+
+    for (const ep of authAttempts) {
+      try {
+        const resp = await axios.post(ep.url, ep.body, { timeout: 10000 });
+        const d = resp.data;
+        // {success: true, data: {access, refresh}} format
+        if (d?.success === true) {
+          token = d?.data?.access || d?.data?.token || d?.data?.key || '';
+        }
+        // Direct token format fallback
+        if (!token) {
+          token = d?.access || d?.token || d?.key || '';
+        }
+        if (token) {
+          logger.info('[Nonbor] Token olindi', { endpoint: ep.url });
+          break;
+        }
+        // success=false means bad credentials
+        if (d?.success === false) {
+          lastError = d?.error?.message || 'Login yoki parol noto\'g\'ri';
+          break;
+        }
+      } catch (err) {
+        lastError = (err as Error).message;
+        logger.debug('[Nonbor] Auth endpoint sinab ko\'rildi', { url: ep.url, error: lastError });
+      }
+    }
+
+    if (!token) {
+      throw new Error(lastError || 'Nonbor ga ulanishda xatolik. Email yoki parol noto\'g\'ri.');
+    }
+
+    // ── 2. Autentifikatsiyalangan klient ─────────────────────────────
+    const authClient = axios.create({
+      baseURL: baseUrl,
+      timeout: 15000,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // ── 3. Seller/Business ID topish ─────────────────────────────────
+    let sellerId: number | null = null;
+    let businessInfo: NonborBusiness | null = null;
+
+    // Nonbor API: profil va biznes endpoint'lari
+    // GET /user/profile-info/ → {success, data: {id, username, ...}}
+    // GET /seller/business/list/ → {success, data: [{id, title, ...}]}
+    const profileEndpoints = [
+      '/user/profile-info/',
+      '/user/profile/',
+      '/user/me/',
+    ];
+    for (const ep of profileEndpoints) {
+      try {
+        const resp = await authClient.get(ep);
+        const d = resp.data?.success === true ? resp.data?.data : resp.data;
+        sellerId = d?.business_id ?? d?.seller_id ?? d?.business ?? d?.id ?? null;
+        if (typeof sellerId === 'number') break;
+      } catch { /* keyingisini sinab ko'rish */ }
+    }
+
+    // Seller business list — eng to'g'ri usul
+    if (!sellerId) {
+      try {
+        const resp = await authClient.get('/seller/business/list/');
+        const list = resp.data?.success === true ? resp.data?.data : resp.data;
+        if (Array.isArray(list) && list.length > 0) {
+          sellerId = list[0]?.id ?? list[0]?.business_id ?? null;
+        } else if (list?.id) {
+          sellerId = list.id;
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Business detail olish
+    if (sellerId) {
+      try {
+        const resp = await authClient.get(`/business/${sellerId}/detail/`);
+        const d = resp.data?.success === true ? resp.data?.data : resp.data;
+        businessInfo = d;
+      } catch { /* ignore */ }
+    }
+
+    // ── 4. Sozlamalarni bazaga saqlash ───────────────────────────────
+    await prisma.settings.upsert({
+      where:  { tenantId },
+      update: {
+        nonborEnabled:   true,
+        nonborApiSecret: token,
+        nonborApiUrl:    baseUrl,
+        ...(sellerId ? { nonborSellerId: sellerId } : {}),
+        ...(businessInfo ? {
+          name:    businessInfo.title   || undefined,
+          address: businessInfo.address || undefined,
+          phone:   businessInfo.phone_number || undefined,
+          logo:    businessInfo.logo    || undefined,
+        } : {}),
+      },
+      create: {
+        tenantId,
+        name:            businessInfo?.title || 'Oshxona',
+        address:         businessInfo?.address,
+        phone:           businessInfo?.phone_number,
+        logo:            businessInfo?.logo,
+        nonborEnabled:   true,
+        nonborApiSecret: token,
+        nonborApiUrl:    baseUrl,
+        nonborSellerId:  sellerId,
+        taxRate:         0,
+        currency:        'UZS',
+        orderPrefix:     'NB',
+      },
+    });
+
+    // Client cache reset (yangi token bilan)
+    this.resetClient(tenantId);
+
+    // ── 5. Mahsulotlar va kategoriyalarni import qilish ──────────────
+    let productsResult = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
+    let categoryCount  = 0;
+
+    if (sellerId) {
+      // Kategoriyalar
+      try {
+        const nonborCats = await this.getCategories(sellerId, tenantId);
+        categoryCount = nonborCats.length;
+
+        for (const nc of nonborCats) {
+          const slug = nc.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          await prisma.category.upsert({
+            where:  { slug_tenantId: { slug, tenantId } },
+            update: { name: nc.name, isActive: nc.is_active ?? true },
+            create: { name: nc.name, slug, isActive: nc.is_active ?? true, tenantId },
+          }).catch(() => null);
+        }
+        logger.info('[Nonbor] Kategoriyalar import qilindi', { tenantId, count: categoryCount });
+      } catch (err) {
+        logger.warn('[Nonbor] Kategoriya import xatosi', { error: (err as Error).message });
+      }
+
+      // Mahsulotlar
+      try {
+        productsResult = await this.pullProductsFromNonbor(tenantId);
+        logger.info('[Nonbor] Mahsulotlar import qilindi', { tenantId, ...productsResult });
+      } catch (err) {
+        logger.warn('[Nonbor] Mahsulot import xatosi', { error: (err as Error).message });
+        productsResult.errors.push((err as Error).message);
+      }
+    }
+
+    logger.info('[Nonbor] Email/parol bilan ulanish yakunlandi', {
+      tenantId, sellerId, categories: categoryCount,
+      products: productsResult,
+    });
+
+    return {
+      token,
+      sellerId,
+      businessInfo,
+      products:   productsResult,
+      categories: categoryCount,
+    };
+  }
 }
 
 export const nonborApiService = new NonborV2Service();

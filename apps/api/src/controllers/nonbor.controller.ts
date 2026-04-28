@@ -287,4 +287,102 @@ export class NonborController {
       next(error);
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────
+  // POST /nonbor/login-connect
+  // Restoran admin email + parol bilan Nonborga kiradi →
+  // JWT token olinadi → mahsulotlar + kategoriyalar import qilinadi
+  // ─────────────────────────────────────────────────────────────────
+  static async loginConnect(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId  = req.user!.tenantId!;
+      const { email, password, apiUrl } = req.body as {
+        email:    string;
+        password: string;
+        apiUrl?:  string;
+      };
+
+      if (!email?.trim() || !password?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email va parol kiritilishi shart',
+        });
+      }
+
+      logger.info('[Nonbor] loginConnect so\'rovi', { tenantId, email });
+
+      const result = await nonborApiService.loginWithCredentials({
+        email:    email.trim(),
+        password: password.trim(),
+        apiUrl,
+        tenantId,
+      });
+
+      // Polling qayta ishga tushirish
+      try {
+        const io = req.app.get('io') as Server;
+        await nonborSyncService.restartPolling(io);
+      } catch (e) {
+        logger.warn('[Nonbor] Polling qayta ishga tushirishda xato', { error: (e as Error).message });
+      }
+
+      return successResponse(
+        res,
+        {
+          connected:    true,
+          sellerId:     result.sellerId,
+          businessName: result.businessInfo?.title ?? null,
+          businessAddress: result.businessInfo?.address ?? null,
+          apiUrl:       apiUrl || 'https://test.nonbor.uz/api/v2',
+          import: {
+            categories: result.categories,
+            products: {
+              created: result.products.created,
+              updated: result.products.updated,
+              skipped: result.products.skipped,
+              errors:  result.products.errors.length,
+            },
+          },
+        },
+        `Nonborga ulandi! ${result.products.created} ta yangi mahsulot, ` +
+        `${result.products.updated} ta yangilandi, ${result.categories} ta kategoriya import qilindi.`,
+      );
+    } catch (error) {
+      const msg = (error as Error).message;
+      logger.error('[Nonbor] loginConnect xato', { error: msg });
+
+      // Auth xatolari uchun 401
+      if (
+        msg.toLowerCase().includes('parol') ||
+        msg.toLowerCase().includes('invalid credentials') ||
+        msg.toLowerCase().includes('login yoki parol') ||
+        msg.toLowerCase().includes('noto\'g\'ri') ||
+        msg.includes('401')
+      ) {
+        return res.status(401).json({ success: false, message: msg });
+      }
+      next(error);
+    }
+  }
+
+  // POST /nonbor/refresh-products — faqat mahsulotlarni qayta import qilish
+  static async refreshProducts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+
+      const settings = await prisma.settings.findUnique({ where: { tenantId } });
+      if (!settings?.nonborEnabled) {
+        return res.status(400).json({ success: false, message: 'Nonbor integratsiya yoqilmagan. Avval ulanib oling.' });
+      }
+
+      logger.info('[Nonbor] refreshProducts boshlandi', { tenantId });
+
+      const result = await nonborApiService.pullProductsFromNonbor(tenantId);
+
+      return successResponse(res, result,
+        `Mahsulotlar yangilandi: ${result.created} yangi, ${result.updated} o'zgartirildi`);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
