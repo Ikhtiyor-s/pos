@@ -653,7 +653,7 @@ class NonborV2Service {
   // PATCH /api/v2/order/order-status-change/{id}/
   async changeOrderStatus(
     orderId: number,
-    state: 'ACCEPTED' | 'READY' | 'CANCELLED_SELLER' | 'DELIVERED' | 'COMPLETED',
+    state: 'ACCEPTED' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED_SELLER',
     cancelDescription?: string,
     tenantId?: string,
   ): Promise<void> {
@@ -844,7 +844,7 @@ class NonborV2Service {
   async syncOrderStatusToNonbor(
     localOrderId: string,
     nonborOrderId: number,
-    status: 'ACCEPTED' | 'READY' | 'CANCELLED_SELLER' | 'DELIVERED' | 'COMPLETED',
+    status: 'ACCEPTED' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED_SELLER',
     tenantId?: string,
   ): Promise<void> {
     await this.changeOrderStatus(nonborOrderId, status, undefined, tenantId);

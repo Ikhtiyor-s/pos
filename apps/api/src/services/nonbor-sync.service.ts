@@ -25,13 +25,14 @@ const NONBOR_TO_LOCAL_STATUS: Record<string, OrderStatus> = {
 };
 
 const LOCAL_TO_NONBOR_STATUS: Partial<
-  Record<OrderStatus, 'ACCEPTED' | 'READY' | 'CANCELLED_SELLER' | 'DELIVERED' | 'COMPLETED'>
+  Record<OrderStatus, 'ACCEPTED' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED_SELLER'>
 > = {
   [OrderStatus.CONFIRMED]:  'ACCEPTED',
+  [OrderStatus.PREPARING]:  'ACCEPTED',   // PREPARING ham ACCEPTED deb yuboriladi
   [OrderStatus.READY]:      'READY',
-  [OrderStatus.COMPLETED]:  'COMPLETED',
+  [OrderStatus.DELIVERING]: 'DELIVERING', // ← to'g'irlandi: DELIVERING → 'DELIVERING'
+  [OrderStatus.COMPLETED]:  'DELIVERED',  // COMPLETED → yetkazildi/yakunlandi
   [OrderStatus.CANCELLED]:  'CANCELLED_SELLER',
-  [OrderStatus.DELIVERING]: 'DELIVERED',
 };
 
 // PENDING/WAITING_PAYMENT — mijoz to'lovni kutmoqda yoki tasdiqlashni kutmoqda.
