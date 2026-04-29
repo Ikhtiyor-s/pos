@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Server } from 'socket.io';
+import { prisma } from '@oshxona/database';
 import { WarehouseService } from './warehouse.service.js';
 import { successResponse, paginatedResponse } from '../../utils/response.js';
 import {
@@ -182,6 +183,149 @@ export class WarehouseController {
       const { year, month } = monthlyTurnoverQuerySchema.parse(req.query);
       const report       = await WarehouseService.getMonthlyTurnover(tenantId, year, month);
       return successResponse(res, report, `${year}-${String(month).padStart(2, '0')} ombor aylanmasi`);
+    } catch (e) { next(e); }
+  }
+
+  // ==========================================
+  // BARCODE SCAN — qabul qilish
+  // ==========================================
+
+  // GET /warehouse/scan/:barcode — mahsulotni barcod bo'yicha qidirish
+  static async scanLookup(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const { barcode } = req.params;
+
+      const product = await prisma.product.findFirst({
+        where: { barcode, tenantId },
+        include: { category: { select: { id: true, name: true } } },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Barcode topilmadi: ${barcode}`,
+          barcode,
+        });
+      }
+
+      // Ombordan joriy miqdorni ham olish
+      const invItem = await prisma.inventoryItem.findFirst({
+        where: { sku: product.barcode || product.id, tenantId },
+        select: { id: true, quantity: true, unit: true, costPrice: true },
+      });
+
+      return successResponse(res, {
+        product: {
+          id: product.id,
+          name: product.name,
+          barcode: product.barcode,
+          price: product.price,
+          image: product.image,
+          category: product.category,
+          stockQuantity: product.stockQuantity,
+        },
+        inventory: invItem ?? null,
+      });
+    } catch (e) { next(e); }
+  }
+
+  // POST /warehouse/scan-receive — barcode scan → ombor kirim
+  static async scanReceive(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = req.user!.tenantId!;
+      const userId   = req.user!.id;
+      const {
+        barcode,
+        quantity,
+        note,
+        costPrice,
+        supplierId,
+      } = req.body as {
+        barcode:     string;
+        quantity:    number;
+        note?:       string;
+        costPrice?:  number;
+        supplierId?: string;
+      };
+
+      if (!barcode?.trim()) {
+        return res.status(400).json({ success: false, message: 'Barcode kiritilishi shart' });
+      }
+      if (!quantity || quantity <= 0) {
+        return res.status(400).json({ success: false, message: 'Miqdor 0 dan katta bo\'lishi kerak' });
+      }
+
+      // 1. Mahsulotni barcode bo'yicha topish
+      const product = await prisma.product.findFirst({
+        where: { barcode: barcode.trim(), tenantId },
+        include: { category: { select: { id: true, name: true } } },
+      });
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Barcode topilmadi: ${barcode}. Avval mahsulotga barcode biriktiring.`,
+          barcode,
+        });
+      }
+
+      // 2. Product.stockQuantity yangilash
+      await prisma.product.update({
+        where: { id: product.id },
+        data:  { stockQuantity: (product.stockQuantity ?? 0) + quantity },
+      });
+
+      // 3. InventoryItem topish yoki yaratish
+      const sku = product.barcode || product.id;
+      let invItem = await prisma.inventoryItem.findFirst({ where: { sku, tenantId } });
+
+      if (invItem) {
+        invItem = await prisma.inventoryItem.update({
+          where: { id: invItem.id },
+          data:  {
+            quantity:  { increment: quantity },
+            ...(costPrice != null ? { costPrice } : {}),
+            ...(supplierId ? { supplierId } : {}),
+          },
+        });
+      } else {
+        invItem = await prisma.inventoryItem.create({
+          data: {
+            name:       product.name,
+            sku,
+            unit:       'dona',
+            quantity,
+            costPrice:  costPrice ?? product.price,
+            supplierId: supplierId ?? null,
+            tenantId,
+          },
+        });
+      }
+
+      // 4. Tranzaksiya yozish
+      await prisma.inventoryTransaction.create({
+        data: {
+          itemId:   invItem.id,
+          type:     'IN',
+          quantity,
+          notes:    note || `Barcode scan: ${barcode}`,
+          userId,
+        },
+      });
+
+      return successResponse(res, {
+        product: {
+          id:            product.id,
+          name:          product.name,
+          barcode:       product.barcode,
+          category:      product.category,
+          image:         product.image,
+          stockQuantity: (product.stockQuantity ?? 0) + quantity,
+        },
+        received:       quantity,
+        inventoryTotal: Number(invItem.quantity),
+      }, `${product.name} — ${quantity} ta qabul qilindi`);
     } catch (e) { next(e); }
   }
 }

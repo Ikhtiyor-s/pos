@@ -79,6 +79,7 @@ import { LowStockAlert } from './components/LowStockAlert';
 import { inventoryService, type LowStockItem } from './services/inventory.service';
 import { Warehouse } from './components/Warehouse';
 import AdminDashboard from './components/views/AdminDashboard';
+import { WarehouseScanReceive } from './components/WarehouseScanReceive';
 
 type OrderType = 'dine-in' | 'takeaway';
 type PaymentMethod = 'cash' | 'card' | 'payme' | 'click' | 'uzum';
@@ -123,6 +124,11 @@ function isChefRole(role?: string) {
 function isWaiterRole(role?: string) {
   const r = role?.toLowerCase() || '';
   return ['waiter', 'ofitsiant'].includes(r);
+}
+
+function isWarehouseRole(role?: string) {
+  const r = role?.toLowerCase() || '';
+  return r === 'warehouse';
 }
 
 function formatPrice(price: number) {
@@ -517,6 +523,16 @@ export default function App() {
       )}
     </>
   );
+
+  // Warehouse View — barcode scanner + qabul qilish
+  if (isWarehouseRole(userRole)) {
+    return (
+      <WarehouseScanReceive
+        userName={user?.name || user?.email}
+        onLogout={() => { logout(); localStorage.removeItem('pos-auth'); }}
+      />
+    );
+  }
 
   // Chef/Kitchen View - dedicated view for kitchen staff
   if (isChefRole(userRole)) {

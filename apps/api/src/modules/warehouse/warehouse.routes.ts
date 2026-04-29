@@ -53,4 +53,10 @@ router.get('/waste-report',  WarehouseController.getWasteReport);
 
 router.get('/reports/monthly-turnover', WarehouseController.getMonthlyTurnover);
 
+// ==========================================
+// BARCODE SCAN — qabul qilish
+// ==========================================
+router.get('/scan/:barcode',  WarehouseController.scanLookup);
+router.post('/scan-receive',  WarehouseController.scanReceive);
+
 export default router;
