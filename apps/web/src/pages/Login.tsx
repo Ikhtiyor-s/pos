@@ -23,7 +23,7 @@ const DEMO_USERS = [
   { role: 'MANAGER',     email: 'manager@oshxona.uz',     password: 'Manager1234!' },
   { role: 'CASHIER',     email: 'kassir@oshxona.uz',      password: 'Kassir1234!' },
   { role: 'CHEF',        email: 'oshpaz@oshxona.uz',      password: 'Oshpaz1234!' },
-  { role: 'WAITER',      email: 'waiter@oshxona.uz',      password: 'Waiter1234!' },
+  { role: 'WAITER',      email: 'ofitsiant@oshxona.uz',   password: 'Waiter1234!' },
   { role: 'WAREHOUSE',   email: 'ombor@oshxona.uz',       password: 'Ombor1234!' },
   { role: 'ACCOUNTANT',  email: 'buxgalter@oshxona.uz',   password: 'Buxgalter1234!' },
 ];
