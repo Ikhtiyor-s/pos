@@ -310,6 +310,7 @@ model Table {
   number    Int
   name      String?
   capacity  Int         @default(4)
+  floor     Int         @default(1)          // Etaj: 1, 2, 3...
   qrCode    String      @map("qr_code")
   status    TableStatus @default(FREE)
   positionX Int?        @map("position_x")
@@ -323,7 +324,7 @@ model Table {
   orders       Order[]
   reservations Reservation[]
 
-  @@unique([number, tenantId])
+  @@unique([number, floor, tenantId])        // Bir etajda bir xil raqam bo'lmaydi
   @@unique([qrCode, tenantId])
   @@index([tenantId, status])
   @@index([tenantId, isActive])

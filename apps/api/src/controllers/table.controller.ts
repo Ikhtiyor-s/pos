@@ -8,6 +8,7 @@ const createTableSchema = z.object({
   number: z.number().int().positive(),
   name: z.string().optional(),
   capacity: z.number().int().positive().default(4),
+  floor: z.number().int().min(1).default(1),
   positionX: z.number().int().optional(),
   positionY: z.number().int().optional(),
 });
@@ -15,6 +16,7 @@ const createTableSchema = z.object({
 const updateTableSchema = z.object({
   name: z.string().optional(),
   capacity: z.number().int().positive().optional(),
+  floor: z.number().int().min(1).optional(),
   status: z.enum(['FREE', 'OCCUPIED', 'RESERVED', 'CLEANING']).optional(),
   positionX: z.number().int().optional(),
   positionY: z.number().int().optional(),
@@ -25,7 +27,8 @@ export class TableController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
       const tenantId = req.user!.tenantId!;
-      const tables = await TableService.getAll(tenantId);
+      const floor = req.query.floor ? parseInt(req.query.floor as string) : undefined;
+      const tables = await TableService.getAll(tenantId, floor);
       return successResponse(res, tables);
     } catch (error) {
       next(error);

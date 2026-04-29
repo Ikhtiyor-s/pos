@@ -3,26 +3,20 @@ import QRCode from 'qrcode';
 import { AppError } from '../middleware/errorHandler.js';
 
 export class TableService {
-  static async getAll(tenantId: string) {
+  static async getAll(tenantId: string, floor?: number) {
     const tables = await prisma.table.findMany({
-      where: { tenantId, isActive: true },
+      where: {
+        tenantId,
+        isActive: true,
+        ...(floor != null ? { floor } : {}),
+      },
       include: {
         orders: {
-          where: {
-            status: {
-              notIn: ['COMPLETED', 'CANCELLED'],
-            },
-          },
-          select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-            total: true,
-            createdAt: true,
-          },
+          where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          select: { id: true, orderNumber: true, status: true, total: true, createdAt: true },
         },
       },
-      orderBy: { number: 'asc' },
+      orderBy: [{ floor: 'asc' }, { number: 'asc' }],
     });
 
     return tables;
@@ -58,26 +52,29 @@ export class TableService {
     number: number;
     name?: string;
     capacity?: number;
+    floor?: number;
     positionX?: number;
     positionY?: number;
   }) {
-    // Check if table number exists for this tenant
+    const floor = data.floor ?? 1;
+
+    // Bir etajda bir xil raqamli stol bo'lmasin
     const existing = await prisma.table.findFirst({
-      where: { number: data.number, tenantId },
+      where: { number: data.number, floor, tenantId },
     });
 
     if (existing) {
-      throw new AppError('Bu raqamli stol mavjud', 400);
+      throw new AppError(`${floor}-etajda ${data.number}-raqamli stol allaqachon mavjud`, 400);
     }
 
-    // Generate unique QR code
-    const qrCode = `TABLE-${String(data.number).padStart(3, '0')}-${Date.now()}`;
+    const qrCode = `TABLE-F${floor}-${String(data.number).padStart(3, '0')}-${Date.now()}`;
 
     const table = await prisma.table.create({
       data: {
         tenantId,
         number: data.number,
-        name: data.name || `Stol ${data.number}`,
+        floor,
+        name: data.name || `${floor}-etaj, ${data.number}-stol`,
         capacity: data.capacity || 4,
         qrCode,
         positionX: data.positionX,
