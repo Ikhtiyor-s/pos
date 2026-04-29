@@ -311,8 +311,25 @@ class NonborV2Service {
       },
     });
 
+    // Nonbor API response normalizer:
+    // {success: true, result: [...]}  → {count, next, previous, results: [...]}
+    // {success: true, result: {count, results: [...]}} → as-is paginated
+    // Standard DRF {count, results: [...]} → as-is
     client.interceptors.response.use(
-      (r) => r,
+      (r) => {
+        const d = r.data;
+        if (d && typeof d === 'object' && 'success' in d && 'result' in d) {
+          const raw = d.result;
+          if (Array.isArray(raw)) {
+            r.data = { count: raw.length, next: null, previous: null, results: raw };
+          } else if (raw && typeof raw === 'object' && 'results' in raw) {
+            r.data = raw; // already paginated inside result
+          } else {
+            r.data = raw ?? d; // single object or null
+          }
+        }
+        return r;
+      },
       (error: AxiosError) => {
         const status = error.response?.status;
         const url = error.config?.url;
@@ -393,17 +410,25 @@ class NonborV2Service {
 
   async getCategories(businessId: number, tenantId?: string): Promise<NonborCategory[]> {
     const client = await this.getClient(tenantId);
-    // GET /business/{id}/products-by-category/ — kategoriyalar bilan mahsulotlar
-    // Lekin kategoriyalar ro'yxati uchun seller-products'dagi category field ishlatiladi
-    // Nonbor'da standalone categories endpoint yo'q, shuning uchun products orqali olamiz
-    const { data } = await client.get<PaginatedResponse<NonborSellerProduct>>('/seller-products/', {
-      params: { business_id: businessId, page_size: 1 },
-    });
+    // GET /api/v2/categories/?businesses__id={id} — to'g'ridan kategoriyalar
+    try {
+      const { data } = await client.get<PaginatedResponse<NonborCategory>>('/categories/', {
+        params: { businesses__id: businessId, page_size: 200, is_active: true },
+      });
+      if (Array.isArray(data?.results) && data.results.length > 0) {
+        return data.results;
+      }
+    } catch { /* fallback ga o'tamiz */ }
 
-    // Kategoriyalarni products'dan yig'amiz
+    // Fallback: menu-categories endpoint
+    try {
+      const menuCats = await this.getMenuCategories(businessId, tenantId);
+      if (menuCats.length > 0) return menuCats as unknown as NonborCategory[];
+    } catch { /* ignore */ }
+
+    // Oxirgi fallback: mahsulotlardan kategoriyalarni yig'ish
     const seen = new Set<number>();
     const categories: NonborCategory[] = [];
-
     const allProducts = await this.getAllSellerProducts(businessId, tenantId);
     for (const p of allProducts) {
       const cat = p.category;
@@ -615,8 +640,14 @@ class NonborV2Service {
 
   async getOrderDetail(orderId: number, tenantId?: string): Promise<NonborOrder> {
     const client = await this.getClient(tenantId);
-    const { data } = await client.get<NonborOrder>(`/order/order-detail-for-seller/${orderId}/`);
-    return data;
+    // Try seller-specific endpoint first, fallback to client endpoint
+    try {
+      const { data } = await client.get<NonborOrder>(`/order/order-detail-for-seller/${orderId}/`);
+      return data;
+    } catch {
+      const { data } = await client.get<NonborOrder>(`/order/get-by-id-client/${orderId}/`);
+      return data;
+    }
   }
 
   // PATCH /api/v2/order/order-status-change/{id}/
@@ -943,14 +974,12 @@ class NonborV2Service {
       try {
         const resp = await axios.post(ep.url, ep.body, { timeout: 10000 });
         const d = resp.data;
-        // {success: true, data: {access, refresh}} format
-        if (d?.success === true) {
-          token = d?.data?.access || d?.data?.token || d?.data?.key || '';
-        }
-        // Direct token format fallback
-        if (!token) {
-          token = d?.access || d?.token || d?.key || '';
-        }
+        // Nonbor API turli wrapper formatlar ishlatadi:
+        // {success: true, data: {access, ...}}
+        // {success: true, result: {access, ...}}
+        // {access, ...}  (to'g'ridan)
+        const inner = d?.data ?? d?.result ?? d;
+        token = inner?.access || inner?.token || inner?.key || '';
         if (token) {
           logger.info('[Nonbor] Token olindi', { endpoint: ep.url });
           break;
@@ -992,31 +1021,31 @@ class NonborV2Service {
     for (const ep of profileEndpoints) {
       try {
         const resp = await authClient.get(ep);
-        const d = resp.data?.success === true ? resp.data?.data : resp.data;
+        // Handle {success, data/result} or direct object
+        const d = resp.data?.data ?? resp.data?.result ?? resp.data;
         sellerId = d?.business_id ?? d?.seller_id ?? d?.business ?? d?.id ?? null;
         if (typeof sellerId === 'number') break;
       } catch { /* keyingisini sinab ko'rish */ }
     }
 
-    // Seller business list — eng to'g'ri usul
+    // Seller business list — swagger: GET /seller/business/list/
     if (!sellerId) {
       try {
         const resp = await authClient.get('/seller/business/list/');
-        const list = resp.data?.success === true ? resp.data?.data : resp.data;
-        if (Array.isArray(list) && list.length > 0) {
+        const raw = resp.data?.data ?? resp.data?.result ?? resp.data;
+        const list = Array.isArray(raw) ? raw : (raw?.results ?? []);
+        if (list.length > 0) {
           sellerId = list[0]?.id ?? list[0]?.business_id ?? null;
-        } else if (list?.id) {
-          sellerId = list.id;
         }
       } catch { /* ignore */ }
     }
 
-    // Business detail olish
+    // Business detail olish — swagger: GET /business/{id}/detail/
     if (sellerId) {
       try {
         const resp = await authClient.get(`/business/${sellerId}/detail/`);
-        const d = resp.data?.success === true ? resp.data?.data : resp.data;
-        businessInfo = d;
+        const d = resp.data?.data ?? resp.data?.result ?? resp.data;
+        businessInfo = d as NonborBusiness;
       } catch { /* ignore */ }
     }
 
