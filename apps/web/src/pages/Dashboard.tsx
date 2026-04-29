@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { dashboardService } from '@/services/dashboard.service';
 import { branchService } from '@/services/branch.service';
+import { useAuthStore } from '@/store/auth';
 import type { DashboardData, DashboardPeriod, DailySalesData } from '@/types/dashboard';
 import type { Branch } from '@/types/branch';
 
@@ -56,13 +57,16 @@ export function DashboardPage() {
   const [dailySales, setDailySales] = useState<DailySalesData[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuthStore();
 
-  // Filliallar ro'yxatini bir marta yuklash
+  // Filliallar faqat SUPER_ADMIN va MANAGER uchun
   useEffect(() => {
+    const canSeeBranches = user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER';
+    if (!canSeeBranches) return;
     branchService.getAll({ limit: 100 })
       .then((res) => setBranches(res.branches))
-      .catch(() => {}); // Xatolik bo'lsa — filliallar yo'q
-  }, []);
+      .catch(() => {});
+  }, [user?.role]);
 
   // Dashboard ma'lumotlarini yuklash
   const fetchData = useCallback(async () => {

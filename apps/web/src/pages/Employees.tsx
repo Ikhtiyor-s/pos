@@ -26,7 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { employeeApiService, type EmployeeApi } from '@/services/employee.service';
 
-type EmployeeRole = 'CASHIER' | 'WAITER' | 'CHEF' | 'MANAGER' | 'SUPER_ADMIN';
+type EmployeeRole = 'CASHIER' | 'WAITER' | 'CHEF' | 'MANAGER' | 'SUPER_ADMIN' | 'WAREHOUSE' | 'ACCOUNTANT';
 type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
 
 interface Employee {
@@ -71,11 +71,13 @@ function mapApiToEmployee(apiEmp: EmployeeApi): Employee {
 }
 
 const roleConfig: Record<EmployeeRole, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
-  CASHIER: { label: 'Kassir', color: 'text-green-700', bgColor: 'bg-green-100', icon: Wallet },
-  WAITER: { label: 'Ofitsiant', color: 'text-blue-700', bgColor: 'bg-blue-100', icon: Users },
-  CHEF: { label: 'Oshpaz', color: 'text-orange-700', bgColor: 'bg-orange-100', icon: ChefHat },
-  MANAGER: { label: 'Menejer', color: 'text-purple-700', bgColor: 'bg-purple-100', icon: Shield },
-  SUPER_ADMIN: { label: 'Admin', color: 'text-red-700', bgColor: 'bg-red-100', icon: Crown },
+  CASHIER:    { label: 'Kassir',     color: 'text-green-700',  bgColor: 'bg-green-100',  icon: Wallet },
+  WAITER:     { label: 'Ofitsiant',  color: 'text-blue-700',   bgColor: 'bg-blue-100',   icon: Users },
+  CHEF:       { label: 'Oshpaz',     color: 'text-orange-700', bgColor: 'bg-orange-100', icon: ChefHat },
+  MANAGER:    { label: 'Menejer',    color: 'text-purple-700', bgColor: 'bg-purple-100', icon: Shield },
+  SUPER_ADMIN:{ label: 'Admin',      color: 'text-red-700',    bgColor: 'bg-red-100',    icon: Crown },
+  WAREHOUSE:  { label: 'Ombor',      color: 'text-yellow-700', bgColor: 'bg-yellow-100', icon: UserCheck },
+  ACCOUNTANT: { label: 'Buxgalter',  color: 'text-teal-700',   bgColor: 'bg-teal-100',   icon: Wallet },
 };
 
 const statusConfig: Record<EmployeeStatus, { label: string; color: string; bgColor: string }> = {
@@ -449,7 +451,7 @@ export function EmployeesPage() {
 
           {/* Role Filter */}
           <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-1">
-            {(['ALL', 'WAITER', 'CASHIER', 'CHEF', 'MANAGER'] as const).map((role) => (
+            {(['ALL', 'WAITER', 'CASHIER', 'CHEF', 'MANAGER', 'WAREHOUSE', 'ACCOUNTANT'] as const).map((role) => (
               <button
                 key={role}
                 onClick={() => setRoleFilter(role)}
@@ -762,7 +764,10 @@ export function EmployeesPage() {
                   <option value="WAITER">Ofitsiant</option>
                   <option value="CASHIER">Kassir</option>
                   <option value="CHEF">Oshpaz</option>
+                  <option value="WAREHOUSE">Ombor xodimi</option>
                   <option value="MANAGER">Menejer</option>
+                  <option value="ACCOUNTANT">Buxgalter</option>
+                  <option value="SUPER_ADMIN">Admin</option>
                 </select>
               </div>
 
