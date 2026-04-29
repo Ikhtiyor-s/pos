@@ -48,9 +48,8 @@ export const pinLoginSchema = z.object({
     .min(4, 'PIN kamida 4 ta raqamdan iborat bo\'lishi kerak')
     .max(8, 'PIN ko\'pi bilan 8 ta raqamdan iborat bo\'lishi kerak')
     .regex(/^\d+$/, 'PIN faqat raqamlardan iborat bo\'lishi kerak'),
-  tenantId: z
-    .string({ required_error: 'Tenant ID kiritilishi shart' })
-    .uuid('Yaroqli tenant ID kiriting'),
+  // tenantId ixtiyoriy — bo'sh bo'lsa birinchi active tenant ishlatiladi
+  tenantId: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
 });
 
 // PIN o'rnatish

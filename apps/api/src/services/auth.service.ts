@@ -165,8 +165,20 @@ export class AuthService {
   // pinCode kolumnida bcrypt hash — verification uchun.
   // Agar pinQuickLookup kolumni schema'da yo'q bo'lsa, fallback: bcrypt loop (eskirgan yondashuv).
   static async loginWithPin(data: PinLoginInput) {
+    // tenantId yo'q bo'lsa — birinchi active tenant (yagona tenant tizimlar uchun)
+    let tenantId = data.tenantId;
+    if (!tenantId) {
+      const firstTenant = await prisma.tenant.findFirst({
+        where: { isActive: true },
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!firstTenant) throw new AppError('Tashkilot topilmadi', 404, ErrorCode.NOT_FOUND);
+      tenantId = firstTenant.id;
+    }
+
     const tenant = await prisma.tenant.findUnique({
-      where: { id: data.tenantId },
+      where: { id: tenantId },
       select: { isActive: true },
     });
 
@@ -175,20 +187,20 @@ export class AuthService {
     }
 
     // Quick lookup hash bilan O(1) qidirish
-    const quickHash = pinQuickHash(data.pin, data.tenantId);
+    const quickHash = pinQuickHash(data.pin, tenantId);
 
     let user = await prisma.user.findFirst({
       where: {
-        tenantId: data.tenantId,
+        tenantId,
         isActive: true,
         pinQuickLookup: quickHash,
       } as any,
-    }).catch(() => null); // pinQuickLookup kolumni yo'q bo'lsa null
+    }).catch(() => null);
 
-    // Fallback: schema'da pinQuickLookup yo'q bo'lsa — bcrypt loop (deprecated)
+    // Fallback: bcrypt loop
     if (user === null) {
       const users = await prisma.user.findMany({
-        where: { tenantId: data.tenantId, pinCode: { not: null }, isActive: true },
+        where: { tenantId, pinCode: { not: null }, isActive: true },
       });
 
       for (const u of users) {
