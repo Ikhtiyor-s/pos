@@ -67,16 +67,19 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
     setAdminError('');
     setAdminLoading(true);
     try {
-      const success = await login(email.trim(), password);
-      if (success) {
-        onLoginSuccess();
+      await login(email.trim(), password);
+      onLoginSuccess();
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg    = err?.response?.data?.message;
+
+      if (status === 401 || status === 400) {
+        setAdminError("Login yoki parol noto'g'ri");
+      } else if (status === 500 || !status) {
+        setAdminError('Server bilan ulanishda xatolik. DB ishlamoqdami?');
       } else {
-        setAdminError("Email yoki parol noto'g'ri");
-        setPassword('');
+        setAdminError(msg || 'Tizimga kirishda xatolik');
       }
-    } catch {
-      setAdminError('Tizimga kirishda xatolik');
-      setPassword('');
     } finally {
       setAdminLoading(false);
     }

@@ -55,36 +55,33 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       login: async (emailOrPhone: string, password: string) => {
-        try {
-          // Determine if input is email or phone
-          const isEmail = emailOrPhone.includes('@');
-          const payload = isEmail
-            ? { email: emailOrPhone, password }
-            : { phone: emailOrPhone, password };
+        const isEmail = emailOrPhone.includes('@');
+        const payload = isEmail
+          ? { email: emailOrPhone, password }
+          : { phone: emailOrPhone, password };
 
-          const { data: response } = await api.post('/auth/login', payload);
-          const { user: apiUser, accessToken, refreshToken } = response.data;
+        const { data: response } = await api.post('/auth/login', payload);
+        const { user: apiUser, accessToken, refreshToken } = response.data;
 
-          const user: User = {
-            id: apiUser.id,
-            firstName: apiUser.firstName || '',
-            lastName: apiUser.lastName || '',
-            name: `${apiUser.firstName || ''} ${apiUser.lastName || ''}`.trim(),
-            email: apiUser.email,
-            phone: apiUser.phone,
-            role: apiUser.role?.toLowerCase() || 'cashier',
-            avatar: apiUser.avatar,
-          };
+        const user: User = {
+          id: apiUser.id,
+          firstName: apiUser.firstName || '',
+          lastName: apiUser.lastName || '',
+          name: `${apiUser.firstName || ''} ${apiUser.lastName || ''}`.trim(),
+          email: apiUser.email,
+          phone: apiUser.phone,
+          role: apiUser.role?.toLowerCase() || 'cashier',
+          avatar: apiUser.avatar,
+        };
 
-          set({
-            user, accessToken, refreshToken, isAuthenticated: true,
-            currentShift: { id: `shift-${Date.now()}`, userId: user.id, startTime: new Date().toISOString(), startingCash: 0 },
-          });
-          return true;
-        } catch (error) {
-          console.error('[POS] Login xatoligi:', error);
-          return false;
-        }
+        set({
+          user, accessToken, refreshToken, isAuthenticated: true,
+          currentShift: {
+            id: `shift-${Date.now()}`, userId: user.id,
+            startTime: new Date().toISOString(), startingCash: 0,
+          },
+        });
+        return true;
       },
 
       loginWithPin: async (pin: string) => {
