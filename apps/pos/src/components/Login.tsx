@@ -64,6 +64,7 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
 
   const handleAdminLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) return;
+    if (adminLoading) return; // duplikat so'rovni bloklash
     setAdminError('');
     setAdminLoading(true);
     try {
