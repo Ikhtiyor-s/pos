@@ -38,7 +38,7 @@ const LOCAL_TO_NONBOR_STATUS: Partial<
 // Bu bosqichda oshxona hali buyurtmani ko'rmasligi kerak.
 // Faqat CHECKING (restoran tasdiqlash bosqichi) dan boshlab import qilinadi.
 const ACTIVE_NONBOR_STATES = new Set([
-  'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING',
+  'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING', 'DELIVERED',
 ]);
 
 // ==========================================

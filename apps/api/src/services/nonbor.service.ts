@@ -672,7 +672,7 @@ class NonborV2Service {
     if (!settings.nonborEnabled || !settings.nonborSellerId) return [];
 
     const activeStates: NonborOrderState[] = [
-      'PENDING', 'WAITING_PAYMENT', 'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING',
+      'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING', 'DELIVERED',
     ];
     const response = await this.getBusinessOrders(activeStates, 1, 100, tenantId);
     return response.results || [];
