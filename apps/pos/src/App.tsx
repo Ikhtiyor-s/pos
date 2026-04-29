@@ -503,6 +503,36 @@ export default function App() {
     return <Login onLoginSuccess={() => {}} />;
   }
 
+  // SUPER_ADMIN va MANAGER → Web Admin'ga yo'naltirish
+  if (isAdminRole(userRole) && userRole !== 'manager') {
+    // SUPER_ADMIN faqat web admin'da ishlaydi
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 mx-auto mb-4">
+            <span className="text-3xl">🏠</span>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Admin Panel</h2>
+          <p className="text-gray-500 text-sm mb-6">
+            SUPER_ADMIN roli uchun Web Admin panelidan foydalaning
+          </p>
+          <a
+            href="http://localhost:5176"
+            className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-orange-600 transition-colors"
+          >
+            Web Admin'ga o'tish →
+          </a>
+          <button
+            onClick={() => { logout(); localStorage.removeItem('pos-auth'); }}
+            className="block w-full mt-3 text-sm text-gray-400 hover:text-gray-600"
+          >
+            Chiqish
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Lock tugmasi — bosilganda PIN sahifasi ochiladi
   // Chiqish — to'liq logout qilib login sahifaga o'tkazadi
   const lockElements = (
