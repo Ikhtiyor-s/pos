@@ -5,8 +5,8 @@ import { Role } from '@oshxona/database';
 
 const router = Router();
 
-// Public route for QR code scanning
-router.get('/qr/:qrCode', TableController.getByQRCode);
+// QR code — autentifikatsiya talab qilinadi (WAITER/CASHIER stol ma'lumotini oladi)
+router.get('/qr/:qrCode', authenticate, TableController.getByQRCode);
 
 // Protected routes
 router.get('/', authenticate, TableController.getAll);

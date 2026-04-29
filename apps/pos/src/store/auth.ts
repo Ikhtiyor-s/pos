@@ -138,7 +138,6 @@ export const useAuthStore = create<AuthState>()(
 
       startShift: (startingCash: number) => {
         const { user } = get();
-
         if (!user) return;
 
         const newShift: Shift = {
@@ -156,11 +155,13 @@ export const useAuthStore = create<AuthState>()(
         };
 
         set({ currentShift: newShift });
+
+        // Backend'ga clock-in qayd etish (fire-and-forget)
+        api.post('/staff/clock-in').catch(() => {});
       },
 
       endShift: (endingCash: number) => {
         const { currentShift } = get();
-
         if (!currentShift) return;
 
         const updatedShift: Shift = {
@@ -170,7 +171,9 @@ export const useAuthStore = create<AuthState>()(
         };
 
         set({ currentShift: updatedShift });
-        console.log('Shift yopildi:', updatedShift);
+
+        // Backend'ga clock-out qayd etish (fire-and-forget)
+        api.post('/staff/clock-out').catch(() => {});
       },
 
       updateShiftStats: (stats: Partial<Shift>) => {

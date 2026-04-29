@@ -8,20 +8,39 @@ class SocketService {
     if (this.socket?.connected) return;
 
     const token = useAuthStore.getState().accessToken;
+    const role = useAuthStore.getState().user?.role?.toLowerCase();
     const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+
     this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       path: '/socket.io',
       auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
 
     this.socket.on('connect', () => {
-      console.log('[POS] Socket connected');
+      console.log('[POS] Socket ulandi:', this.socket?.id, 'rol:', role);
+      // Rol bo'yicha to'g'ri room'ga qo'shilish
       this.socket?.emit('join:pos');
+      if (role === 'waiter' || role === 'ofitsiant') {
+        this.socket?.emit('join:waiter');
+      }
+      if (role === 'chef' || role === 'oshpaz' || role === 'kitchen') {
+        this.socket?.emit('join:kitchen');
+      }
+      if (role === 'super_admin' || role === 'manager') {
+        this.socket?.emit('join:admin');
+      }
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('[POS] Socket disconnected');
+    this.socket.on('connect_error', (err) => {
+      console.warn('[POS] Socket ulanish xatosi:', err.message);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('[POS] Socket uzildi:', reason);
     });
   }
 

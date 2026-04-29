@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { useAuthStore } from '../store/auth';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -6,17 +7,30 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    this.socket = io('http://localhost:3005', {
+    const token = useAuthStore.getState().accessToken;
+    // API port 3002 — to'g'ridan ulanamiz (dev'da proxy yo'q)
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3002';
+
+    this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      path: '/socket.io',
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
 
     this.socket.on('connect', () => {
-      console.log('[Kitchen] Socket connected');
+      console.log('[Kitchen] Socket ulandi:', this.socket?.id);
       this.socket?.emit('join:kitchen');
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('[Kitchen] Socket disconnected');
+    this.socket.on('connect_error', (err) => {
+      console.warn('[Kitchen] Socket ulanish xatosi:', err.message);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('[Kitchen] Socket uzildi:', reason);
     });
   }
 
