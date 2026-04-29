@@ -11,8 +11,7 @@ import { redis } from '../config/redis.js';
 // ==========================================
 
 const NONBOR_TO_LOCAL_STATUS: Record<string, OrderStatus> = {
-  PENDING:          OrderStatus.NEW,
-  WAITING_PAYMENT:  OrderStatus.NEW,
+  // PENDING va WAITING_PAYMENT — oshxona uchun hali buyurtma emas, import qilinmaydi
   CHECKING:         OrderStatus.NEW,
   ACCEPTED:         OrderStatus.CONFIRMED,
   READY:            OrderStatus.READY,
@@ -35,8 +34,11 @@ const LOCAL_TO_NONBOR_STATUS: Partial<
   [OrderStatus.DELIVERING]: 'DELIVERED',
 };
 
+// PENDING/WAITING_PAYMENT — mijoz to'lovni kutmoqda yoki tasdiqlashni kutmoqda.
+// Bu bosqichda oshxona hali buyurtmani ko'rmasligi kerak.
+// Faqat CHECKING (restoran tasdiqlash bosqichi) dan boshlab import qilinadi.
 const ACTIVE_NONBOR_STATES = new Set([
-  'PENDING', 'WAITING_PAYMENT', 'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING',
+  'CHECKING', 'ACCEPTED', 'READY', 'DELIVERING',
 ]);
 
 // ==========================================
@@ -393,7 +395,9 @@ class NonborSyncService {
 
     if (existing) {
       const expectedStatus = NONBOR_TO_LOCAL_STATUS[nonborOrder.state];
-      if (expectedStatus && existing.status !== expectedStatus) {
+      // PENDING/WAITING_PAYMENT — status mapping yo'q, ignore
+      if (!expectedStatus) return;
+      if (existing.status !== expectedStatus) {
         await prisma.order.update({
           where: { id: existing.id },
           data:  { status: expectedStatus },
