@@ -188,15 +188,15 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
         <div className="w-full max-w-sm rounded-2xl border border-white/60 glass-card p-6 shadow-lg">
           {/* Email */}
           <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Email</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Login</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => { setEmail(e.target.value); setAdminError(''); }}
-                placeholder="admin@email.com"
-                autoComplete="email"
+                placeholder="Loginni kiriting"
+                autoComplete="username"
                 className="w-full rounded-xl border border-gray-200 bg-white/80 py-3 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/20"
               />
             </div>
@@ -211,7 +211,7 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => { setPassword(e.target.value); setAdminError(''); }}
-                placeholder="••••••••"
+                placeholder="Parolni kiriting"
                 autoComplete="current-password"
                 className="w-full rounded-xl border border-gray-200 bg-white/80 py-3 pl-10 pr-11 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/20"
               />
