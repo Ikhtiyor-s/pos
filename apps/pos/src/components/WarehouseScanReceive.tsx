@@ -93,19 +93,8 @@ export function WarehouseScanReceive({ userName, onLogout }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
-
-      // ZXing scan loop (if available)
-      const { BrowserMultiFormatReader } = await import('@zxing/browser').catch(() => ({ BrowserMultiFormatReader: null }));
-      if (BrowserMultiFormatReader && videoRef.current) {
-        const reader = new (BrowserMultiFormatReader as any)();
-        reader.decodeFromVideoElement(videoRef.current, (result: any) => {
-          if (result && !scanLockRef.current) {
-            scanLockRef.current = true;
-            lookup(result.getText());
-            setTimeout(() => { scanLockRef.current = false; }, 2000);
-          }
-        }).catch(() => null);
-      }
+      // Kamera ko'rsatiladi — manual barcode kiritish uchun qo'lda rejim ishlatiladi
+      // (ZXing paket o'rnatilmagan, kamera preview ko'rsatish uchun qoldirildi)
     } catch {
       setError('Kamera ochilmadi');
       setMode('manual');
