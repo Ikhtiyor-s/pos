@@ -24,7 +24,14 @@ COPY packages/shared/    packages/shared/
 COPY packages/config/    packages/config/
 COPY apps/${APP_NAME}/   apps/${APP_NAME}/
 
-RUN cd apps/${APP_NAME} && npm run build
+# Windows'da compile qilingan vite.config.js Docker'da path error beradi — o'chirib yuboramiz
+RUN rm -f apps/${APP_NAME}/vite.config.js \
+          apps/${APP_NAME}/vite.config.d.ts \
+          apps/${APP_NAME}/tsconfig.tsbuildinfo \
+          apps/${APP_NAME}/tsconfig.node.tsbuildinfo
+
+# Vite build — existing frontend.Dockerfile bilan bir xil yondashuv
+RUN cd apps/${APP_NAME} && npx vite build
 
 FROM nginx:alpine
 ARG APP_NAME
