@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/auth';
 import { cn } from '../lib/utils';
 import {
@@ -35,15 +35,22 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
   const [adminError, setAdminError] = useState('');
 
   const { loginWithPin, login } = useAuthStore();
+  const isFirstRender = useRef(true);
 
-  // PIN auto-submit when 4 digits entered
+  // PIN auto-submit — faqat foydalanuvchi o'zi kiritganda (mount'da emas)
   useEffect(() => {
-    if (pin.length === 4) {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      setPin(''); // mount'da pin'ni tozalash (HMR stale state uchun)
+      return;
+    }
+    if (pin.length === 4 && !pinLoading) {
       handlePinSubmit(pin);
     }
   }, [pin]);
 
   const handlePinSubmit = useCallback(async (pinValue: string) => {
+    if (pinLoading || pinValue.length !== 4) return;
     setPinError('');
     setPinLoading(true);
     try {
@@ -51,16 +58,21 @@ export function Login({ onLoginSuccess, lockMode = false }: LoginProps) {
       if (success) {
         onLoginSuccess();
       } else {
-        setPinError("PIN kod noto'g'ri");
+        setPinError("PIN kod noto'g'ri. To'g'ri PINni kiriting.");
         setPin('');
       }
-    } catch {
-      setPinError('Tizimga kirishda xatolik');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        setPinError("PIN kod noto'g'ri.");
+      } else {
+        setPinError('Server xatosi. Qayta urinib ko\'ring.');
+      }
       setPin('');
     } finally {
       setPinLoading(false);
     }
-  }, [loginWithPin, onLoginSuccess]);
+  }, [loginWithPin, onLoginSuccess, pinLoading]);
 
   const handleAdminLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) return;

@@ -103,7 +103,10 @@ async function networkFirstApi(request: Request): Promise<Response> {
   try {
     const res   = await fetch(request);
     const clone = res.clone();
-    caches.open(CACHE_API).then(c => c.put(request, clone)).catch(() => null);
+    // chrome-extension:// yoki boshqa unsupported scheme'larni cache qilmaslik
+    if (request.url.startsWith('http')) {
+      caches.open(CACHE_API).then(c => c.put(request, clone)).catch(() => null);
+    }
     return res;
   } catch {
     const cached = await caches.match(request);
@@ -123,7 +126,7 @@ async function cacheFirstStatic(request: Request): Promise<Response> {
 
   try {
     const res = await fetch(request);
-    if (res.ok) {
+    if (res.ok && request.url.startsWith('http')) {
       caches.open(CACHE_SHELL).then(c => c.put(request, res.clone())).catch(() => null);
     }
     return res;
