@@ -287,10 +287,11 @@ async function main() {
   let tblCount = 0;
   for (let i = 1; i <= 12; i++) {
     await prisma.table.upsert({
-      where:  { number_tenantId: { number: i, tenantId: t } },
+      where:  { number_floor_tenantId: { number: i, floor: 1, tenantId: t } },
       update: {},
       create: {
         number:    i,
+        floor:     1,
         name:      `Stol ${i}`,
         capacity:  i <= 4 ? 2 : i <= 8 ? 4 : 6,
         qrCode:    `TABLE-${String(i).padStart(3,'0')}-TEST`,
