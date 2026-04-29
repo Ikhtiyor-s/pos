@@ -18,14 +18,11 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
+// Web Admin faqat shu rollar uchun
 const DEMO_USERS = [
-  { role: 'SUPER_ADMIN', email: 'admin@oshxona.uz',       password: 'Admin1234!' },
-  { role: 'MANAGER',     email: 'manager@oshxona.uz',     password: 'Manager1234!' },
-  { role: 'CASHIER',     email: 'kassir@oshxona.uz',      password: 'Kassir1234!' },
-  { role: 'CHEF',        email: 'oshpaz@oshxona.uz',      password: 'Oshpaz1234!' },
-  { role: 'WAITER',      email: 'ofitsiant@oshxona.uz',   password: 'Waiter1234!' },
-  { role: 'WAREHOUSE',   email: 'ombor@oshxona.uz',       password: 'Ombor1234!' },
-  { role: 'ACCOUNTANT',  email: 'buxgalter@oshxona.uz',   password: 'Buxgalter1234!' },
+  { role: 'SUPER_ADMIN', email: 'admin@oshxona.uz',     password: 'Admin1234!' },
+  { role: 'MANAGER',     email: 'manager@oshxona.uz',   password: 'Manager1234!' },
+  { role: 'ACCOUNTANT',  email: 'buxgalter@oshxona.uz', password: 'Buxgalter1234!' },
 ];
 
 export function LoginPage() {
@@ -42,11 +39,35 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
+  // Faqat shu rollar Web Admin'ga kirishi mumkin
+  const WEB_ADMIN_ROLES = ['SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'];
+
   const onSubmit = async (data: LoginForm) => {
     try {
       setError(null);
       setIsLoading(true);
       const response = await authService.login(data);
+
+      // Rol tekshiruvi
+      if (!WEB_ADMIN_ROLES.includes(response.user.role)) {
+        const appLinks: Record<string, string> = {
+          CASHIER:   'http://localhost:5174',
+          CHEF:      'http://localhost:5175',
+          WAITER:    'http://localhost:5174',
+          WAREHOUSE: 'http://localhost:5174',
+        };
+        const appNames: Record<string, string> = {
+          CASHIER:   'POS Kassa (:5174)',
+          CHEF:      'Kitchen (:5175)',
+          WAITER:    'POS (:5174)',
+          WAREHOUSE: 'POS (:5174)',
+        };
+        const link = appLinks[response.user.role] || 'http://localhost:5174';
+        const name = appNames[response.user.role] || 'POS';
+        setError(`Bu rol (${response.user.role}) Web Admin'ga kira olmaydi. → ${name} ilovasidan foydalaning: ${link}`);
+        return;
+      }
+
       login(response.user, response.accessToken, response.refreshToken);
       navigate('/');
     } catch (err: unknown) {
@@ -163,6 +184,10 @@ export function LoginPage() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-2">* Bosib, formani avtomatik to'ldiring</p>
+            <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400 space-y-0.5">
+              <p>🖥 Kassir / Ofitsiant / Ombor → <a href="http://localhost:5174" className="text-orange-500 underline">POS :5174</a></p>
+              <p>🍳 Oshpaz → <a href="http://localhost:5175" className="text-orange-500 underline">Kitchen :5175</a></p>
+            </div>
           </div>
         </div>
       </div>
