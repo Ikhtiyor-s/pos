@@ -1,0 +1,149 @@
+version: '3.8'
+
+# ─── Lokalda barcha rollarni test qilish ─────────────────────────────────────
+# Ishga tushirish:
+#   docker compose -f docker/docker-compose.local.yml up --build
+#
+# Manzillar:
+#   POS (kassir, oshpaz, ombor, ofitsiant): http://localhost:4000
+#   Kitchen Display:                        http://localhost:4001
+#   Web Admin (manager, accountant):        http://localhost:4002
+#   API:                                    http://localhost:3002
+#
+# Test loginlar (seed dan):
+#   SUPER_ADMIN  : admin@oshxona.uz   / Admin1234!   PIN: 0000
+#   MANAGER      : manager@oshxona.uz / Manager1234! PIN: 1111
+#   CASHIER      : kassir@oshxona.uz  / Kassir1234!  PIN: 1234
+#   CHEF         : oshpaz@oshxona.uz  / Oshpaz1234!  PIN: 2222
+#   WAITER       : waiter@oshxona.uz  / Waiter1234!  PIN: 3333
+#   WAREHOUSE    : ombor@oshxona.uz   / Ombor1234!   PIN: 4444
+#   ACCOUNTANT   : buxgalter@oshxona.uz / Buxgalter1234! PIN: 5555
+
+services:
+
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: oshxona-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     oshxona
+      POSTGRES_PASSWORD: oshxona_secret_2024
+      POSTGRES_DB:       oshxona_pos
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    ports:
+      - '5434:5432'
+    volumes:
+      - local_postgres:/var/lib/postgresql/data
+    networks:
+      - local-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U oshxona -d oshxona_pos']
+      interval: 8s
+      timeout: 5s
+      retries: 10
+
+  # ─── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: oshxona-local-redis
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+    networks:
+      - local-net
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 8s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend API ─────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: oshxona-local-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV:              production
+      PORT:                  3000
+      DATABASE_URL:          postgresql://oshxona:oshxona_secret_2024@postgres:5432/oshxona_pos
+      REDIS_URL:             redis://redis:6379
+      JWT_SECRET:            local-dev-jwt-secret-change-in-production-2024
+      JWT_REFRESH_SECRET:    local-dev-refresh-secret-change-in-production-2024
+      JWT_EXPIRES_IN:        15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      CLIENT_URL:            http://localhost:4000,http://localhost:4001,http://localhost:4002
+      LOG_LEVEL:             info
+    ports:
+      - '3002:3000'
+    networks:
+      - local-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - local_uploads:/app/apps/api/uploads
+
+  # ─── POS App — Kassir, Oshpaz, Ombor, Ofitsiant ──────────────────────────────
+  pos:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+      args:
+        APP_NAME:     pos
+        VITE_API_URL: /api
+    container_name: oshxona-local-pos
+    restart: unless-stopped
+    ports:
+      - '4000:80'
+    networks:
+      - local-net
+    depends_on:
+      - api
+
+  # ─── Kitchen Display — Oshpaz ─────────────────────────────────────────────────
+  kitchen:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+      args:
+        APP_NAME:     kitchen
+        VITE_API_URL: /api
+    container_name: oshxona-local-kitchen
+    restart: unless-stopped
+    ports:
+      - '4001:80'
+    networks:
+      - local-net
+    depends_on:
+      - api
+
+  # ─── Web Admin — Manager, Accountant, SuperAdmin ─────────────────────────────
+  web:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+      args:
+        APP_NAME:     web
+        VITE_API_URL: /api
+    container_name: oshxona-local-web
+    restart: unless-stopped
+    ports:
+      - '4002:80'
+    networks:
+      - local-net
+    depends_on:
+      - api
+
+networks:
+  local-net:
+    driver: bridge
+
+volumes:
+  local_postgres:
+  local_uploads:

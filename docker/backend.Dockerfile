@@ -23,25 +23,15 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/packages       packages/
-COPY --from=builder /app/apps/api/dist  apps/api/dist/
-COPY --from=builder /app/node_modules   node_modules/
-COPY --from=builder /app/apps/api/package.json apps/api/
+COPY --from=builder /app/packages               packages/
+COPY --from=builder /app/apps/api/dist          apps/api/dist/
+COPY --from=builder /app/node_modules           node_modules/
+COPY --from=builder /app/apps/api/package.json  apps/api/
+COPY docker/entrypoint.sh                       entrypoint.sh
+RUN chmod +x entrypoint.sh
 
 RUN mkdir -p apps/api/uploads/products apps/api/uploads/categories apps/api/uploads/inventory
 
 WORKDIR /app/apps/api
 EXPOSE 3000
-
-# migrate deploy — migrations papkasi bo'lsa ishlatadi (production)
-# db push — birinchi deploy yoki migrations yo'q bo'lsa (data-destructive o'zgarishlarda to'xtaydi)
-CMD ["sh", "-c", "\
-  SCHEMA=../../packages/database/prisma/schema.prisma; \
-  MIGRATIONS=../../packages/database/prisma/migrations; \
-  if [ -d \"$MIGRATIONS\" ] && [ \"$(ls -A $MIGRATIONS 2>/dev/null)\" ]; then \
-    echo '[DB] Running prisma migrate deploy...'; \
-    npx prisma migrate deploy --schema=$SCHEMA; \
-  else \
-    echo '[DB] No migrations found — running prisma db push (safe mode)...'; \
-    npx prisma db push --schema=$SCHEMA; \
-  fi && node dist/index.js"]
+CMD ["/bin/sh", "/app/entrypoint.sh"]
