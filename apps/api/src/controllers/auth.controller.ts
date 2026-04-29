@@ -66,6 +66,51 @@ export class AuthController {
     }
   }
 
+  // ============ Nonbor Admin POS login-pin ============
+  // Nonbor Admin {username, password, tenantId} formatini qabul qiladi.
+  // username → slug@pos.local email ga convert qilinadi.
+  static async nonborLoginPin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { username, password } = req.body as { username?: string; password?: string; tenantId?: string };
+
+      if (!username?.trim() || !password?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'username va password kiritilishi shart',
+        });
+      }
+
+      // Nonbor-admin slug logikasi: username → slug@pos.local
+      const slug = username.trim().toLowerCase().replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const email = `${slug}@pos.local`;
+
+      const result = await AuthService.login({ email, password: password.trim() });
+
+      // Nonbor-admin kutgan format: {success, data: {accessToken, refreshToken, user}}
+      return res.json({
+        success: true,
+        data: {
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          user: {
+            id: result.user.id,
+            name: `${result.user.firstName || ''} ${result.user.lastName || ''}`.trim() || result.user.email,
+            firstName: result.user.firstName || '',
+            lastName: result.user.lastName || '',
+            phone: result.user.phone || '',
+            role: result.user.role?.toLowerCase() || 'cashier',
+          },
+        },
+      });
+    } catch (error) {
+      const msg = (error as Error).message;
+      if (msg.includes('noto\'g\'ri') || msg.includes('401')) {
+        return res.status(401).json({ detail: msg });
+      }
+      next(error);
+    }
+  }
+
   // ============ PIN ============
 
   static async loginWithPin(req: Request, res: Response, next: NextFunction) {

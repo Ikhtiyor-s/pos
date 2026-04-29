@@ -7,6 +7,8 @@ const router = Router();
 // Public routes
 router.post('/login', AuthController.login);
 router.post('/login-pin', AuthController.loginWithPin);
+// Nonbor Admin POS: {username, password, tenantId} → slug@pos.local bilan auth
+router.post('/nonbor-login-pin', AuthController.nonborLoginPin);
 router.post('/register', AuthController.register);
 router.post('/refresh', AuthController.refresh);
 router.post('/logout', AuthController.logout);
